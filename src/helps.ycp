@@ -207,7 +207,7 @@ Select which packages to restore from the backup archive.</P>
 _("<P>The first column displays the restoration status of the package. It can be 'X' (package will be restored) or empty (package will not be restored).</P>") +
 
 	    // For translators: restore selection help 3/4
-((personal == false) ? "<P>'P' means that package will be restored only partially. Press <B>Select files</B> button to restore package partially.</P>" : "" ) +
+((personal == false) ? _("<P>'P' means that package will be restored only partially. Press <B>Select files</B> button to restore package partially.</P>") : "" ) +
 
 	    // For translators: restore selection help 4/4
 _("<P>The number of selected files that will be restored from the archive is in the second column.</P>");

@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Wed Sep 18 13:38:57 CEST 2002 - lslezak@suse.cz
+
+- fixed unstranslated message in help text
+- version 2.6.11
+
+-------------------------------------------------------------------
 Wed Sep  4 16:19:07 CEST 2002 - lslezak@suse.cz
 
 - fixed importing
