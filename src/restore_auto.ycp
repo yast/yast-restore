@@ -104,7 +104,7 @@ else if (func == "Write")
 	    input = volume;
 
 	    // popup dialog text part 1
-	    if (UI::YesNoPopup((index == 0 ? _("Archive file cannot be read.") :
+	    if (Popup::YesNo((index == 0 ? _("Archive file cannot be read.") :
 		// popup dialog text part 1
 		_("Archive volume cannot be read.")) +
 		// popup dialog text part 2

@@ -28,15 +28,15 @@ import "Restore";
 import "Mode";
 import "Product";
 
-include "ui/common_popups.ycp";
-include "ui/common_messages.ycp";
+import "Popup";
+import "Label";
 include "ui/file_popups.ycp";
 include "wizard/sequencer.ycp";
 include "require.ycp";
 
 include "restore/helps.ycp";
 include "restore/summary_dialog.ycp";
-include "ui/common_messages.ycp";
+import "Label";
 
 global string restorepackagename = nil;
 
@@ -174,8 +174,8 @@ global define any RestoreSequence () ``{
     Wizard::SetContentsButtons ( caption,
 				contents,
 				"",
-				BackButtonLabel (),
-				NextButtonLabel ());
+				Label::BackButton (),
+				Label::NextButton ());
 
     any ret = WizardSequencer (aliases, sequence);
 
@@ -255,8 +255,8 @@ global define any RestoreAutoSequence() ``{
     Wizard::SetContentsButtons ( caption,
 				contents,
 				"",
-				BackButtonLabel (),
-				NextButtonLabel ());
+				Label::BackButton (),
+				Label::NextButton ());
 
     input = Restore::inputname;
 
@@ -546,7 +546,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 		    if (substring(file, 0, size(mountpnt)) != mountpnt)
 		    {
 			// error message - selected file is out of mounted file system
-			UI::ErrorPopup(_("The selected file is not on the mounted device."));
+			Popup::Error(_("The selected file is not on the mounted device."));
 		    }
 		    else
 		    {
@@ -561,7 +561,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 	    else
 	    {
 		// error message
-		UI::ErrorPopup(_("Cannot mount file system."));
+		Popup::Error(_("Cannot mount file system."));
 	    }
 	}
 	else if (ret == `next)
@@ -620,7 +620,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 	    if (readresult == false)
 	    {
 		// error message - %1 is archive file name
-		UI::ErrorPopup(sformat(_("Cannot read backup archive file '%1'."), input));
+		Popup::Error(sformat(_("Cannot read backup archive file '%1'."), input));
 		Restore::Umount();
 		ret = `dummy;
 	    }
@@ -679,7 +679,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 			{
 			    y2error("Test Restore::TestAllVolumes() failed");
 			    // error message - multi volume archive consistency check failed
-			    UI::ErrorPopup(_("Test of all volumes failed.
+			    Popup::Error(_("Test of all volumes failed.
 An archive file is probably corrupted.
 "));
 
@@ -1106,9 +1106,9 @@ global define boolean InstallQuestion(string package, string version) ``{
     if (package != "" && !haskey(Restore::GetActualInstalledPackages(), package) && !haskey(packagestoinstall, package))
     {
 	// popup question - %1 is package name
-	ret = UI::AnyQuestionPopup("", sformat(_("Package '%1' is not installed in your system.
+	ret = Popup::AnyQuestion("", sformat(_("Package '%1' is not installed in your system.
 Install it?
-"), package + "-" + version), YesButtonLabel(), NoButtonLabel(), `focus_yes);
+"), package + "-" + version), Label::YesButton(), Label::NoButton(), `focus_yes);
 
 	if (ret == true)
 	{
@@ -1176,7 +1176,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
     if (Mode::config == true)
     {
-        Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), FinishButtonLabel()));
+        Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::FinishButton()));
     }
 
     // set currnet item in the table
@@ -1274,7 +1274,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 		    string question = _("Some packages are not installed.
 Select them for restoration?
 ");
-		    selmissing = UI::AnyQuestionPopup("", question, YesButtonLabel(), NoButtonLabel(), `focus_no);
+		    selmissing = Popup::AnyQuestion("", question, Label::YesButton(), Label::NoButton(), `focus_no);
 		}
 
 		// ask about mismatched packages
@@ -1290,7 +1290,7 @@ Select them for restoration?
 version than in the backup archive.
 Select them for restoration?
 ");
-		    selmismatch = UI::AnyQuestionPopup("", question, YesButtonLabel(), NoButtonLabel(), `focus_no);
+		    selmismatch = Popup::AnyQuestion("", question, Label::YesButton(), Label::NoButton(), `focus_no);
 		}
 
 		// set selection type for packages
@@ -1378,7 +1378,7 @@ global define symbol RestoreOptionsDialog() ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), OKButtonLabel()));
+    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::OKButton()));
 
     // dialog header
     Wizard::SetContents(_("Restore options"), contents, RestoreOptionsHelp(), true, true);
@@ -1468,7 +1468,7 @@ global define symbol FileSelectionDialog(string packagename) ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), OKButtonLabel()));
+    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::OKButton()));
 
     // dialog header - %1 is name of package (e.g. "aaa_base")
     Wizard::SetContents(sformat(_("File selection -- package %1"), packagename), contents, FileSelectionHelp(), true, true);
@@ -1550,7 +1550,7 @@ global define symbol ArchiveContentsDialog() ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), OKButtonLabel()));
+    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::OKButton()));
 
     // dialog header
     Wizard::SetContents(_("Archive contents"), contents, ArchiveContentHelp(), true, true);
@@ -1596,7 +1596,7 @@ global define symbol RestoreProgressDialog() ``{
 
     // callback function for abort
     block callback = ``{
-	include "ui/common_messages.ycp";
+	import "Label";
 
 	symbol ret = UI::PollInput();
 	boolean abort = false;
@@ -1604,7 +1604,7 @@ global define symbol RestoreProgressDialog() ``{
 	if (ret == `abort || ret == `cancel)
 	{
 	    // abort popup question
-	    abort = UI::AnyQuestionPopup(_("Abort confirmation"), _("Really abort restore?"), YesButtonLabel(), NoButtonLabel(), `focus_no);
+	    abort = Popup::AnyQuestion(_("Abort confirmation"), _("Really abort restore?"), Label::YesButton(), Label::NoButton(), `focus_no);
 	}
 
 	return abort;
@@ -1876,8 +1876,8 @@ global define string SelectFromList(string label, list inputlist, string selecte
 		`HSpacing(40),
 		`SelectionBox(`id(`selbox), label, inputlist),
 		`HBox(
-		    `PushButton(`id(`ok), `opt(`default, `key_F10), OKButtonLabel()),
-		    `PushButton(`id(`cancel), `opt(`key_F9), CancelButtonLabel())
+		    `PushButton(`id(`ok), `opt(`default, `key_F10), Label::OKButton()),
+		    `PushButton(`id(`cancel), `opt(`key_F9), Label::CancelButton())
 		)
 	    )
 	)

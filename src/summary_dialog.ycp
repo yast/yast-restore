@@ -23,8 +23,8 @@ textdomain "restore";
 
 import "Wizard";
 
-include "ui/common_popups.ycp";
-include "ui/common_messages.ycp";
+import "Popup";
+import "Label";
 include "ui/file_popups.ycp";
 include "wizard/sequencer.ycp";
 
@@ -87,7 +87,7 @@ global define symbol DisplaySummaryDialog(string text, string detail_text, strin
 
     if (button == `finish)
     {
-	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), FinishButtonLabel()));
+	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::FinishButton()));
     }
     else if (button == `ok)
     {
@@ -95,7 +95,7 @@ global define symbol DisplaySummaryDialog(string text, string detail_text, strin
     }
     else if (button == `next)
     {
-	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), NextButtonLabel()));
+	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::NextButton()));
     }
     else
     {

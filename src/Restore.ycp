@@ -29,6 +29,7 @@
     import "Bootloader";
     import "Runlevel";
     import "Require";
+    import "Label";
 
     textdomain "restore";
 
@@ -1034,12 +1035,12 @@ It was probably not created by the backup module.
                     if (SCR::Read(.target.size, "/usr/bin/star") < 0 && star == true)
                     {
 			// remove short
-			string cont = UI::ContinueButtonLabel();
+			string cont = Label::ContinueButton();
 			cont = mergestring(splitstring(cont, "&"), "");
 
                         // popup message text - ask to install 'star' package
 			// %1 is translated 'Continue' label
-                        boolean inst = UI::ContinueCancelPopup(sformat(_("Package 'star' is needed to extract
+                        boolean inst = Popup::ContinueCancel(sformat(_("Package 'star' is needed to extract
 files from the archive.
 Press '%1' to install this package.
 "), cont));
