@@ -35,7 +35,7 @@
      */
     boolean no_io = false;
 
-    foreach (`arg, Args(), ``{
+    foreach (`arg, WFM::Args(), ``{
 	    if (arg == .noio)
 	    {
 		no_io = true;

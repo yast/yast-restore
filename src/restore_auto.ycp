@@ -22,7 +22,7 @@
  * @param first a map of restore settings
  * @return map edited settings or an empty map if canceled
  * @example map mm = $[ "FAIL_DELAY" : "77" ];
- * @example map ret = CallModule ("restore_auto", [ mm ]);
+ * @example map ret = WFM::CallModule ("restore_auto", [ mm ]);
  */
 
 {
@@ -32,7 +32,7 @@
 
     include "restore/ui.ycp";
 
-    list args = Args();
+    list args = WFM::Args();
 
     Mode::config = true;	// TODO remove this line!
 
@@ -42,9 +42,9 @@
 	return false;
     }
 
-    if (!is(Args(0), map))
+    if (!is(WFM::Args(0), map))
     {
-	y2error("Bad argument for restore_auto: %1", Args (0));
+	y2error("Bad argument for restore_auto: %1", WFM::Args (0));
 	return false;
     }
 

@@ -1575,7 +1575,7 @@ global define symbol RestoreProgressDialog() ``{
  */
 global define symbol SWsingleDialog() ``{
 
-    // TODO:  CallModule("sw_single", ["beginner"]);
+    // TODO:  WFM::CallModule("sw_single", ["beginner"]);
     // TODO: if not in autoinstall mode reinstall all packages which will be restored
 
     term contents = `Label(_("Here will be sw_single dialog displayed and (un)installed packages."));
@@ -1609,7 +1609,7 @@ global define symbol SuSEconfigDialog() ``{
 
     if (Restore::runSuSEconfig == true && Mode::test == false)
     {
-	CallModule("inst_suseconfig", []);
+	WFM::CallModule("inst_suseconfig", []);
 
 	// SuSE config was started
 	susestatus = true;
