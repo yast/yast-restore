@@ -54,19 +54,57 @@
 
     Restore::Import(settings);
 
-    input = select(lookup(settings, "archives", []), 0, "");
+    term dialog_contents =
+	`VBox(
+	  `VSpacing(1),
+	  `RichText( `id(`summary), Restore::Summary()),
+	  `VSpacing(),
+	  `HBox(
+	    // push button label - start restore module
+	    `PushButton(`id(`configure), _("&Configure restore module")),
+	    `HStretch(),
+	    // push button label - set unconfigured state
+	    `PushButton(`id(`reset), _("Re&set configuration"))
+	    )
+	  );
 
-    // start configuration
-    symbol ret = RestoreAutoSequence(lookup(settings, "selection", $[]));
-    map result = $[];
+    // dialog header - configuration of restore module
+    Wizard::SetContents(_("Restore module configuration"),
+		dialog_contents, "", true, true);
 
-    if (ret == `next || ret == `finish)
-    {
-	result = Restore::Export();
-    }
+    symbol ret = nil;
+    repeat {
+	ret = UI::UserInput();
 
-    y2milestone("Exported: %1", result);
+	if (ret == `configure)
+	{
+	    symbol config = RestoreAutoSequence();
 
-    return [ret, result];
+	    if (config == `finish || config == `next)
+	    {
+		settings = Restore::Export();
+		// update summary
+		UI::ChangeWidget(`id(`summary), `Value, Restore::Summary());
+	    }
+	    else
+	    {
+		// restore previous settings
+		Restore::Import(settings);
+	    }
+	}
+	else if (ret == `reset)
+	{
+	    // reset settings
+	    settings = $[];
+	    Restore::Import(settings);
+
+	    // update summary
+	    UI::ChangeWidget(`id(`summary), `Value, Restore::Summary());
+	}
+
+    } until (ret == `back || ret == `next || ret ==`key || ret ==`abort);
+
+    return [ret, settings];
 }
+
 

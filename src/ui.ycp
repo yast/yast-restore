@@ -26,6 +26,7 @@ import "Wizard_hw";
 import "Progress";
 import "Restore";
 import "Mode";
+import "Product";
 
 include "ui/common_popups.ycp";
 include "ui/common_messages.ycp";
@@ -182,38 +183,19 @@ global define any RestoreSequence () ``{
     return ret;
 }
 
-/**
- * Set selection in _auto client and display properties of archive
- * @param settings Restoration selection
- * @return symbol User input at archive property dialog
- */
-
-global define symbol SetSelectionProperty(map settings) ``{
-
-    // set selection for this archive and display archive propertyt
-    foreach(string package, map info, settings, ``{
-	    y2debug("setting selection: package:%1, selection:%2)", package, info);
-	    Restore::SetRestoreSelection(package, info);
-	}
-    );
-
-    return ArchivePropertyDialog();
-}
-
 
 
 /**
  * Restoration without reading and writing.
  * For use with autoinstallation.
- * @param selection Restoration selection
  * @return any Returned value from WizardSequencer() call
  */
-global define any RestoreAutoSequence (map selection) ``{
+global define any RestoreAutoSequence() ``{
 
     map aliases =
 	$[
 	    "archive"	:   ``( ArchiveSelectionDialog(false, false) ),
-	    "property"	:   ``( SetSelectionProperty(selection) ),
+	    "property"	:   ``( ArchivePropertyDialog() ),
 	    "marchive"	: [ ``( ArchiveSelectionDialog(true, true) ), true ],
 	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
 	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
@@ -276,6 +258,8 @@ global define any RestoreAutoSequence (map selection) ``{
 				BackButtonLabel (),
 				NextButtonLabel ());
 
+    input = Restore::inputname;
+
     any ret = WizardSequencer (aliases, sequence);
 
     UI::CloseDialog ();
@@ -298,7 +282,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 	y2milestone("Detected removable devices: %1", removabledevices);
     }
 
-    if (multivolume == false)
+    if (multivolume == false && Mode::config == false)
     {
 	// clear previous selection
 	Restore::ResetArchiveSelection();
@@ -1223,7 +1207,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	restorepackagename = current_pkgname;
 
 	// package name "none" - files not owned by any package
-	if (current_pkgname == _("<none>"))
+	if (current_pkgname == _("-- No package --"))
 	{
 	    current_pkgname = "";
 	}

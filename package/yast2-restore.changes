@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Fri Aug 23 14:55:27 CEST 2002 - lslezak@suse.cz
+
+- better autoyast configuration (fixed behaviour, added summary)
+- use Pkg::PkgSummary to get package description
+- version 2.6.8
+
+-------------------------------------------------------------------
 Mon Aug 19 17:21:56 CEST 2002 - lslezak@suse.cz
 
 - unpack files from archive to root dir

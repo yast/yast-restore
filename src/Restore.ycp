@@ -25,7 +25,7 @@
     import "Progress";
     import "Report";
     import "Mode";
-    import "Packages";
+    import "Summary";
 
     import "Lilo";
     include "lilo/routines.ycp";
@@ -37,7 +37,7 @@
     string filename = "";
 
     // entered file name (e.g. nfs://server:/dir/archive.tar)
-    string inputname = "";
+    global string inputname = "";
 
     // list of volumes in URL-like syntax
     list inputvolumes = [];
@@ -68,6 +68,9 @@
 
     // mount point, stored for unmounting
     string mountpoint = "";
+
+    //
+    string nopackage_id = "_NoPackage_";
 
     /**
      * Run lilo after files are restored
@@ -167,7 +170,7 @@
 
 	// add descriptions
 	ret = mapmap(string pkg, string version, ret, ``{
-		string descr = (Mode::test == false) ? select(SCR::Read(.package.shortDesc, pkg), 0, "") : "";
+		string descr = (Mode::test == false) ? Pkg::PkgSummary(pkg) : "";
 
 		if (descr == nil)
 		{
@@ -200,7 +203,7 @@
 
 	// add descriptions
 	ret = mapmap(string pkg, string version, ret, ``{
-		string descr = (Mode::test == false) ? select(SCR::Read(.package.shortDesc, pkg), 0, "") : "";
+		string descr = (Mode::test == false) ? Pkg::PkgSummary(pkg) : "";
 
 		if (descr == nil)
 		{
@@ -232,7 +235,7 @@
 
 		    if (backupversion != v)
 		    {
-			string descr = (Mode::test == false) ? select(SCR::Read(.package.shortDesc, p), 0, "") : "";
+			string descr = (Mode::test == false) ? Pkg::PkgSummary(p) : "";
 
 			ret = (descr != nil) ? add(ret, p, $["ver": backupversion, "inst" : v, "descr" : descr]) :
 			    add(ret, p, $["ver": backupversion, "inst" : v]);
@@ -298,7 +301,7 @@
 	}
 
 	// read info about installed packages
-	map info = SCR::Read(.targetpkg.info);
+	map info = SCR::Read(.targetpkg.info);	// TODO FIXME: use Pkg:: instead!
 
 	map ret = $[];
 
@@ -330,7 +333,7 @@
      */
 
     global define boolean Import(map settings) ``{
-	if (settings == nil || settings == $[])
+	if (settings == nil)
 	{
 	    return false;
 	}
@@ -340,15 +343,58 @@
 	return true;
     }
 
+
+    /**
+     * Set selection in _auto client and display properties of archive
+     * @param settings Restoration selection
+     */
+
+    global define void SetSelectionProperty(map settings) ``{
+	// set selection for this archive and display archive propertyt
+	foreach(string package, map info, settings, ``{
+		y2debug("setting selection: package:%1, selection:%2)", package, info);
+
+		if (package == nopackage_id)
+		{
+		    package = "";
+		}
+
+		SetRestoreSelection(package, info);
+	    }
+	);
+    }
+
+
+
     /**
      * Set settings
      * @param settings Map with settings: start lilo, run SuSEconfig, restore RPM db
      */
 
     global define void Set(map settings) ``{
+	y2milestone("Using settings: %1", settings);
 	runbootloader = lookup(settings, "runbootloader", true);
 	runSuSEconfig = lookup(settings, "runSuSEconfig", true);
 	restoreRPMdb = lookup(settings, "restoreRPMdb", false);
+
+	list archiveslist = settings["archives"]:[];
+	// read archives
+	if (size(archiveslist) > 0)
+	{
+	    foreach(string a, archiveslist, ``{
+		    Restore::Read(a);
+		}
+	    );
+	}
+	else
+	{
+	    // set unconfigured state
+	    inputname = "";
+	    archive_info = $[];
+	}
+
+	// set restore selection
+	SetSelectionProperty(settings["selection"]:$[]);
     }
 
     /**
@@ -359,9 +405,20 @@
 
 	map selection = $[];
 
+	if (inputname == "")
+	{
+	    // unconfigured
+	    return $[];
+	}
+
 	foreach(string package, map info, archive_info, ``{
 		string sel_type = lookup(info, "sel_type", " ");
 		list sel_file = lookup(info, "sel_file", []);
+
+		if (package == "")
+		{
+		    package = nopackage_id;
+		}
 
 		selection = add(selection, package, $[ "sel_type" : sel_type, "sel_file" : sel_file ]);
 	    }
@@ -571,7 +628,9 @@ It was probably not created by the backup module.
 		{
 		    if (actualpkg != nil)
 		    {
-			archive_info = add(archive_info, actualpkg, $[ "vers" : actualversion, "files" : pkfiles, "prefix" : prefix ]);
+			// read selection type - in autoinstall-config mode it already exists
+			string selt = archive_info[actualpkg, "sel_type"]:" ";
+			archive_info = add(archive_info, actualpkg, $[ "vers" : actualversion, "files" : pkfiles, "prefix" : prefix, "sel_type" : selt ]);
 		    }
 
 		    pkfiles = [];
@@ -613,7 +672,10 @@ It was probably not created by the backup module.
 	// add last package info
 	if (actualpkg != nil)
 	{
-	    archive_info = add(archive_info, actualpkg, $[ "files" : pkfiles, "prefix" : prefix, "vers" : actualversion ]);
+	    // read selection type - in autoinstall-config mode it already exists
+	    string selt = archive_info[actualpkg, "sel_type"]:" ";
+
+	    archive_info = add(archive_info, actualpkg, $[ "files" : pkfiles, "prefix" : prefix, "vers" : actualversion, "sel_type" : selt ]);
 	}
 
 	// read actual installed packages
@@ -625,17 +687,12 @@ It was probably not created by the backup module.
 	// add package descriptions and default selection
 	archive_info = mapmap(string p, map i, archive_info, ``{
 	        // decription of files not owned by any package
-		string descr = (p == "") ? _("Files not owned by any package") : select(SCR::Read(.package.shortDesc, p), 0, "");
+		string descr = (p == "") ? _("Files not owned by any package") : Pkg::PkgSummary(p);
 		map t = add(i, "descr", descr);
 
 		string sel_type = " ";
 
-		if (Mode::config == true)
-		{
-		    // in autoinstall config preselect all files
-		    sel_type = "X";
-		}
-		else
+		if (Mode::config == false)
 		{
 		    // set default selection to "X" (package is installed) or " " (package is not installed)
 		    if (p == "")
@@ -647,6 +704,11 @@ It was probably not created by the backup module.
 		    {
 			sel_type = (haskey(actualinstalledpackages, p) && !haskey(mismatched, p)) ? "X" : " ";
 		    }
+		}
+		else
+		{
+		    // in autoinstall-config mode leave preselected value
+		    sel_type = i["sel_type"]:" ";
 		}
 
 		t = add(t, "sel_type", sel_type);
@@ -704,16 +766,6 @@ It was probably not created by the backup module.
 	}
     }
 
-    /**
-     * Constructor: initialize targetpkg agent using Packages module
-     */
-    global define void Restore() ``{
-	// false = no force, do not reset previous package selection
-	if (Mode::test == false)
-	{
-	    Packages::Init(false);
-	}
-    }
 
     /**
      * Return number of packages which will be restored from archive
@@ -1228,6 +1280,8 @@ Boot configuration was not updated.
 
     global define map MountInput(string input) ``{
 
+	y2milestone("MountInput(%1)", input);
+
 	boolean success = false;
 	string mpoint = "";
 	string file = "";
@@ -1537,6 +1591,77 @@ Boot configuration was not updated.
 
 	// clear list of installed packages
 	actualinstalledpackages = $[];
+    }
+
+    define string RemoveShortCut(string scut) ``{
+	return mergestring(splitstring(scut, "&"), "");
+    }
+
+
+    define string yesno(boolean b) ``{
+	string ret = "?";
+
+	if (b == true)
+	{
+	    ret = _("Yes");
+	}
+	if (b == false)
+	{
+	    ret = _("No");
+	}
+
+	return ret;
+    }
+
+    /**
+     * Create restore configuration summary. Used in autoinstallation restore module configuration.
+     * @return string rich text summary
+     */
+
+    global define string Summary() ``{
+	if (inputname == "")
+	{
+	    // not configured yet
+	    return Summary::NotConfigured();
+	}
+	else
+	{
+	    // Summary text header
+	    string archives_info = "<P><B>" + _("Backup archive") + "<B></P>";
+
+	    archives_info = archives_info + "<P>" + inputname;
+	    foreach(string vol, inputvolumes, ``{
+		    archives_info = archives_info + vol + "<BR>";
+		}
+	    );
+	    archives_info = archives_info + "</P>";
+
+	    // Summary text header
+	    string options_info = "<P><B>" + _("Restore options") + "<B></P>";
+
+	    options_info = options_info + "<P>" + RemoveShortCut(_("Activate &boot loader configuration after restoration")) + ":  " + yesno(runbootloader) + "<BR>"
+		+ RemoveShortCut(_("Run &SuSEconfig after restoration")) + ":  " + yesno(runSuSEconfig) + "<BR>"
+		+ RemoveShortCut(_("Restore RPM &database (if present in archive)")) + ":  " + yesno(restoreRPMdb) + "<BR></P>";
+
+	    string selection_info = "<P><B>" + _("Packages to restore") + "</B></P><P>";
+
+	    foreach(string p, map info, archive_info, ``{
+		    if (p == "")
+		    {
+			p = _("-- No package --");
+		    }
+
+		    if (info["sel_type"]:" " != " ")
+		    {
+			selection_info = selection_info + p + "<BR>";
+		    }
+		}
+	    );
+
+	    selection_info = selection_info + "</P>";
+
+	    return archives_info + options_info + selection_info;
+	}
     }
 
 }
