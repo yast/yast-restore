@@ -68,7 +68,7 @@ define map<string, map> DetectRemovable() ``{
     map<string, map> ret = $[];
 
     // detect floppy devices
-    list<map> devices = (Mode::test == false) ? (list<map>) SCR::Read(.probe.floppy) : [$["bus":"Floppy", "class_id":262, "dev_name":"/dev/fd0", "notready":true, "old_unique_key":"xjDN.oZ89vuho4Y3", "resource":$["size":[$["unit":"cinch", "x":350, "y":0], $["unit":"sectors", "x":2880, "y":512]]], "sub_class_id":3, "unique_key":"sPPV.oZ89vuho4Y3"]];
+    list<map> devices = (Mode::test () == false) ? (list<map>) SCR::Read(.probe.floppy) : [$["bus":"Floppy", "class_id":262, "dev_name":"/dev/fd0", "notready":true, "old_unique_key":"xjDN.oZ89vuho4Y3", "resource":$["size":[$["unit":"cinch", "x":350, "y":0], $["unit":"sectors", "x":2880, "y":512]]], "sub_class_id":3, "unique_key":"sPPV.oZ89vuho4Y3"]];
     integer num = 0;
 
     foreach(map dev, devices, ``{
@@ -94,7 +94,7 @@ define map<string, map> DetectRemovable() ``{
     );
 
     // detect cdrom devices
-    devices = (Mode::test == false) ? (list<map>) SCR::Read(.probe.cdrom) : [$["bus":"IDE", "cdtype":"cdrom", "class_id":262, "dev_name":"/dev/hdc", "device":"CD-540E", "driver":"ide-cdrom", "notready":true, "old_unique_key":"3JYE.3LYJ0fijWD1", "resource":$["size":[$["unit":"sectors", "x":0, "y":512]]], "rev":"1.0A", "sub_class_id":2, "unique_key":"hY5p.ZxKxy3YdB66"]];
+    devices = (Mode::test () == false) ? (list<map>) SCR::Read(.probe.cdrom) : [$["bus":"IDE", "cdtype":"cdrom", "class_id":262, "dev_name":"/dev/hdc", "device":"CD-540E", "driver":"ide-cdrom", "notready":true, "old_unique_key":"3JYE.3LYJ0fijWD1", "resource":$["size":[$["unit":"sectors", "x":0, "y":512]]], "rev":"1.0A", "sub_class_id":2, "unique_key":"hY5p.ZxKxy3YdB66"]];
     num = 0;
 
     foreach(map dev, devices, ``{
@@ -236,7 +236,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 	y2milestone("Detected removable devices: %1", removabledevices);
     }
 
-    if (multivolume == false && Mode::config == false)
+    if (multivolume == false && Mode::config () == false)
     {
 	// clear previous selection
 	Restore::ResetArchiveSelection();
@@ -278,7 +278,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 		devindex = "0";
 	    }
 
-	    if (Mode::test == false)
+	    if (Mode::test () == false)
 	    {
 		path devpath = regexpmatch(scheme, "^cd[0-9]*") ? .probe.cdrom : .probe.floppy;
 		dev = lookup(select((list<map>) SCR::Read(devpath), tointeger(devindex), $[]), "dev_name", "");
@@ -461,7 +461,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 	{
 	    symbol type = (symbol) UI::QueryWidget(`id(`source), `CurrentButton);
 
-	    if (Mode::test == true)
+	    if (Mode::test () == true)
 	    {
 		input = "file:///tmp/archive.tar";
 	    }
@@ -524,7 +524,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 	    {
 		boolean configure = true;
 
-		if (Mode::config)
+		if (Mode::config ())
 		{
 		    // popup question
 		    boolean answer = Popup::YesNo(_("Detailed configuration requires reading the archive.
@@ -668,7 +668,7 @@ Read the selected archive?
  */
 define symbol ArchivePropertyDialog() ``{
 
-    if (Mode::config == false)
+    if (Mode::config () == false)
     {
 	y2milestone("missing packages %1: ", Restore::GetMissingPackages());
 	y2milestone("extra packages %1: ", Restore::GetExtraPackages());
@@ -1297,7 +1297,7 @@ define list<term> CreateTableContentsRestoreSelection(map<string, map<string, an
 define boolean InstallQuestion(string package, string version) ``{
     boolean ret = false;
 
-    if (Mode::config == true)
+    if (Mode::config () == true)
     {
 	// do not ask in autoinstall config mode
 	return true;
@@ -1383,7 +1383,7 @@ define symbol PackageSelectionRestoreDialog() ``{
     // dialog header
     Wizard::SetContents(_("Packages to restore"), contents, RestoreSelectionHelp(false), true, true);
 
-    if (Mode::config == true)
+    if (Mode::config () == true)
     {
 	Wizard::SetNextButton(`next, Label::FinishButton() );
     }
@@ -1488,9 +1488,9 @@ define symbol PackageSelectionRestoreDialog() ``{
 	    {
 		// check whether some packages are missing, ask if they should be selected too
 		map missing = Restore::GetMissingPackages();
-		boolean selmissing = Mode::config;	// select all packages in autoinstall config mode
+		boolean selmissing = Mode::config ();	// select all packages in autoinstall config mode
 
-		if (missing != $[] && Mode::config == false)
+		if (missing != $[] && Mode::config () == false)
 		{
 		    // user selected to restore all packages,
 		    // but some packages are not installed
@@ -1503,9 +1503,9 @@ Select them for restoration?
 
 		// ask about mismatched packages
 		map mismatched = Restore::GetMismatchedPackages();
-		boolean selmismatch = Mode::config;	// select all packages in autoinstall config mode
+		boolean selmismatch = Mode::config ();	// select all packages in autoinstall config mode
 
-		if (mismatched != $[] && Mode::config == false)
+		if (mismatched != $[] && Mode::config () == false)
 		{
 		    // user selected to restore all packages,
 		    // but some installed packages have different version than at backup
@@ -1603,7 +1603,7 @@ Try changing the selection or the RPM database restoration status."));
 	y2debug("Final restore selection: %1", final);
     }
 
-    if (Mode::config == true)
+    if (Mode::config () == true)
     {
 	Wizard::RestoreNextButton();
     }
@@ -1797,7 +1797,7 @@ define symbol RestoreProgressDialog() ``{
  */
 define symbol SuSEconfigDialog() ``{
 
-    if (Restore::runSuSEconfig == true && Mode::test == false)
+    if (Restore::runSuSEconfig == true && Mode::test () == false)
     {
 	WFM::CallFunction("inst_suseconfig", []);
 

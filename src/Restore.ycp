@@ -186,7 +186,7 @@
      */
     global define map<string,string> ReadActualInstalledPackages() ``{
 	// do not read installed packages in autoyast config mode
-	if (Mode::config == true)
+	if (Mode::config () == true)
 	{
 	    return $[];
 	}
@@ -245,7 +245,7 @@
 
 	// add descriptions
 	map<string, map<string,string> > ret = mapmap(string pkg, string version, r, ``{
-		string descr = (Mode::test == false) ? Pkg::PkgSummary(pkg) : "";
+		string descr = (Mode::test () == false) ? Pkg::PkgSummary(pkg) : "";
 
 		if (descr == nil)
 		{
@@ -286,7 +286,7 @@
 
 	// add descriptions
 	map<string,map<string,string> > ret = mapmap(string pkg, string version, r, ``{
-		string descr = (Mode::test == false) ? Pkg::PkgSummary(pkg) : "";
+		string descr = (Mode::test () == false) ? Pkg::PkgSummary(pkg) : "";
 
 		if (descr == nil)
 		{
@@ -318,7 +318,7 @@
 
 		    if (backupversion != v)
 		    {
-			string descr = (Mode::test == false) ? Pkg::PkgSummary(p) : "";
+			string descr = (Mode::test () == false) ? Pkg::PkgSummary(p) : "";
 
 			ret = (descr != nil) ? add(ret, p, $["ver": backupversion, "inst" : v, "descr" : descr]) :
 			    add(ret, p, $["ver": backupversion, "inst" : v]);
@@ -841,7 +841,7 @@
 
 	inputname = input;
 
-	if (Mode::test == true)
+	if (Mode::test () == true)
 	{
 	    filename = "/tmp/dummy.tar";
 
@@ -1057,7 +1057,7 @@ It was probably not created by the backup module.
 
 		string sel_type = " ";
 
-		if (Mode::config == false)
+		if (Mode::config () == false)
 		{
 		    // set default selection to "X" (package is installed) or " " (package is not installed)
 		    if (p == "")
@@ -1082,7 +1082,7 @@ It was probably not created by the backup module.
 	    }
 	);
 
-	if (Mode::config == true)
+	if (Mode::config () == true)
 	{
 	    // refresh file selection in autoinstall config mode
 	    y2debug("Setting selection: %1", autoinst_info);
@@ -1252,7 +1252,7 @@ It was probably not created by the backup module.
 	// disable Bootloader's progress bar
 	Progress::off();
 
-	if (runbootloader == true && Mode::test == false)
+	if (runbootloader == true && Mode::test () == false)
 	{
 	    y2milestone("activating boot loader configuration");
 
@@ -1448,7 +1448,7 @@ It was probably not created by the backup module.
 		UI::ChangeWidget(`id(progress), `Value, i);
 	    }
 
-	    if (Mode::test == true)
+	    if (Mode::test () == true)
 	    {
 		// delay
 		sleep(300);
