@@ -27,6 +27,7 @@ import "Progress";
 import "Restore";
 import "Mode";
 import "Product";
+import "URL";
 
 import "Popup";
 import "Label";
@@ -38,33 +39,33 @@ include "restore/summary_dialog.ycp";
 import "Label";
 import "NetworkPopup";
 
-global string restorepackagename = nil;
+string restorepackagename = nil;
 
-global list archivecontentscache = nil;
+list archivecontentscache = nil;
 
-global list<string> restoredfiles = [];
-global list<string> failedfiles = [];
-global integer restoredpackages = 0;
-global boolean bloaderstatus = nil;
-global boolean susestatus = nil;
+list<string> restoredfiles = [];
+list<string> failedfiles = [];
+integer restoredpackages = 0;
+boolean bloaderstatus = nil;
+boolean susestatus = nil;
 
-global map packagestoinstall = $[];
-global map packagestouninstall = $[];
+map packagestoinstall = $[];
+map packagestouninstall = $[];
 // mounted directory
-global string mountdir = "";
+string mountdir = "";
 
 // map with detected removable devices
-global map removabledevices = nil;
+map removabledevices = nil;
 
 // last user input, used for dialog skipping
-global symbol lastret = nil;
+symbol lastret = nil;
 
 /**
  * Try to detect all removable devices present in the system
  * @return map Removable devices info
  */
 
-global define map DetectRemovable() ``{
+define map DetectRemovable() ``{
     map ret = $[];
 
     // detect floppy devices
@@ -119,7 +120,7 @@ global define map DetectRemovable() ``{
  * @return string Proposed next volume name
  */
 
-global define string ProposeNextVolume(string volume) ``{
+define string ProposeNextVolume(string volume) ``{
     // increase number in file name
     integer pos = findlastof(volume, "/");
     string volumedir = (pos != nil) ? substring(volume, 0, pos + 1) : "";
@@ -156,7 +157,7 @@ global define string ProposeNextVolume(string volume) ``{
  * @return list Combo box content
  */
 
-global define list CreateDeviceList(map dev, string sel) ``{
+define list CreateDeviceList(map dev, string sel) ``{
     list ret = [];
 
     // add selected device list if it's missing in map
@@ -179,7 +180,7 @@ global define list CreateDeviceList(map dev, string sel) ``{
  * @param type Symbol of widget which will be enabled (possible values are `file, `nfs, `removable)
  */
 
-global define void ShadowButtons(symbol type) ``{
+define void ShadowButtons(symbol type) ``{
     UI::ChangeWidget(`id(`filename), `Enabled, type == `file);
     UI::ChangeWidget(`id(`selectfile), `Enabled, type == `file);
 
@@ -200,7 +201,7 @@ global define void ShadowButtons(symbol type) ``{
  * @return string Device name in URL-like syntax
  */
 
-global define string ComboToDevice(string selected, map dev) ``{
+define string ComboToDevice(string selected, map dev) ``{
     string ret = "";
 
     foreach(string d, map info, dev, ``{
@@ -225,7 +226,7 @@ global define string ComboToDevice(string selected, map dev) ``{
  * @param askformore False: ask only for one volume part, true: ask until all volumes are entered
  * @return symbol UI::UserInput() result
  */
-global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, string input) ``{
+define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, string input) ``{
 
     // cache removable devices
     if (removabledevices == nil)
@@ -248,124 +249,77 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
     symbol type = `file;
     string dev = "";
 
-    // parse input - set previous selection
-    if (input != "")
+    string urlinput = (input != nil && input != "") ? input : Restore::inputname;
+    string proposal = "";
+
+    if (urlinput != nil)
     {
-	//parse variable 'input'
-	string nfsprefix = "nfs://";
-	string fileprefix = "file://";
-	string cdprefix = "cd";
-	string fdprefix = "fd";
-	string devprefix = "dev://";
+	y2debug("urlinput: %1", urlinput);
 
-	if (substring(input, 0, size(nfsprefix)) == nfsprefix)
+	map parsed_url = URL::Parse(urlinput);
+	string scheme = parsed_url["scheme"]:"file";
+
+	if (scheme == "nfs")
 	{
-	    string tail = substring(input, size(nfsprefix));
-	    integer pos = findfirstof(tail, ":");
-
 	    type = `nfs;
-	    nfs_server = substring(tail, 0, pos);
-	    nfs_file = substring(tail, pos + 1);
+	    nfs_server = parsed_url["host"]:"";
+	    nfs_file = parsed_url["path"]:"";
+	    proposal = nfs_file;
+	}
+	else if (regexpmatch(scheme, "^cd[0-9]*") || regexpmatch(scheme, "^fd[0-9]*"))
+	{
+	    type = `removable;
 
-	    if (multivolume == true)
+	    string devindex = regexpsub(scheme, "[cf]d0*([0-9]*)", "\\1");
+
+	    if (devindex == nil || devindex == "")
 	    {
-		string proposal = ProposeNextVolume(nfs_file);
-		if (proposal != "")
+		devindex = "0";
+	    }
+
+	    if (Mode::test == false)
+	    {
+		path devpath = regexpmatch(scheme, "^cd[0-9]*") ? .probe.cdrom : .probe.floppy;
+		dev = lookup(select((list<map>) SCR::Read(devpath), tointeger(devindex), ""), "dev_name", "");
+	    }
+
+	    cd_file = parsed_url["path"]:"";
+	    proposal = cd_file;
+	}
+	else if (scheme == "dev")
+	{
+	    type = `removable;
+	    dev = "/dev/" + parsed_url["host"]:"";
+	    file_name = parsed_url["path"]:"";
+	    proposal = file_name;
+	}
+	else
+	{
+	    type = `file;
+	    file_name = parsed_url["path"]:"";
+	    proposal = file_name;
+	}
+
+	if (urlinput == input && multivolume == true)
+	{
+	    proposal = ProposeNextVolume(proposal);
+
+	    if (proposal != "")
+	    {
+		if (type == `removable)
+		{
+		    cd_file = proposal;
+		}
+		else if (type == `nfs)
 		{
 		    nfs_file = proposal;
 		}
-	    }
-	}
-	else if (substring(input, 0, size(fileprefix)) == fileprefix)
-	{
-	    type = `file;
-	    file_name = substring(input, size(fileprefix));
-
-	    if (multivolume == true)
-	    {
-		string proposal = ProposeNextVolume(file_name);
-		if (proposal != "")
+		else
 		{
 		    file_name = proposal;
 		}
 	    }
 	}
-	else if (substring(input, 0, size(cdprefix)) == cdprefix || substring(input, 0, size(fdprefix)) == fdprefix || substring(input, 0, size(devprefix)) == devprefix)
-	{
-	    type = `removable;
-
-	    if (substring(input, 0, size(cdprefix)) == cdprefix)
-	    {
-		string cdindex = regexpsub(input, "cd0*([0-9]*)://(.*)", "\\1");
-
-		if (cdindex == nil || cdindex == "")
-		{
-		    cdindex = "0";
-		}
-
-		if (Mode::test == false)
-		{
-		    dev = lookup(select((list<map>) SCR::Read(.probe.cdrom), tointeger(cdindex), ""), "dev_name", "");
-		}
-
-		cd_file = regexpsub(input, "cd0*([0-9]*)://(.*)", "\\2");
-
-		if (cd_file == nil)
-		{
-		    cd_file = "";
-		}
-	    }
-	    else if (substring(input, 0, size(fdprefix)) == fdprefix)
-	    {
-		string fdindex = regexpsub(input, "fd0*([0-9]*)://(.*)", "\\1");
-
-		if (fdindex == nil || fdindex == "")
-		{
-		    fdindex = "0";
-		}
-
-		if (Mode::test == false)
-		{
-		    dev = lookup(select((list<map>) SCR::Read(.probe.floppy), tointeger(fdindex), ""), "dev_name", "");
-		}
-
-		cd_file = regexpsub(input, "fd0*([0-9]*)://(.*)", "\\2");
-
-		if (cd_file == nil)
-		{
-		    cd_file = "";
-		}
-	    }
-	    else if (substring(input, 0, size(devprefix)) == devprefix)
-	    {
-		string tail = substring(input, size(devprefix));
-		integer pos = findfirstof(tail, ":");
-
-		dev = substring(tail, 0, pos);
-		cd_file = substring(tail, pos + 1);
-	    }
-
-	    if (multivolume == true)
-	    {
-		string proposal = ProposeNextVolume(cd_file);
-		if (proposal != "")
-		{
-		    cd_file = proposal;
-		}
-	    }
-	}
-	else
-	{
-	    y2error("Unknown prefix in input: %1", input);
-	}
-    }
-    else
-    {
-	// set default values
-	file_name = "";
-	nfs_server = "";
-	nfs_file = "";
-	cd_file = "";
     }
 
     // unmount previous file system
@@ -541,6 +495,8 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 	    // progress message
 	    UI::OpenDialog(`Label(_("Reading archive contents...")));
 
+	    y2debug("Restore::IsMultiVolume(): %1", Restore::IsMultiVolume());
+
 	    if (Restore::IsMultiVolume() == false)
 	    {
 		readresult = Restore::Read(input);
@@ -641,7 +597,7 @@ An archive file is probably corrupted.
  * Display archive property - date of backup, user comment...
  * @return symbol UI::UserInput() result
  */
-global define symbol ArchivePropertyDialog() ``{
+define symbol ArchivePropertyDialog() ``{
 
     if (Mode::config == false)
     {
@@ -718,7 +674,7 @@ global define symbol ArchivePropertyDialog() ``{
  * @param packagesinfo Map $[ "packagename" : $[ "files" : ["files in the archive"] ] ]
  * @return list Table content
  */
-global define list CreateArchiveContentTree(map packagesinfo) ``{
+define list CreateArchiveContentTree(map packagesinfo) ``{
     list ret = [];
     integer num = 0;
 
@@ -749,7 +705,7 @@ global define list CreateArchiveContentTree(map packagesinfo) ``{
  * Display content of backup archive in the table.
  * @return symbol UI::UserInput() result
  */
-global define symbol ArchiveContentsDialog() ``{
+define symbol ArchiveContentsDialog() ``{
 
     Wizard::ClearContents();
 
@@ -796,7 +752,7 @@ global define symbol ArchiveContentsDialog() ``{
  * Dialog with options.
  * @return UI::UserInput() result
  */
-global define symbol RestoreOptionsDialog() ``{
+define symbol RestoreOptionsDialog() ``{
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
@@ -861,7 +817,7 @@ global define symbol RestoreOptionsDialog() ``{
  * @param selected Selected packages (only for autoinstallation, otherwise should be nil)
  * @return list Contents for Table widget
  */
-global define list CreateTableContentsWithMismatched(map contents, map selected, boolean defaultval) ``{
+define list CreateTableContentsWithMismatched(map contents, map selected, boolean defaultval) ``{
     list ret = [];
     integer num = 0;
 
@@ -894,7 +850,7 @@ global define list CreateTableContentsWithMismatched(map contents, map selected,
  * Dialog for package selection - packages to install
  * @return symbol UI::UserInput() result
  */
-global define symbol SelectionInstallDialog() ``{
+define symbol SelectionInstallDialog() ``{
 
     map missingpackages = Restore::GetMissingPackages();
 
@@ -1030,7 +986,7 @@ global define symbol SelectionInstallDialog() ``{
  * @param selected Selected packages (only for autoinstallation, otherwise should be nil)
  * @return list Contents for Table widget
  */
-global define list CreateTableContents(map contents, map selected, boolean defaultval) ``{
+define list CreateTableContents(map contents, map selected, boolean defaultval) ``{
     list ret = [];
     integer num = 0;
 
@@ -1062,7 +1018,7 @@ global define list CreateTableContents(map contents, map selected, boolean defau
  * Dialog for package selection - packages to uninstall
  * @return symbol UI::UserInput() result
  */
-global define symbol SelectionUninstallDialog() ``{
+define symbol SelectionUninstallDialog() ``{
 
     map extrapackages = Restore::GetExtraPackages();
 
@@ -1170,7 +1126,7 @@ global define symbol SelectionUninstallDialog() ``{
  * Start Yast2 package manager
  * @return symbol UI::UserInput() result
  */
-global define symbol SWsingleDialog() ``{
+define symbol SWsingleDialog() ``{
     list<string> install = [];
     list<string> uninstall = [];
 
@@ -1207,7 +1163,7 @@ global define symbol SWsingleDialog() ``{
  * @param restoreselection Restore settings
  * @return list Table content
  */
-global define list CreateTableContentsRestoreSelection(map restoreselection) ``{
+define list CreateTableContentsRestoreSelection(map restoreselection) ``{
     list ret = [];
     // id of item in the table
     integer num = 0;
@@ -1268,7 +1224,7 @@ global define list CreateTableContentsRestoreSelection(map restoreselection) ``{
  * @return boolean True if package should be installed
  */
 
-global define boolean InstallQuestion(string package, string version) ``{
+define boolean InstallQuestion(string package, string version) ``{
     boolean ret = false;
 
     if (Mode::config == true)
@@ -1298,7 +1254,7 @@ Install it?
  * Packages (and files) for restoration can be selected in this archive.
  * @return symbol UI::UserInput() result
  */
-global define symbol PackageSelectionRestoreDialog() ``{
+define symbol PackageSelectionRestoreDialog() ``{
 
     // read product info
     boolean personal = Product::personal;
@@ -1599,7 +1555,7 @@ Try to change selection or RPM database restoration status."));
  * @param packagename Name of package
  * @return symbol UI::UserInput() result
  */
-global define symbol FileSelectionDialog(string packagename) ``{
+define symbol FileSelectionDialog(string packagename) ``{
 
     // create multiselection widget contents
 
@@ -1717,7 +1673,7 @@ global define symbol FileSelectionDialog(string packagename) ``{
  * Restore packages from backup archive - display progress of restoring process
  * @return symbol UI::UserInput() result
  */
-global define symbol RestoreProgressDialog() ``{
+define symbol RestoreProgressDialog() ``{
 
     symbol ret = nil;
     symbol progressbar = `progress;
@@ -1777,7 +1733,7 @@ global define symbol RestoreProgressDialog() ``{
  * Start SuSEconfig
  * @return symbol UI::UserInput() result
  */
-global define symbol SuSEconfigDialog() ``{
+define symbol SuSEconfigDialog() ``{
 
     if (Restore::runSuSEconfig == true && Mode::test == false)
     {
@@ -1797,7 +1753,7 @@ global define symbol SuSEconfigDialog() ``{
  * @return symbol Returns symbol `next for wizard sequencer
  */
 
-global define symbol AtExit() ``{
+define symbol AtExit() ``{
 
     // unmount file system
     Restore::Umount();
@@ -1811,7 +1767,7 @@ global define symbol AtExit() ``{
  * @return string Status
  */
 
-global define string StatusToString(boolean status) ``{
+define string StatusToString(boolean status) ``{
     // program return status - program was not started
     string ret = "<I>" + _("Not started") + "</I>";
 
@@ -1834,7 +1790,7 @@ global define string StatusToString(boolean status) ``{
  * Display summary of restoration
  * @return symbol UI::UserInput() result
  */
-global define symbol SummaryDialog() ``{
+define symbol SummaryDialog() ``{
 
     // summary information texts
     string basicinfo = "<P>" + _("Number of installed packages: ") + size(packagestoinstall) + "<BR>" + _("Number of uninstalled packages: ") + size(packagestouninstall) + "</P><P>" + _("Total restored packages: ") + restoredpackages + "<BR>" + _("Total restored files: ") + ((restoredfiles != nil) ? size(restoredfiles) : 0) + "</P>";
@@ -1877,7 +1833,7 @@ global define symbol SummaryDialog() ``{
  * Whole restoration
  * @return any Returned value from WizardSequencer() call
  */
-global define symbol RestoreSequence () ``{
+define symbol RestoreSequence () ``{
     map aliases =
 	$[
 	    "archive"	:   ``( ArchiveSelectionDialog(false, false, "") ),
@@ -1988,7 +1944,7 @@ global define symbol RestoreSequence () ``{
  * For use with autoinstallation.
  * @return any Returned value from WizardSequencer() call
  */
-global define any RestoreAutoSequence() ``{
+define any RestoreAutoSequence() ``{
 
     map aliases =
 	$[
@@ -2058,7 +2014,7 @@ global define any RestoreAutoSequence() ``{
  * @param packagesinfo Map $[ "packagename" : $[ "files" : ["files in the archive"] ] ]
  * @return list Table content
  */
-global define list CreateArchiveContentTable(map packagesinfo) ``{
+define list CreateArchiveContentTable(map packagesinfo) ``{
     list ret = [];
     integer num = 0;
 
@@ -2088,7 +2044,7 @@ global define list CreateArchiveContentTable(map packagesinfo) ``{
  * @return string Selected value or empty string ("") if dialog was closed
  */
 
-global define string SelectFromList(string label, list inputlist, string selected) ``{
+define string SelectFromList(string label, list inputlist, string selected) ``{
 
     UI::OpenDialog(
 	`HBox(

@@ -33,7 +33,7 @@ include "wizard/sequencer.ycp";
  * @return string String without tags
  */
 
-global define string RemoveTags(string input) ``{
+define string RemoveTags(string input) ``{
     string ret = input;
 
     map tagmapping = $[ "BR" : "\n", "/P" : "\n", "P" : "", "B" : "", "/B" : "",
@@ -71,7 +71,7 @@ global define string RemoveTags(string input) ``{
  * @return symbol Id of pressed button (`next, `back, `abort)
  */
 
-global define symbol DisplaySummaryDialog(string text, string detail_text, string helptext, string label, symbol button) ``{
+define symbol DisplaySummaryDialog(string text, string detail_text, string helptext, string label, symbol button) ``{
 
     term contents = `VBox(
 	    `VSpacing(0.5),

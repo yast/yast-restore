@@ -31,6 +31,7 @@
     import "Require";
     import "Label";
     import "Popup";
+    import "URL";
 
     textdomain "restore";
 
@@ -410,7 +411,7 @@
 	// create mount point directory
 	SCR::Execute(.target.mkdir, mpoint);
 
-	boolean result = (boolean) SCR::Execute(.target.mount, [cddevice, mpoint] );
+	boolean result = (boolean) SCR::Execute(.target.mount, [cddevice, mpoint], "-o ro" );
 
 	return $[ "mounted" : result, "mpoint" : mpoint ];
     }
@@ -437,7 +438,7 @@
 	// create mount point directory
 	SCR::Execute(.target.mkdir, mpoint);
 
-	boolean result = (boolean) SCR::Execute(.target.mount, [fddevice, mpoint] );
+	boolean result = (boolean) SCR::Execute(.target.mount, [fddevice, mpoint], "-o ro" );
 
 	return $[ "mounted" : result, "mpoint" : mpoint ];
     }
@@ -488,13 +489,15 @@
 	string cdprefix = "cd";		// cd prefix can be "cd://" (equivalent to "cd0://"), "cd1://", "cd2://", ... number of CD identification
 	string fdprefix = "fd";
 
-	if (substring(input, 0, size(nfsprefix)) == nfsprefix)
-	{
-	    string tail = substring(input, size(nfsprefix));
-	    integer pos = findfirstof(tail, ":");
+	map parsed_url = URL::Parse(input);
+	string scheme = parsed_url["scheme"]:"file";
 
-	    string nfs_server = substring(tail, 0, pos);
-	    string nfs_file = substring(tail, pos + 1);
+	if (scheme == "nfs")
+	{
+	    string nfs_server = parsed_url["host"]:"";
+	    //substring(tail, 0, pos);
+	    string nfs_file = parsed_url["path"]:"";
+	    //substring(tail, pos + delimiter_correction);
 
 	    // check if portmapper is installed
 	    integer result = (integer) SCR::Execute(.target.bash, "/bin/rpm -q portmap");
@@ -517,7 +520,6 @@
 		y2milestone("portmap start result: %1", started);
 	    }
 
-
 	    y2milestone("NFS source - server: %1  file: %2", nfs_server, nfs_file);
 
 	    map mountresult = mountNFS(nfs_server, nfs_file);
@@ -536,13 +538,10 @@
 		y2milestone("file: %1", file);
 	    }
 	}
-	else if (substring(input, 0, size(devprefix)) == devprefix)
+	else if (scheme == "dev")
 	{
-	    string tail = substring(input, size(devprefix));
-	    integer pos = findfirstof(tail, ":");
-
-	    string device = substring(tail, 0, pos);
-	    string devfile = substring(tail, pos + 1);
+	    string device = parsed_url["host"]:"";
+	    string devfile = parsed_url["path"]:"";
 
 	    y2milestone("Device source - device: %1  file: %2", device, devfile);
 
@@ -559,18 +558,18 @@
 		success = true;
 	    }
 	}
-	else if (substring(input, 0, size(fileprefix)) == fileprefix)
+	else if (scheme == "file")
 	{
 	    file = substring(input, size(fileprefix));
 	    y2milestone("FILE source: %1", file);
 
 	    success = true;
 	}
-	else if (substring(input, 0, size(cdprefix)) == cdprefix)
+	else if (regexpmatch(scheme, "^cd[0-9]*"))
 	{
 	    // get CD drive index
-	    string cdindex = regexpsub(input, "cd0*([0-9]*)://(.*)", "\\1");
-	    string cdfile = regexpsub(input, "cd([0-9]*)://(.*)", "\\2");
+	    string cdindex = regexpsub(scheme, "^cd0*([0-9]*)", "\\1");
+	    string cdfile = parsed_url["path"]:"";
 
 	    if (cdindex == nil || cdindex == "")
 	    {
@@ -598,11 +597,11 @@
 		success = true;
 	    }
 	}
-	else if (substring(input, 0, size(fdprefix)) == fdprefix)
+	else if (regexpmatch(scheme, "^fd[0-9]*"))
 	{
 	    // get floppy index
-	    string fdindex = regexpsub(input, "fd0*([0-9]*)://(.*)", "\\1");
-	    string fdfile = regexpsub(input, "fd([0-9]*)://(.*)", "\\2");
+	    string fdindex = regexpsub(scheme, "fd0*([0-9]*)://(.*)", "\\1");
+	    string fdfile = parsed_url["path"]:"";
 
 	    if (fdindex == nil || fdindex == "")
 	    {
@@ -751,6 +750,11 @@
 	    string sel_type = selection["sel_type"]:" ";
 	    list sel_file = [];
 	    map pkginfo = archive_info[pkgname]:$[];
+
+	    if (pkginfo == nil)
+	    {
+		pkginfo = $[];
+	    }
 
 	    if (sel_type == "P")
 	    {
@@ -1009,6 +1013,12 @@ It was probably not created by the backup module.
 	archive_info = mapmap(string p, map i, archive_info, ``{
 	        // decription of files not owned by any package
 		string descr = (p == "") ? _("Files not owned by any package") : Pkg::PkgSummary(p);
+
+		if (i == nil)
+		{
+		    i = $[];
+		}
+
 		map t = add(i, "descr", descr);
 
 		string sel_type = " ";
@@ -1089,7 +1099,7 @@ It was probably not created by the backup module.
 	autoinst_info = settings["selection"]:$[];
 	y2debug("setting autoinst_info: %1", autoinst_info);
 
-	y2warning("archive_info: %1", archive_info);
+	y2debug("archive_info: %1", archive_info);
     }
 
     /**
@@ -1869,18 +1879,21 @@ Press OK to exit.
 
 	    string selection_info = "<P><B>" + _("Packages to restore") + "</B></P><P>";
 
-	    foreach(string p, map info, archive_info, ``{
-		    if (p == "")
-		    {
-			p = _("-- No package --");
-		    }
+	    if (archive_info != nil)
+	    {
+		foreach(string p, map info, archive_info, ``{
+			if (p == "")
+			{
+			    p = _("-- No package --");
+			}
 
-		    if (info["sel_type"]:" " != " ")
-		    {
-			selection_info = selection_info + p + "<BR>";
+			if (info["sel_type"]:" " != " ")
+			{
+			    selection_info = selection_info + p + "<BR>";
+			}
 		    }
-		}
-	    );
+		);
+	    }
 
 	    selection_info = selection_info + "</P>";
 

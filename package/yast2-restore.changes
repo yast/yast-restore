@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Fri Jan 30 10:30:11 CET 2004 - lslezak@suse.cz
+
+- fixes for new interpreter (removed globals, nil checking) 
+- mount also floppies and CDs read-only
+- use URL:: module for parsing
+- build fix (ycp hook)
+- version 2.9.2
+
+-------------------------------------------------------------------
 Fri Jan  9 09:56:34 CET 2004 - lslezak@suse.cz
 
 - fixes for the new interpreter
