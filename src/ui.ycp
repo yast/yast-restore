@@ -55,10 +55,8 @@ global string input = "";
 // list of found hosts on LAN
 global list hosts = nil;
 
-global list cddrives = nil;
-
-// default is first CD drive
-global integer cddriveindex = 0;
+// map with detected removable devices
+global map removabledevices = nil;
 
 /**
  * Whole restoration
@@ -67,7 +65,8 @@ global integer cddriveindex = 0;
 global define any RestoreSequence () ``{
     map aliases =
 	$[
-	    "archive"	:   ``( ArchiveSelectionDialog() ),
+	    "archive"	:   ``( ArchiveSelectionDialog(false) ),
+	    "marchive"	: [ ``( ArchiveSelectionDialog(true) ), true ],
 	    "property"	:   ``( ArchivePropertyDialog() ),
 	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
 	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
@@ -86,13 +85,19 @@ global define any RestoreSequence () ``{
 	"ws_start" : "archive",
 	"archive" :
 	$[
-	    `options	: "options",
+	    `next	: "property",
+	    `multi	: "marchive",
+	    `abort	: "atexit"
+	],
+	"marchive" :
+	$[
 	    `next	: "property",
 	    `abort	: "atexit"
 	],
 	"property" :
 	$[
 	    `details	: "contents",
+	    `options	: "options",
 	    `next	: "install",
 	    `abort	: "atexit"
 	],
@@ -103,7 +108,7 @@ global define any RestoreSequence () ``{
 	],
 	"options" :
 	$[
-	    `next	: "archive",
+	    `next	: "property",
 	    `abort	: "atexit"
 	],
 	"install" :
@@ -197,7 +202,20 @@ global define any RestoreAutoSequence () ``{
  * Backup archive is selected in this dialog.
  * @return symbol UI::UserInput() result
  */
-global define symbol ArchiveSelectionDialog() ``{
+global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
+
+    // cache removable devices
+    if (removabledevices == nil)
+    {
+	removabledevices = DetectRemovable();
+	y2milestone("Detected removable devices: %1", removabledevices);
+    }
+
+    if (multivolume == false)
+    {
+	// clear previous selection
+	Restore::ResetArchiveSelection();
+    }
 
     string file_name = "";
     string nfs_server = "";
@@ -222,36 +240,35 @@ global define symbol ArchiveSelectionDialog() ``{
 	    type = `nfs;
 	    nfs_server = substring(tail, 0, pos);
 	    nfs_file = substring(tail, pos + 1);
+
+	    if (multivolume == true)
+	    {
+		string proposal = ProposeNextVolume(nfs_file);
+		if (proposal != "")
+		{
+		    nfs_file = proposal;
+		}
+	    }
 	}
 	else if (substring(input, 0, size(fileprefix)) == fileprefix)
 	{
 	    type = `file;
 	    file_name = substring(input, size(fileprefix));
+
+	    if (multivolume == true)
+	    {
+		string proposal = ProposeNextVolume(file_name);
+		if (proposal != "")
+		{
+		    file_name = proposal;
+		}
+	    }
 	}
 	else if (substring(input, 0, size(cdprefix)) == cdprefix)
 	{
-	    type = `cd;
+	    type = `removable;
 
-            // get CD drive index
-            string cddriveindex_str = regexpsub(input, "cd([0-9]*)://(.*)", "\\1");
-            cd_file = regexpsub(input, "cd([0-9]*)://(.*)", "\\2");
-
-	    if (cddriveindex_str == nil || cddriveindex_str == "")
-	    {
-		cddriveindex_str = "0";
-	    }
-
-	    cddriveindex = tointeger(cddriveindex_str);
-
-            if (cddriveindex == nil)
-            {
-                cddriveindex = 0;
-            }
-
-            if (cd_file == nil)
-            {
-                cdfile = "";
-            }
+            // TODO get drive index
 	}
 	else
 	{
@@ -284,7 +301,7 @@ global define symbol ArchiveSelectionDialog() ``{
 					`HSpacing(1),
 					`Bottom(`PushButton(`id(`selectfile), _("&Select file...")))
 				    ),
-				    `VSpacing(1.5),
+				    `VSpacing(1),
 				    `Left(`RadioButton(`id(`nfs), _("N&FS"), type == `nfs)),
 				    `HBox(
 					`HSpacing(2),
@@ -296,15 +313,17 @@ global define symbol ArchiveSelectionDialog() ``{
 					`HSpacing(2),
 					`TextEntry(`id(`nfsfilename), _("&Archive file name:"), nfs_file)
 				    ),
-				    `VSpacing(1.5),
-				    `Left(`RadioButton(`id(`cd), `opt(`notify), _("&CD disk"), type == `cd)),
+				    `VSpacing(1),
+				    `Left(`RadioButton(`id(`removable), `opt(`notify), _("&Removable device"), type == `removable)),
 				    `HBox(
 					`HSpacing(2),
-					`TextEntry(`id(`cdfilename), _("Archi&ve file name:"), cd_file),
+					`Left(`ComboBox(`id(`device), `opt(`editable), _("Device"), CreateDeviceList(removabledevices)))
+				    ),
+				    `HBox(
+					`HSpacing(2),
+					`TextEntry(`id(`remfilename), _("Archi&ve file name:"), cd_file),
 					`HSpacing(1),
-					`Bottom(`PushButton(`id(`selectcd), _("C&D drive..."))),
-					`HSpacing(1),
-					`Bottom(`PushButton(`id(`cdfile), _("S&elect file")))
+					`Bottom(`PushButton(`id(`remfile), _("S&elect file")))
 				    ),
 				    `VSpacing(1)
 				)
@@ -312,13 +331,13 @@ global define symbol ArchiveSelectionDialog() ``{
 			    `HSpacing(1)
 			)
 		    ),
-		`VSpacing(1),
-		`PushButton(`id(`options), _("Res&tore options...")),
 		`VSpacing(1)
 	);
 
-    Wizard::SetContents(_("Archive selection"),
-	contents, "help", true, true);
+    string help = (multivolume == false) ? _("Help") : _("Multivolume help");
+    string title = (multivolume == false) ? _("Archive selection") : _("Multi volume archive selection");
+
+    Wizard::SetContents(title, contents, help, true, true);
 
 
     symbol ret = nil;
@@ -358,65 +377,23 @@ global define symbol ArchiveSelectionDialog() ``{
 		UI::ChangeWidget(`id(`nfsserver), `Value, selectedhost);
 	    }
 	}
-	else if (ret == `selectcd)
+	else if (ret == `remfile)
 	{
-	    if (cddrives == nil)
-	    {
-		cddrives = (Mode::test == false) ? SCR::Read(.probe.cdrom) :
-		    // test mode data
-		    [ $["device" :  "Toshiba DVD-ROM SD-M1402", "dev_name" : "/dev/hdc"], $["device" :  "CD-540E", "dev_name" : "/dev/hdd"] ];
+	    string selected = UI::QueryWidget(`id(`device), `Value);
+	    string device = ComboToDevice(selected, removabledevices);
+	    string fname = UI::QueryWidget(`id(`remfilename), `Value);
 
-		if (cddrives == nil)
-		{
-		    cddrives = [];
-		}
+	    if (device == "")
+	    {
+		device = "dev://" + selected + ":";
 	    }
 
-	    if (size(cddrives) == 0)
+	    // file selection from removable device - mount device
+	    map mount = Restore::MountInput(device + fname);
+
+	    if (lookup(mount, "success", false) == true)
 	    {
-		UI::WarningPopup(_("No CD-ROM drive is present!"));
-		cddriveindex = -1;
-	    }
-	    else
-	    {
-		// show CD drive selection dialog
-		list descriptions = [];
-
-		foreach(map cdinfo, cddrives, ``{
-			descriptions = add(descriptions, lookup(cdinfo, "device", _("Unknown CD device")) + " (" + lookup(cdinfo, "dev_name", _("unknown")) + ")");
-		    }
-		);
-
-		string selectedCD = SelectFromList(_("C&D drives:"), descriptions, select(descriptions, cddriveindex, ""));
-
-		if (selectedCD != "" && selectedCD != nil)
-		{
-		    // set number of CD drive
-		    integer index = 0;
-
-		    while (index < size(descriptions))
-		    {
-			if (selectedCD == select(descriptions, index, ""))
-			{
-			    cddriveindex = index;
-			    break;
-			}
-
-			index = index + 1;
-		    }
-
-		    y2milestone("Selected CD drive %1 [%2]", cddriveindex, select(descriptions, cddriveindex, ""));
-		}
-	    }
-	}
-	else if (ret == `cdfile)
-	{
-	    // file selection from CD - mount CD
-	    map mount = Restore::mountCD(cddriveindex);
-
-	    if (lookup(mount, "mounted", false) == true)
-	    {
-		string mountpnt = lookup(mount, "mountpoint", "/");
+		string mountpnt = lookup(mount, "mpoint", "/");
 		string file = PopupFile(mountpnt + "/");
 
 		if (file != "")
@@ -424,22 +401,22 @@ global define symbol ArchiveSelectionDialog() ``{
 		    // check if file is under mountpoint directory
 		    if (substring(file, 0, size(mountpnt)) != mountpnt)
 		    {
-			// selected file is out of mounted CD
-			UI::ErrorPopup(_("Selected file is out of mounted CD"));
+			// selected file is out of mounted file system
+			UI::ErrorPopup(_("Selected file is out of mounted filesystem"));
 		    }
 		    else
 		    {
 			// set file name
-			UI::ChangeWidget(`id(`cdfilename), `Value, substring(file, size(mountpnt)));
+			UI::ChangeWidget(`id(`remfilename), `Value, substring(file, size(mountpnt)));
 		    }
 		}
 
-		// umount CD
+		// umount file system
 		SCR::Execute(.target.umount, mountpnt);
 	    }
 	    else
 	    {
-		UI::ErrorPopup(_("Can not mount CD"));
+		UI::ErrorPopup(_("Can not mount file system"));
 	    }
 	}
 	else if (ret == `next)
@@ -461,18 +438,19 @@ global define symbol ArchiveSelectionDialog() ``{
 
 		input = "nfs://" + server + ":" + file;
 	    }
-	    else if (type == `cd)
+	    else if (type == `removable)
 	    {
-		string cdpref = "cd";
+		string selected = UI::QueryWidget(`id(`device), `Value);
+		string device = ComboToDevice(selected, removabledevices);
 
-		if (cddriveindex > 0)
+		if (device == "")
 		{
-		    cdpref = cdpref + sformat("%1", cddriveindex);
+		    device = "dev://" + selected + ":";
 		}
 
-		cdpref = cdpref + "://";
+		y2milestone("Selected removable device: %1", device);
 
-		input = cdpref + UI::QueryWidget(`id(`cdfilename), `Value);
+		input = device + UI::QueryWidget(`id(`remfilename), `Value);
 	    }
 	    else
 	    {
@@ -521,16 +499,15 @@ global define symbol ArchiveSelectionDialog() ``{
 
 		    if (lastvolume == false)
 		    {
-			// propose file name - increase number
 			symbol widget = nil;
 
 			if (type == `file)
 			{
 			    widget = `filename;
 			}
-			else if (type == `cd)
+			else if (type == `removable)
 			{
-			    widget = `cdfilename;
+			    widget = `remfilename;
 			}
 			else if (type == `nfs)
 			{
@@ -541,39 +518,15 @@ global define symbol ArchiveSelectionDialog() ``{
 			    y2warning("Unknown source type: %1", type);
 			}
 
-			if (widget != nil)
+			string fn = UI::QueryWidget(`id(widget), `Value);
+			string prop = ProposeNextVolume(fn);
+
+			if (prop != "")
 			{
-			    string volume = UI::QueryWidget(`id(widget), `Value);
-
-			    // increase number in file name
-			    integer pos = findlastof(volume, "/");
-			    string volumedir = (pos != nil) ? substring(volume, 0, pos + 1) : "";
-			    string volumefile = (pos != nil) ? substring(volume, pos + 1) : volume;
-
-			    // ignore leading zeroes, 0xxx means octal number in tointeger() builtin
-			    integer volumenum = tointeger(regexpsub(volumefile, "0*([0-9]+)([^0-9]*)", "\\1"));
-
-			    string volumebase = regexpsub(volumefile, "([0-9]+)([^0-9]*)", "\\2");
-			    string newvolume = "";
-
-			    if (volumenum != nil)
-			    {
-				volumenum = volumenum + 1;
-				newvolume = sformat("%1", volumenum);
-
-				if (size(newvolume) == 1)
-				{
-				    newvolume = "0" + newvolume;
-				}
-
-				UI::ChangeWidget(`id(widget), `Value, volumedir + newvolume + volumebase);
-			    }
-
-			    // refresh help in wizard contents
-			    //Wizard::SetContents(_("Multi archive selection"), contents, "multi volume archive help", true, true);
+			    UI::ChangeWidget(`id(widget), `Value, prop);
 			}
 
-			ret = `dummy;
+			ret = (multivolume == false) ? `multi : `dummy;
 		    }
 		    else
 		    {
@@ -587,10 +540,7 @@ global define symbol ArchiveSelectionDialog() ``{
 			    y2error("Test Restore::TestAllVolumes() failed");
 			    UI::ErrorPopup(_("Volume test failed"));
 
-			    // reset archive selection
-			    Restore::ResetArchiveSelection();
-
-			    ret = `dummy;
+			    ret = `back;
 			}
 		    }
 		}
@@ -601,7 +551,7 @@ global define symbol ArchiveSelectionDialog() ``{
 	    ret = `abort;
 	}
     }
-    while (ret != `next && ret != `abort && ret != `back && ret != `options);
+    while (ret != `next && ret != `abort && ret != `back && ret != `multi);
 
     return ret;
 }
@@ -634,6 +584,8 @@ global define symbol ArchivePropertyDialog() ``{
 		`MultiLineEdit(`id(`description), `opt(`disabled), _("Archive &description:"), comment),
 		`VSpacing(1.0),
 		`PushButton(`id(`details), _("&Show archive contents...")),
+		`VSpacing(1),
+		`PushButton(`id(`options), _("Res&tore options...")),
 		`VSpacing(2)
 	    ),
 	    `HSpacing(2)
@@ -648,13 +600,13 @@ global define symbol ArchivePropertyDialog() ``{
     {
 	ret = UI::UserInput();
 
+	if (ret == `cancel)
+	{
+	    ret = `abort;
+	}
     }
-    while(ret != `next && ret != `abort && ret != `back && ret != `details);
+    while (ret != `next && ret != `abort && ret != `back && ret != `details && ret != `options);
 
-    if (ret == `cancel)
-    {
-	ret = `abort;
-    }
 
     return ret;
 }
@@ -1596,6 +1548,112 @@ global define string SelectFromList(string label, list inputlist, string selecte
     return ret;
 }
 
+
+global define map DetectRemovable() ``{
+    map ret = $[];
+
+    // detect floppy devices
+    list devices = (Mode::test == false) ? SCR::Read(.probe.floppy) : [$["bus":"Floppy", "class_id":262, "dev_name":"/dev/fd0", "notready":true, "old_unique_key":"xjDN.oZ89vuho4Y3", "resource":$["size":[$["unit":"cinch", "x":350, "y":0], $["unit":"sectors", "x":2880, "y":512]]], "sub_class_id":3, "unique_key":"sPPV.oZ89vuho4Y3"]];
+    integer num = 0;
+
+    foreach(map dev, devices, ``{
+	    string dev_name = lookup(dev, "dev_name", "");
+	    string device = lookup(dev, "device", "");
+
+	    if (device == "")
+	    {
+		if (lookup(dev, "bus", "") == "Floppy")
+		{
+		    device = _("Floppy");
+		}
+	    }
+
+	    if (dev_name != "")
+	    {
+		ret = add(ret, dev_name, $[ "device" : device, "type" : "fd" + num + "://" ]);
+	    }
+
+	    num = num + 1;
+	}
+    );
+
+    // detect cdrom devices
+    devices = (Mode::test == false) ? SCR::Read(.probe.cdrom) : [$["bus":"IDE", "cdtype":"cdrom", "class_id":262, "dev_name":"/dev/hdc", "device":"CD-540E", "driver":"ide-cdrom", "notready":true, "old_unique_key":"3JYE.3LYJ0fijWD1", "resource":$["size":[$["unit":"sectors", "x":0, "y":512]]], "rev":"1.0A", "sub_class_id":2, "unique_key":"hY5p.ZxKxy3YdB66"]];
+    num = 0;
+
+    foreach(map dev, devices, ``{
+	    string dev_name = lookup(dev, "dev_name", "");
+	    string device = lookup(dev, "device", "");
+
+	    if (dev_name != "")
+	    {
+		ret = add(ret, dev_name, $[ "device" : device, "type" : "cd" + num + "://" ]);
+	    }
+
+	    num = num + 1;
+	}
+    );
+
+    return ret;
+}
+
+
+global define list CreateDeviceList(map dev) ``{
+    list ret = [];
+
+    foreach(string d, map info, dev, ``{
+	    ret = add(ret, lookup(info, "device", "") + " (" + d + ")");
+	}
+    );
+
+    return ret;
+}
+
+
+global define string ComboToDevice(string selected, map dev) ``{
+    string ret = "";
+
+    foreach(string d, map info, dev, ``{
+	    if (selected == lookup(info, "device", "") + " (" + d + ")")
+	    {
+		ret = lookup(info, "type", "cd://");
+	    }
+	}
+    );
+
+    return ret;
+}
+
+
+global define string ProposeNextVolume(string volume) ``{
+    // increase number in file name
+    integer pos = findlastof(volume, "/");
+    string volumedir = (pos != nil) ? substring(volume, 0, pos + 1) : "";
+    string volumefile = (pos != nil) ? substring(volume, pos + 1) : volume;
+
+    // ignore leading zeroes, 0xxx means octal number in tointeger() builtin
+    integer volumenum = tointeger(regexpsub(volumefile, "0*([0-9]+)([^0-9]*)", "\\1"));
+
+    string volumebase = regexpsub(volumefile, "([0-9]+)([^0-9]*)", "\\2");
+    string newvolume = "";
+
+    if (volumenum != nil)
+    {
+	volumenum = volumenum + 1;
+	newvolume = sformat("%1", volumenum);
+
+	if (size(newvolume) == 1)
+	{
+	    newvolume = "0" + newvolume;
+	}
+
+	return volumedir + newvolume + volumebase;
+    }
+    else
+    {
+	return "";
+    }
+}
 /**
  * This function should be called only once before end of client. This function
  * cleans up the system - unmounts mounted files systems.

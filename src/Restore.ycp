@@ -357,8 +357,11 @@
 	// mount source
 	map mresult = MountInput(input);
 
+	y2debug("MountInput: %1", mresult);
+
 	if (lookup(mresult, "success", false) == false)
 	{
+	    y2error("Can not mount file system");
 	    return false;
 	}
 
@@ -1026,7 +1029,7 @@
     }
 
 
-    define map MountInput(string input) ``{
+    global define map MountInput(string input) ``{
 
 	boolean success = false;
 	string mpoint = "";
@@ -1035,7 +1038,9 @@
 	//parse 'input'
 	string nfsprefix = "nfs://";
 	string fileprefix = "file://";
+	string devprefix = "dev://";
 	string cdprefix = "cd";		// cd prefix can be "cd://" (equivalent to "cd0://"), "cd1://", "cd2://", ... number of CD identification
+	string fdprefix = "fd";
 
 	if (substring(input, 0, size(nfsprefix)) == nfsprefix)
 	{
@@ -1060,6 +1065,29 @@
 		success = true;
 	    }
 	}
+	else if (substring(input, 0, size(devprefix)) == devprefix)
+	{
+	    string tail = substring(input, size(devprefix));
+	    integer pos = findfirstof(tail, ":");
+
+	    string device = substring(tail, 0, pos);
+	    string devfile = substring(tail, pos + 1);
+
+	    y2milestone("Device source - device: %1  file: %2", device, devfile);
+
+	    map mountresult = mountDevice(device);
+
+	    if (lookup(mountresult, "mounted", false) == false)
+	    {
+		y2error("Cannot read source '%1' - device mount failed", input);
+	    }
+	    else
+	    {
+		mpoint = lookup(mountresult, "mpoint", "");
+		file = mpoint + "/" + devfile;
+		success = true;
+	    }
+	}
 	else if (substring(input, 0, size(fileprefix)) == fileprefix)
 	{
 	    file = substring(input, size(fileprefix));
@@ -1070,7 +1098,7 @@
 	else if (substring(input, 0, size(cdprefix)) == cdprefix)
 	{
 	    // get CD drive index
-	    string cdindex = regexpsub(input, "cd([0-9]*)://(.*)", "\\1");
+	    string cdindex = regexpsub(input, "cd0*([0-9]*)://(.*)", "\\1");
 	    string cdfile = regexpsub(input, "cd([0-9]*)://(.*)", "\\2");
 
 	    if (cdindex == nil || cdindex == "")
@@ -1096,7 +1124,38 @@
 	    {
 		mpoint = lookup(mountresult, "mpoint", "");
 		file = mpoint + "/" + cdfile;
+		success = true;
+	    }
+	}
+	else if (substring(input, 0, size(fdprefix)) == fdprefix)
+	{
+	    // get floppy index
+	    string fdindex = regexpsub(input, "fd0*([0-9]*)://(.*)", "\\1");
+	    string fdfile = regexpsub(input, "fd([0-9]*)://(.*)", "\\2");
 
+	    if (fdindex == nil || fdindex == "")
+	    {
+		fdindex = "0";
+	    }
+
+	    if (fdfile == nil)
+	    {
+		fdfile = "";
+	    }
+
+	    y2milestone("Floppy source - drive: %1  file: %2", fdindex, fdfile);
+
+	    // mount floppy
+	    map mountresult = mountFloppy(tointeger(fdindex));
+
+	    if (lookup(mountresult, "mounted", false) == false)
+	    {
+		y2error("Cannot read source '%1' - mount failed", input);
+	    }
+	    else
+	    {
+		mpoint = lookup(mountresult, "mpoint", "");
+		file = mpoint + "/" + fdfile;
 		success = true;
 	    }
 	}
@@ -1142,7 +1201,7 @@
     }
 
 
-    global define map mountCD(integer cdindex) ``{
+    define map mountCD(integer cdindex) ``{
 	list drives = SCR::Read(.probe.cdrom);
 
 	if (cdindex == nil || cdindex > size(drives) - 1)
@@ -1159,9 +1218,45 @@
 
 	boolean result = SCR::Execute(.target.mount, [cddevice, mpoint] );
 
-	return $[ "mounted" : result, "mountpoint" : mpoint ];
+	return $[ "mounted" : result, "mpoint" : mpoint ];
     }
 
+    define map mountFloppy(integer fdindex) ``{
+	list drives = SCR::Read(.probe.floppy);
+
+	if (fdindex == nil || fdindex > size(drives) - 1)
+	{
+	    return $[ "mounted" : false ];
+	}
+
+	string fddevice = lookup(select(drives, fdindex, $[]), "dev_name", "/dev/fd0");
+	string tmpdir = SCR::Read(.target.tmpdir);
+	string mpoint = tmpdir + "/cd";
+
+	// create mount point directory
+	SCR::Execute(.target.mkdir, mpoint);
+
+	boolean result = SCR::Execute(.target.mount, [fddevice, mpoint] );
+
+	return $[ "mounted" : result, "mpoint" : mpoint ];
+    }
+
+    define map mountDevice(string device) ``{
+	if (device == nil || device == "")
+	{
+	    return $[ "mounted" : false ];
+	}
+
+	string tmpdir = SCR::Read(.target.tmpdir);
+	string mpoint = tmpdir + "/mount";
+
+	// create mount point directory
+	SCR::Execute(.target.mkdir, mpoint);
+
+	boolean result = SCR::Execute(.target.mount, [device, mpoint] );
+
+	return $[ "mounted" : result, "mpoint" : mpoint ];
+    }
 
     /**
      * Umount mounted file system.
