@@ -30,8 +30,12 @@
 
     textdomain "restore";
 
-
+    // local file name (can be on mounted file system)
     string filename = "";
+
+    // entered file name (e.g. nfs://server:/dir/archive.tar)
+    string inputname = "";
+
     // contents of archive
     list archivefiles = [];
 
@@ -52,7 +56,11 @@
 
     boolean multiarchive = false;
 
+    // temporary directory
     string tempdir = "";
+
+    // mount point, stored for unmounting
+    string mountpoint = "";
 
     /**
      * Run lilo after files are restored
@@ -84,6 +92,14 @@
      */
     global define string GetArchiveDate() ``{
 	return date;
+    }
+
+    /**
+     * Return name of backup archive
+     * @return string Input name file name
+     */
+    global define string GetInputName() ``{
+	return inputname;
     }
 
     /**
@@ -292,15 +308,21 @@
      * @param archivefile File name of backup archive
      * @return boolean True if archive was succesfully read, otherwise false (file does not exist, not tar archive, broken archive, archive not created by Backup module, ...)
      */
-    global define boolean Read(string archivefile) ``{
+    global define boolean Read(string input) ``{
+
+	// umount old mount point
+	Umount();
+
 	if (tempdir == "")
 	{
 	    tempdir = SCR::Read(.target.tmpdir);
 	}
 
+	inputname = input;
+
 	if (Mode::test == true)
 	{
-	    filename = archivefile;
+	    filename = "/tmp/dummy.tar";
 
 	    archivefiles = [ "info/", "info/date", "info/comment", "info/files",
 		"info/packages_info", "info/installed_packages", "info/hostname",
@@ -331,9 +353,55 @@
 
 	    return true;
 	}
+
+	//parse 'input'
+	string nfsprefix = "nfs://";
+	string fileprefix = "file://";
+	string cdprefix = "cd://";
+
+	symbol type = nil;
+
+	if (substring(input, 0, size(nfsprefix)) == nfsprefix)
+	{
+	    string tail = substring(input, size(nfsprefix));
+	    integer pos = findfirstof(tail, ":");
+
+	    type = `nfs;
+	    string nfs_server = substring(tail, 0, pos);
+	    string nfs_file = substring(tail, pos + 1);
+
+	    map mountresult = mountNFS(nfs_server, nfs_file);
+
+	    if (lookup(mountresult, "mounted", false) == false)
+	    {
+		y2error("Cannot mount source '%1'", input);
+		return false;
+	    }
+	    else
+	    {
+		mountpoint = lookup(mountresult, "mountpoint", "");
+		filename = mountpoint + "/" + lookup(mountresult, "file", "");
+	    }
+	}
+	else if (substring(input, 0, size(fileprefix)) == fileprefix)
+	{
+	    type = `file;
+	    filename = substring(input, size(fileprefix));
+	}
+	else if (substring(input, 0, size(cdprefix)) == cdprefix)
+	{
+	    type = `cd;
+	    // TODO mount CD
+	}
+	else
+	{
+	    y2error("Unknown prefix in input: %1", input);
+	    return false;
+	}
+
 	// get archive contents
 	// TODO use -v flag, filter out Volume label, set multiarchive flag
-	map result = SCR::Execute(.target.bash_output, "/bin/tar -t -f " + archivefile);
+	map result = SCR::Execute(.target.bash_output, "/bin/tar -t -f " + filename);
 
 	// TODO: result from multiarchive is 2!
 	if (lookup(result, "exit", -1) != 0)
@@ -341,9 +409,6 @@
 	    // test if archive is multi volume
 	    return false;
 	}
-
-	// set file name
-	filename = archivefile;
 
 	// get list of files, TODO: multivolume archive
 	archivefiles = splitstring(lookup(result, "stdout", ""), "\n");
@@ -769,10 +834,13 @@
 		    }
 
 		    // read failedfiles
-		    list stderr =  splitstring(SCR::Read(.target.string, /*tempdir + "/tar.stderr"*/ "/tmp/test/tar.stderr"), "\n");
+		    list stderr =  splitstring(SCR::Read(.target.string, tempdir + "/tar.stderr"), "\n");
 		    integer packagefailedfiles = 0;
 
-		    y2warning("stderr: %1", stderr);
+		    if (stderr != [])
+		    {
+			y2warning("stderr: %1", stderr);
+		    }
 
 		    // add file names to failedfiles
 		    foreach(string line, stderr, ``{
@@ -842,4 +910,56 @@
     }
 
 
+
+    define map mountNFS(string server, string file) ``{
+	integer pos = findlastof(file, "/");
+
+	if (pos != nil)
+	{
+	    string dir = substring(file, 0, pos);
+	    string f = substring(file, pos + 1);
+
+	    string tmpdir = SCR::Read(.target.tmpdir);
+	    string mpoint = tmpdir + "/nfs";
+
+	    if (dir == "" || dir == nil)
+	    {
+		dir = "/";
+	    }
+
+	    // create mount point directory
+	    SCR::Execute(.target.mkdir, mpoint);
+
+	    y2milestone("dir: %1", dir);
+	    y2milestone("file: %1", f);
+
+	    boolean result = SCR::Execute(.target.mount, [server + ":" + dir, mpoint], "-t nfs");
+
+	    if (result == true)
+	    {
+		mountpoint = mpoint;
+	    }
+
+	    return $[ "mounted" : result, "mountpoint" : mpoint , "file" : f, "server_dir" : dir ];
+	}
+
+	return $[ "mounted" : false ];
+    }
+
+
+    /**
+     * Umount mounted file system.
+     */
+
+    global define void Umount() ``{
+	y2debug("Umount() called");
+
+	if (mountpoint != "" && mountpoint != nil)
+	{
+	    SCR::Execute(.target.umount, mountpoint);
+	}
+    }
+
+
 }
+

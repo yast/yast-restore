@@ -34,6 +34,7 @@ include "wizard/sequencer.ycp";
 
 include "restore/helps.ycp";
 include "restore/summary_dialog.ycp";
+include "restore/misc.ycp";
 include "ui/common_messages.ycp";
 
 global string restorepackagename = nil;
@@ -44,6 +45,12 @@ global list restoredfiles = [];
 global list failedfiles = [];
 global integer restoredpackages = 0;
 global boolean lilostatus = nil;
+
+// mounted directory
+global string mountdir = "";
+
+// entered archive name, can differ from local file name (e.g. nfs://server:dir/archive.tar)
+global string input = "";
 
 
 /**
@@ -64,6 +71,7 @@ global define any RestoreSequence () ``{
 	    "selectfile": [ ``( FileSelectionDialog(restorepackagename) ), true ],
 	    "restore"	: [ ``( RestoreProgressDialog() ), true ],
 	    "SuSEconfig": [ ``( SuSEconfigDialog() ), true ],
+	    "atexit"	:   ``( AtExit() ),
 	    "summary"	:   ``( SummaryDialog() ),
 	];
 
@@ -73,63 +81,67 @@ global define any RestoreSequence () ``{
 	$[
 	    `options	: "options",
 	    `next	: "property",
-	    `abort	: `abort
+	    `abort	: "atexit"
 	],
 	"property" :
 	$[
 	    `details	: "contents",
 	    `next	: "install",
-	    `abort	: `abort
+	    `abort	: "atexit"
 	],
 	"contents" :
 	$[
 	    `next	: "property",
-	    `abort	: `abort
+	    `abort	: "atexit"
 	],
 	"options" :
 	$[
 	    `next	: "archive",
-	    `abort	: `abort
+	    `abort	: "atexit"
 	],
 	"install" :
 	$[
 	    `next	: "uninstall",
-	    `abort	: `abort
+	    `abort	: "atexit"
 	],
 	"uninstall" :
 	$[
 	    `next	: "sw_single",
-	    `abort	: `abort
+	    `abort	: "atexit"
 	],
 	"sw_single" :
 	$[
 	    `next	: "select",
-	    `abort	: `abort
+	    `abort	: "atexit"
 	],
 	"select" :
 	$[
 	    `files	: "selectfile",
-	    `abort	: `abort,
+	    `abort	: "atexit",
 	    `next	: "restore"
 	],
 	"restore" :
 	$[
 	    `next	: "SuSEconfig",
-	    `abort	: `abort
+	    `abort	: "atexit"
 	],
 	"SuSEconfig" :
 	$[
 	    `next	: "summary",
-	    `abort	: `abort
+	    `abort	: "atexit"
 	],
 	"selectfile" :
 	$[
 	    `next	: "select",
-	    `abort	: `abort
+	    `abort	: "atexit"
 	],
 	"summary" :
 	$[
-	    `abort	: `abort,
+	    `abort	: "atexit",
+	    `next	: "atexit"
+	],
+	"atexit" :
+	$[
 	    `next	: `next
 	]
     ];
@@ -180,19 +192,92 @@ global define any RestoreAutoSequence () ``{
  */
 global define symbol ArchiveSelectionDialog() ``{
 
-    term contents = `HBox(
-	    `HSpacing(2),
-	    `VBox(
-		`HBox(
-		    `TextEntry(`id(`filename), _("Archive file na&me:"), "/tmp/bk.tar"),
-		    `HSpacing(2),
-		    `PushButton(`id(`file), _("&Select file"))
-		),
-		`VSpacing(2),
-		`PushButton(`id(`options), _("R&estore options...")),
-		`VSpacing(1.5)
-	    ),
-	    `HSpacing(2)
+    string file_name = "";
+    string nfs_server = "";
+    string nfs_file = "";
+    string cd_file = "";
+
+    symbol type = `file;
+
+    // parse input - set previous selection
+    if (input != "")
+    {
+	//parse variable 'input'
+	string nfsprefix = "nfs://";
+	string fileprefix = "file://";
+	string cdprefix = "cd://";
+
+	if (substring(input, 0, size(nfsprefix)) == nfsprefix)
+	{
+	    string tail = substring(input, size(nfsprefix));
+	    integer pos = findfirstof(tail, ":");
+
+	    type = `nfs;
+	    nfs_server = substring(tail, 0, pos);
+	    nfs_file = substring(tail, pos + 1);
+	}
+	else if (substring(input, 0, size(fileprefix)) == fileprefix)
+	{
+	    type = `file;
+	    file_name = substring(input, size(fileprefix));
+	}
+	else if (substring(input, 0, size(cdprefix)) == cdprefix)
+	{
+	    type = `cd;
+	}
+	else
+	{
+	    y2error("Unknown prefix in input: %1", input);
+	}
+    }
+    else
+    {
+	// set default values
+	file_name = "/tmp/bk.tar";
+	nfs_server = "dhcp28";
+	nfs_file = "/local/bk.tar";
+	cd_file = "";
+    }
+
+    term contents = `VBox(
+		`Frame("Backup archive",
+			`RadioButtonGroup(`id(`source),
+			    `VBox(
+				`VSpacing(0.5),
+				`Left(`RadioButton(`id(`file), _("L&ocal file"), type == `file)),
+				`HBox(
+				    `HSpacing(2),
+				    `TextEntry(`id(`filename), _("Archive file na&me:"), file_name),
+				    `HSpacing(2),
+				    `PushButton(`id(`selectfile), _("&Select file"))
+				),
+				`VSpacing(1.5),
+				`Left(`RadioButton(`id(`nfs), _("N&FS"), type == `nfs)),
+				`HBox(
+				    `HSpacing(2),
+				    `TextEntry(`id(`nfsserver), _("I&P adress or name of NFS server:"), nfs_server),
+				    `HSpacing(2)
+				),
+				`HBox(
+				    `HSpacing(2),
+				    `TextEntry(`id(`nfsfilename), _("&Archive file name:"), nfs_file),
+				    `HSpacing(2)
+				),
+				`VSpacing(1.5),
+				`Left(`RadioButton(`id(`cd), _("&CD disk"), type == `cd)),
+				`HBox(
+				    `HSpacing(2),
+				    `TextEntry(`id(`cdfilename), _("Arc&hive file name:"), cd_file),
+				    `HSpacing(2),
+				    `PushButton(`id(`cdfile), _("S&elect file"))
+				),
+				`VSpacing(1)
+			    )
+			)
+		    ),
+		`VSpacing(1),
+		`PushButton(`id(`options), _("Res&tore options...")),
+		`VSpacing(1)
 	);
 
     Wizard::SetContents(_("Archive selection"),
@@ -204,30 +289,55 @@ global define symbol ArchiveSelectionDialog() ``{
     {
 	ret = UI::UserInput();
 
-	// get filename
-	string fname = (Mode::test != true) ? UI::QueryWidget(`id(`filename), `Value) : "/tmp/testmodearchivename.tar";
-
-	if (ret == `file)
+	if (ret == `selectfile)
 	{
-	    string file = PopupFile("/tmp/backup.tar");
+	    string file = PopupFile("/");
 	    UI::ChangeWidget(`id(`filename), `Value, file);
 	}
-	else if (ret == `next && fname != Restore::GetArchiveName())
+	else if (ret == `next)
 	{
-	    UI::OpenDialog(`Label(_("Reading archive contents...")));
-	    boolean readresult = Restore::Read(fname);
-	    UI::CloseDialog();
+	    symbol type = UI::QueryWidget(`id(`source), `CurrentButton);
 
-	    if (readresult == false)
+	    if (Mode::test == true)
 	    {
-		UI::ErrorPopup(sformat(_("File '%1' is not backup archive or archive is corrupted!"), fname));
-		ret = `dummy;
+		input = "file:///tmp/testmodearchivename.tar";
+	    }
+	    else if (type == `file)
+	    {
+		input = "file://" + UI::QueryWidget(`id(`filename), `Value);
+	    }
+	    else if (type == `nfs)
+	    {
+		string server = UI::QueryWidget(`id(`nfsserver), `Value);
+		string file = UI::QueryWidget(`id(`nfsfilename), `Value);
+
+		input = "nfs://" + server + ":" + file;
+	    }
+	    else if (type == `cd)
+	    {
+		input = "cd://" + UI::QueryWidget(`id(`cdfilename), `Value);
 	    }
 	    else
 	    {
-		restoredfiles = [];
-		failedfiles = [];
+		y2error("Unknown source type %1", type);
 	    }
+
+
+		// read archive file
+		UI::OpenDialog(`Label(_("Reading archive contents...")));
+		boolean readresult = Restore::Read(input);
+		UI::CloseDialog();
+
+		if (readresult == false)
+		{
+		    UI::ErrorPopup(sformat(_("Can not read backup archive file '%1'!"), input));
+		    ret = `dummy;
+		}
+		else
+		{
+		    restoredfiles = [];
+		    failedfiles = [];
+		}
 	}
 	else if (ret == `cancel)
 	{
@@ -252,7 +362,7 @@ global define symbol ArchivePropertyDialog() ``{
     string date = Restore::GetArchiveDate();
     string hostname = Restore::GetArchiveHostname();
     string comment = Restore::GetArchiveComment();
-    string archname = Restore::GetArchiveName();
+    string archname = Restore::GetInputName();
 
     term contents = `HBox(
 	    `HSpacing(2),
@@ -1187,6 +1297,19 @@ global define list CreateTableContentsRestoreSelection(map restoreselection) ``{
     return ret;
 }
 
+/**
+ * This function should be called only once before end of client. This function
+ * cleans up the system - unmounts mounted files systems.
+ * @return symbol Returns symbol `next for wizard sequencer
+ */
+
+global define symbol AtExit() ``{
+
+    // unmount file system
+    Restore::Umount();
+
+    return `next;
+}
 
 }
 
