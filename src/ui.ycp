@@ -66,8 +66,8 @@ global define any RestoreSequence () ``{
     map aliases =
 	$[
 	    "archive"	:   ``( ArchiveSelectionDialog(false) ),
-	    "marchive"	: [ ``( ArchiveSelectionDialog(true) ), true ],
 	    "property"	:   ``( ArchivePropertyDialog() ),
+	    "marchive"	: [ ``( ArchiveSelectionDialog(true) ), true ],
 	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
 	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
 	    "install"	:   ``( SelectionInstallDialog() ),
@@ -86,18 +86,18 @@ global define any RestoreSequence () ``{
 	"archive" :
 	$[
 	    `next	: "property",
-	    `multi	: "marchive",
 	    `abort	: "atexit"
 	],
 	"marchive" :
 	$[
-	    `next	: "property",
+	    `next	: "install",
 	    `abort	: "atexit"
 	],
 	"property" :
 	$[
 	    `details	: "contents",
 	    `options	: "options",
+	    `multi	: "marchive",
 	    `next	: "install",
 	    `abort	: "atexit"
 	],
@@ -223,6 +223,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
     string cd_file = "";
 
     symbol type = `file;
+    string dev = "";
 
     // parse input - set previous selection
     if (input != "")
@@ -231,6 +232,8 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 	string nfsprefix = "nfs://";
 	string fileprefix = "file://";
 	string cdprefix = "cd";
+	string fdprefix = "fd";
+	string devprefix = "dev://";
 
 	if (substring(input, 0, size(nfsprefix)) == nfsprefix)
 	{
@@ -264,11 +267,69 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 		}
 	    }
 	}
-	else if (substring(input, 0, size(cdprefix)) == cdprefix)
+	else if (substring(input, 0, size(cdprefix)) == cdprefix || substring(input, 0, size(fdprefix)) == fdprefix || substring(input, 0, size(devprefix)) == devprefix)
 	{
 	    type = `removable;
 
-            // TODO get drive index
+	    if (substring(input, 0, size(cdprefix)) == cdprefix)
+	    {
+		string cdindex = regexpsub(input, "cd0*([0-9]*)://(.*)", "\\1");
+
+		if (cdindex == nil || cdindex == "")
+		{
+		    cdindex = "0";
+		}
+
+		if (Mode::test == false)
+		{
+		    dev = lookup(select(SCR::Read(.probe.cdrom), tointeger(cdindex), ""), "dev_name", "");
+		}
+
+		cd_file = regexpsub(input, "cd0*([0-9]*)://(.*)", "\\2");
+
+		if (cd_file == nil)
+		{
+		    cd_file = "";
+		}
+	    }
+	    else if (substring(input, 0, size(fdprefix)) == fdprefix)
+	    {
+		string fdindex = regexpsub(input, "fd0*([0-9]*)://(.*)", "\\1");
+
+		if (fdindex == nil || fdindex == "")
+		{
+		    fdindex = "0";
+		}
+
+		if (Mode::test == false)
+		{
+		    dev = lookup(select(SCR::Read(.probe.floppy), tointeger(fdindex), ""), "dev_name", "");
+		}
+
+		cd_file = regexpsub(input, "fd0*([0-9]*)://(.*)", "\\2");
+
+		if (cd_file == nil)
+		{
+		    cd_file = "";
+		}
+	    }
+	    else if (substring(input, 0, size(devprefix)) == devprefix)
+	    {
+		string tail = substring(input, size(devprefix));
+		integer pos = findfirstof(tail, ":");
+
+		dev = substring(tail, 0, pos);
+		cd_file = substring(tail, pos + 1);
+	    }
+
+	    if (multivolume == true)
+	    {
+		string proposal = ProposeNextVolume(cd_file);
+		if (proposal != "")
+		{
+		    cd_file = proposal;
+		}
+	    }
 	}
 	else
 	{
@@ -314,10 +375,10 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 					`TextEntry(`id(`nfsfilename), _("&Archive file name:"), nfs_file)
 				    ),
 				    `VSpacing(1),
-				    `Left(`RadioButton(`id(`removable), `opt(`notify), _("&Removable device"), type == `removable)),
+				    `Left(`RadioButton(`id(`removable), `opt(`notify), _("Rem&ovable device"), type == `removable)),
 				    `HBox(
 					`HSpacing(2),
-					`Left(`ComboBox(`id(`device), `opt(`editable), _("Device"), CreateDeviceList(removabledevices)))
+					`Left(`ComboBox(`id(`device), `opt(`editable), _("&Device"), CreateDeviceList(removabledevices, dev)))
 				    ),
 				    `HBox(
 					`HSpacing(2),
@@ -383,11 +444,6 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 	    string device = ComboToDevice(selected, removabledevices);
 	    string fname = UI::QueryWidget(`id(`remfilename), `Value);
 
-	    if (device == "")
-	    {
-		device = "dev://" + selected + ":";
-	    }
-
 	    // file selection from removable device - mount device
 	    map mount = Restore::MountInput(device + fname);
 
@@ -443,11 +499,6 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 		string selected = UI::QueryWidget(`id(`device), `Value);
 		string device = ComboToDevice(selected, removabledevices);
 
-		if (device == "")
-		{
-		    device = "dev://" + selected + ":";
-		}
-
 		y2milestone("Selected removable device: %1", device);
 
 		input = device + UI::QueryWidget(`id(`remfilename), `Value);
@@ -466,11 +517,6 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 	    if (Restore::IsMultiVolume() == false)
 	    {
 		readresult = Restore::Read(input);
-
-		if (Restore::IsMultiVolume() == true)
-		{
-		    UI::MessagePopup(_("Multivolume archive - ...."));
-		}
 	    }
 	    else
 	    {
@@ -479,6 +525,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 		readresult = lookup(nextresult, "success", false);
 		lastvolume = lookup(nextresult, "lastvolume", false);
 	    }
+
 	    UI::CloseDialog();
 
 	    if (readresult == false)
@@ -499,34 +546,37 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 
 		    if (lastvolume == false)
 		    {
-			symbol widget = nil;
+			if (multivolume == true)
+			{
+			    symbol widget = nil;
 
-			if (type == `file)
-			{
-			    widget = `filename;
-			}
-			else if (type == `removable)
-			{
-			    widget = `remfilename;
-			}
-			else if (type == `nfs)
-			{
-			    widget = `nfsfilename;
-			}
-			else
-			{
-			    y2warning("Unknown source type: %1", type);
-			}
+			    if (type == `file)
+			    {
+				widget = `filename;
+			    }
+			    else if (type == `removable)
+			    {
+				widget = `remfilename;
+			    }
+			    else if (type == `nfs)
+			    {
+				widget = `nfsfilename;
+			    }
+			    else
+			    {
+				y2warning("Unknown source type: %1", type);
+			    }
 
-			string fn = UI::QueryWidget(`id(widget), `Value);
-			string prop = ProposeNextVolume(fn);
+			    string fn = UI::QueryWidget(`id(widget), `Value);
+			    string prop = ProposeNextVolume(fn);
 
-			if (prop != "")
-			{
-			    UI::ChangeWidget(`id(widget), `Value, prop);
+			    if (prop != "")
+			    {
+				UI::ChangeWidget(`id(widget), `Value, prop);
+			    }
+
+			    ret = `dummy;
 			}
-
-			ret = (multivolume == false) ? `multi : `dummy;
 		    }
 		    else
 		    {
@@ -571,6 +621,8 @@ global define symbol ArchivePropertyDialog() ``{
     string comment = Restore::GetArchiveComment();
     string archname = Restore::GetInputName();
 
+    string multivolume = (Restore::IsMultiVolume() == true) ? _("Yes") : _("No");
+
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
@@ -580,13 +632,15 @@ global define symbol ArchivePropertyDialog() ``{
 		`Left(`HBox(`Label(`id(`dlabel), _("Date of backup:")), `HSpacing(2), `Label(`id(`dlabel2), date))),
 		`VSpacing(0.5),
 		`Left(`HBox(`Label(`id(`hlabel), _("Backup host name:")), `HSpacing(2), `Label(`id(`hlabel2), hostname))),
+		`VSpacing(0.5),
+		`Left(`HBox(`Label(`id(`mlabel), _("Multivolume archive:")), `HSpacing(2), `Label(`id(`mlabel2), multivolume))),
 		`VSpacing(1.0),
 		`MultiLineEdit(`id(`description), `opt(`disabled), _("Archive &description:"), comment),
 		`VSpacing(1.0),
 		`PushButton(`id(`details), _("&Show archive contents...")),
 		`VSpacing(1),
 		`PushButton(`id(`options), _("Res&tore options...")),
-		`VSpacing(2)
+		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
 	);
@@ -607,6 +661,11 @@ global define symbol ArchivePropertyDialog() ``{
     }
     while (ret != `next && ret != `abort && ret != `back && ret != `details && ret != `options);
 
+    if (Restore::IsMultiVolume() == true && Restore::TestAllVolumes() == false && ret == `next)
+    {
+	// ask for next volumes
+	ret = `multi;
+    }
 
     return ret;
 }
@@ -1249,15 +1308,14 @@ global define symbol ArchiveContentsDialog() ``{
 
     if (archivecontentscache == nil)
     {
-	archivecontentscache = CreateArchiveContentTable(Restore::GetArchiveInfo());
+	archivecontentscache = CreateArchiveContentTree(Restore::GetArchiveInfo());
     }
 
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-
-		`Table(`id(`table), `header(_("Package"), _("File")), archivecontentscache),
+		`Tree(`id(`tree), _("Archive &content:"), CreateArchiveContentTree(Restore::GetArchiveInfo())),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -1265,20 +1323,20 @@ global define symbol ArchiveContentsDialog() ``{
 
     Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
 
-    Wizard::SetContents(_("Archive contents"), contents, "help", true, true);
+    Wizard::SetContents(_("Archive content"), contents, "help", true, true);
 
     symbol ret = nil;
 
     do
     {
 	ret = UI::UserInput();
-    }
-    while(ret != `next && ret != `abort && ret != `back);
 
-    if (ret == `cancel)
-    {
-	ret = `abort;
+	if (ret == `cancel)
+	{
+	    ret = `abort;
+	}
     }
+    while (ret != `next && ret != `abort && ret != `back);
 
     Wizard::RestoreNextButton();
 
@@ -1426,7 +1484,6 @@ global define symbol SummaryDialog() ``{
     return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, "help", _("Summary of restoration"), `finish);
 }
 
-
 /**
  * Return content for table widget - list of backup files
  * @param packagesinfo Map $[ "packagename" : $[ "files" : ["files in the archive"] ] ]
@@ -1440,12 +1497,44 @@ global define list CreateArchiveContentTable(map packagesinfo) ``{
     {
 	foreach(string p, map info, packagesinfo, ``{
 		list files = lookup(info, "files", []);
+		string version = lookup(info, "vers", "");
 
 		foreach(string file, files, ``{
-			ret = add(ret, `item(`id(num), p, file));
+			ret = add(ret, `item(`id(num), p, version, file));
 			num = num + 1;
 		    }
 		);
+	    }
+	);
+    }
+
+    return ret;
+}
+
+/**
+ * Return content for table widget - list of backup files
+ * @param packagesinfo Map $[ "packagename" : $[ "files" : ["files in the archive"] ] ]
+ * @return list Table content
+ */
+global define list CreateArchiveContentTree(map packagesinfo) ``{
+    list ret = [];
+    integer num = 0;
+
+    if (packagesinfo != nil)
+    {
+	foreach(string p, map info, packagesinfo, ``{
+		list files = lookup(info, "files", []);
+		string version = lookup(info, "vers", "");
+
+		files = maplist(string s, files, ``{return `item(s);});
+
+		if (p == "")
+		{
+		    p = _("-- No package --");
+		}
+
+		ret = add(ret, `item(`id(num), p + "-" + version, files));
+		num = num + 1;
 	    }
 	);
     }
@@ -1598,11 +1687,17 @@ global define map DetectRemovable() ``{
 }
 
 
-global define list CreateDeviceList(map dev) ``{
+global define list CreateDeviceList(map dev, string sel) ``{
     list ret = [];
 
+    // add selected device list if it's missing in map
+    if (sel != nil && sel != "" && !haskey(dev, sel))
+    {
+	ret = [ `item(`id(sel), sel) ];
+    }
+
     foreach(string d, map info, dev, ``{
-	    ret = add(ret, lookup(info, "device", "") + " (" + d + ")");
+	    ret = add(ret, `item(`id(lookup(info, "device", "") + " (" + d + ")"), lookup(info, "device", "") + " (" + d + ")", sel == d));
 	}
     );
 
@@ -1620,6 +1715,11 @@ global define string ComboToDevice(string selected, map dev) ``{
 	    }
 	}
     );
+
+    if (ret == "")
+    {
+	ret = "dev://" + selected + ":";
+    }
 
     return ret;
 }
