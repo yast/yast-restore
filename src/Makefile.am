@@ -24,10 +24,16 @@ desktop_DATA =			\
 module_DATA =			\
 	Restore.ycp
 
-include $(top_srcdir)/Makefile.am.common
-
-
 ybin_SCRIPTS = \
 	restore_parse_pkginfo.pl
+
+include $(top_srcdir)/Makefile.am.common
+
+symlinks:
+	test -L restore || ln -sf . restore
+
+ycpchook = symlinks
+
+YCPCFLAGS=-I.
 
 EXTRA_DIST = $(client_DATA) $(ynclude_DATA) $(config_DATA) $(module_DATA) $(desktop_DATA) $(ybin_SCRIPTS)

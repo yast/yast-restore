@@ -42,8 +42,8 @@ global string restorepackagename = nil;
 
 global list archivecontentscache = nil;
 
-global list restoredfiles = [];
-global list failedfiles = [];
+global list<string> restoredfiles = [];
+global list<string> failedfiles = [];
 global integer restoredpackages = 0;
 global boolean bloaderstatus = nil;
 global boolean susestatus = nil;
@@ -1171,8 +1171,8 @@ global define symbol SelectionUninstallDialog() ``{
  * @return symbol UI::UserInput() result
  */
 global define symbol SWsingleDialog() ``{
-    list install = [];
-    list uninstall = [];
+    list<string> install = [];
+    list<string> uninstall = [];
 
     if (lastret == `back)
     {
@@ -1181,12 +1181,12 @@ global define symbol SWsingleDialog() ``{
 
     if (size(packagestoinstall) > 0)
     {
-	foreach(`k, `v, packagestoinstall, ``{install = add(install, k);});
+	foreach(string k, any v, packagestoinstall, ``{install = add(install, k);});
     }
 
     if (size(packagestouninstall) > 0)
     {
-	foreach(`k, `v, packagestouninstall, ``{uninstall = add(uninstall, k);});
+	foreach(string k, any v, packagestouninstall, ``{uninstall = add(uninstall, k);});
     }
 
     y2milestone("install: %1", install);
@@ -1331,7 +1331,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
     if (RPMoption == nil)
     {
-	RPMoption = (boolean) proposedRPMrestoration["proposed"]:false;
+	RPMoption = (boolean) (proposedRPMrestoration["proposed"]:false);
     }
 
     y2warning("RPMoption: %1", RPMoption);
@@ -1539,7 +1539,7 @@ Select them for restoration?
 	    // check current RPM rezstoration status with proposed
 	    boolean selectedRPM = (boolean) UI::QueryWidget(`id(`rpmdb), `Value);
 	    proposedRPMrestoration = Restore::ProposeRPMdbRestoration();
-	    RPMoption = proposedRPMrestoration["proposed"]:nil;
+	    RPMoption = (boolean) (proposedRPMrestoration["proposed"]:nil);
 
 	    if (selectedRPM != RPMoption)
 	    {

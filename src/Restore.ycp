@@ -1562,7 +1562,7 @@ Press '%1' to install this package.
 			    ok = Pkg::PkgInstall("star");
 
 			    // solve dependencies
-			    ok = ok && Pkg::PkgSolve();
+			    ok = ok && Pkg::PkgSolve(false);
 
 			    // perform installation (0 means install from all media)
 			    list result = Pkg::PkgCommit(0);
