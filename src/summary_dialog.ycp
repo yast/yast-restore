@@ -118,8 +118,11 @@ global define symbol DisplaySummaryDialog(string text, string detail_text, strin
 	{
 	    string savefile = SaveFileAs("/");
 
-	    SCR::Write(.target.string, savefile, RemoveTags((details == true) ? detail_text : text));
-	    y2milestone("Summary saved to file: %1", savefile);
+	    if (savefile != "" && savefile != nil)
+	    {
+		SCR::Write(.target.string, savefile, RemoveTags((details == true) ? detail_text : text));
+		y2milestone("Summary saved to file: %1", savefile);
+	    }
 	}
 	else if (ret == `cancel)
 	{

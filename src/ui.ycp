@@ -212,7 +212,7 @@ global define symbol ArchiveSelectionDialog() ``{
 	//parse variable 'input'
 	string nfsprefix = "nfs://";
 	string fileprefix = "file://";
-	string cdprefix = "cd://";
+	string cdprefix = "cd";
 
 	if (substring(input, 0, size(nfsprefix)) == nfsprefix)
 	{
@@ -231,6 +231,27 @@ global define symbol ArchiveSelectionDialog() ``{
 	else if (substring(input, 0, size(cdprefix)) == cdprefix)
 	{
 	    type = `cd;
+
+            // get CD drive index
+            string cddriveindex_str = regexpsub(input, "cd([0-9]*)://(.*)", "\\1");
+            cd_file = regexpsub(input, "cd([0-9]*)://(.*)", "\\2");
+
+	    if (cddriveindex_str == nil || cddriveindex_str == "")
+	    {
+		cddriveindex_str = "0";
+	    }
+
+	    cddriveindex = tointeger(cddriveindex_str);
+
+            if (cddriveindex == nil)
+            {
+                cddriveindex = 0;
+            }
+
+            if (cd_file == nil)
+            {
+                cdfile = "";
+            }
 	}
 	else
 	{
@@ -244,8 +265,11 @@ global define symbol ArchiveSelectionDialog() ``{
 	file_name = "/tmp/bk.tar";
 	nfs_server = "dhcp28";
 	nfs_file = "/local/backup.tar";
-	cd_file = "";
+	cd_file = "/bk.tar";
     }
+
+    // unmount previous file system
+    Restore::Umount();
 
     term contents = `VBox(
 		`Frame("Backup archive",
@@ -386,18 +410,27 @@ global define symbol ArchiveSelectionDialog() ``{
 	}
 	else if (ret == `cdfile)
 	{
-	    // file selection from CD
+	    // file selection from CD - mount CD
 	    map mount = Restore::mountCD(cddriveindex);
 
 	    if (lookup(mount, "mounted", false) == true)
 	    {
 		string mountpnt = lookup(mount, "mountpoint", "/");
-		string file = PopupFile(mountpnt);
+		string file = PopupFile(mountpnt + "/");
 
 		if (file != "")
 		{
-		    // TODO remove mountpoint dir from name
-		    UI::ChangeWidget(`id(`cdfilename), `Value, file);
+		    // check if file is under mountpoint directory
+		    if (substring(file, 0, size(mountpnt)) != mountpnt)
+		    {
+			// selected file is out of mounted CD
+			UI::ErrorPopup(_("Selected file is out of mounted CD"));
+		    }
+		    else
+		    {
+			// set file name
+			UI::ChangeWidget(`id(`cdfilename), `Value, substring(file, size(mountpnt)));
+		    }
 		}
 
 		// umount CD
@@ -453,6 +486,7 @@ global define symbol ArchiveSelectionDialog() ``{
 	    if (readresult == false)
 	    {
 		UI::ErrorPopup(sformat(_("Can not read backup archive file '%1'!"), input));
+		Restore::Umount();
 		ret = `dummy;
 	    }
 	    else
