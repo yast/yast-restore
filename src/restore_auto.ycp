@@ -132,6 +132,7 @@ else if (func == "Write")
 
 		// select file
 		Wizard::CreateDialog();		// TODO remove this ?
+		Wizard::SetDesktopIcon("restore");
 		ui = ArchiveSelectionDialog(index != 0, false, input);	// false = ask only for one file, others are in 'volumes'
 
 		// ask for more volumes if they are not specified

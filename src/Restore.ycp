@@ -28,7 +28,7 @@
     import "Summary";
     import "Bootloader";
     import "Service";
-    import "Require";
+    import "Package";
     import "Label";
     import "Popup";
     import "URL";
@@ -508,7 +508,7 @@
 	    if (result != 0)
 	    {
 		y2milestone("portmapper package is not installed");
-		Require::DoInstallAndRemove(["portmap"], []);
+		Package::DoInstall(["portmap"]);
 	    }
 
 	    // check if portmapper is running

@@ -30,8 +30,8 @@ import "URL";
 
 import "Popup";
 import "Label";
-import "Require";
-include "wizard/sequencer.ycp";
+import "Package";
+import "Sequencer";
 
 include "restore/helps.ycp";
 include "restore/summary_dialog.ycp";
@@ -1220,7 +1220,7 @@ define symbol SWsingleDialog() ``{
 
     if (size(install) > 0 || size(uninstall) > 0)
     {
-	Require::DoInstallAndRemove(install, uninstall);
+	Package::DoInstallAndRemove(install, uninstall);
 
 	Restore::ReadActualInstalledPackages();
     }
@@ -1893,7 +1893,7 @@ define symbol SummaryDialog() ``{
 
 /**
  * Whole restoration
- * @return any Returned value from WizardSequencer() call
+ * @return any Returned value from Sequencer::Run() call
  */
 define symbol RestoreSequence () ``{
     map aliases =
@@ -1992,9 +1992,11 @@ define symbol RestoreSequence () ``{
 	]
     ];
 
-    Wizard::CreateDialog ();
 
-    symbol ret = WizardSequencer (aliases, sequence);
+    Wizard::CreateDialog ();
+    Wizard::SetDesktopIcon("restore");
+
+    symbol ret = Sequencer::Run(aliases, sequence);
 
     UI::CloseDialog ();
     return ret;
@@ -2005,7 +2007,7 @@ define symbol RestoreSequence () ``{
 /**
  * Restoration without reading and writing.
  * For use with autoinstallation.
- * @return any Returned value from WizardSequencer() call
+ * @return any Returned value from Sequencer::Run() call
  */
 define any RestoreAutoSequence() ``{
 
@@ -2065,8 +2067,9 @@ define any RestoreAutoSequence() ``{
     ];
 
     Wizard::CreateDialog ();
+    Wizard::SetDesktopIcon("restore");
 
-    any ret = WizardSequencer (aliases, sequence);
+    any ret = Sequencer::Run(aliases, sequence);
 
     UI::CloseDialog ();
     return ret;

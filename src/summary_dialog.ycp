@@ -25,7 +25,6 @@ import "Wizard";
 
 import "Popup";
 import "Label";
-include "wizard/sequencer.ycp";
 
 /**
  * This function removes HTML tags from input string
