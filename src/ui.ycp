@@ -118,19 +118,19 @@ global define any RestoreSequence () ``{
 	],
 	"uninstall" :
 	$[
-	    `next	: "sw_single",
+	    `next	: "select",
 	    `abort	: "atexit"
 	],
 	"sw_single" :
 	$[
-	    `next	: "select",
+	    `next	: "restore",
 	    `abort	: "atexit"
 	],
 	"select" :
 	$[
 	    `files	: "selectfile",
 	    `abort	: "atexit",
-	    `next	: "restore"
+	    `next	: "sw_single"
 	],
 	"restore" :
 	$[
@@ -350,12 +350,12 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
     Restore::Umount();
 
     term contents = `VBox(
-		`Frame(_("Backup archive"),
+		`Frame((multivolume == false ? _("Backup archive") : _("Multi volume archive")),
 			`HBox(
-			    `RadioButtonGroup(`id(`source),
+			    `RadioButtonGroup(`id(`source), `opt(`notify),
 				`VBox(
 				    `VSpacing(0.5),
-				    `Left(`RadioButton(`id(`file), _("&Local file"), type == `file)),
+				    `Left(`RadioButton(`id(`file),  `opt(`notify), _("&Local file"), type == `file)),
 				    `HBox(
 					`HSpacing(2),
 					`TextEntry(`id(`filename), _("Archive file na&me:"), file_name),
@@ -363,7 +363,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 					`Bottom(`PushButton(`id(`selectfile), _("&Select file...")))
 				    ),
 				    `VSpacing(1),
-				    `Left(`RadioButton(`id(`nfs), _("N&FS"), type == `nfs)),
+				    `Left(`RadioButton(`id(`nfs), `opt(`notify), _("Network (N&FS)"), type == `nfs)),
 				    `HBox(
 					`HSpacing(2),
 					`TextEntry(`id(`nfsserver), _("I&P adress or name of NFS server:"), nfs_server),
@@ -384,7 +384,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 					`HSpacing(2),
 					`TextEntry(`id(`remfilename), _("Archi&ve file name:"), cd_file),
 					`HSpacing(1),
-					`Bottom(`PushButton(`id(`remfile), _("S&elect file")))
+					`Bottom(`PushButton(`id(`remfile), _("S&elect file...")))
 				    ),
 				    `VSpacing(1)
 				)
@@ -398,8 +398,9 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
     string help = (multivolume == false) ? _("Help") : _("Multivolume help");
     string title = (multivolume == false) ? _("Archive selection") : _("Multi volume archive selection");
 
-    Wizard::SetContents(title, contents, help, true, true);
+    Wizard::SetContents(title, contents, (multivolume == true ? ArchiveMultiSelectionHelp() : ArchiveSelectionHelp()), true, true);
 
+    ShadowButtons(type);
 
     symbol ret = nil;
 
@@ -437,6 +438,10 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 	    {
 		UI::ChangeWidget(`id(`nfsserver), `Value, selectedhost);
 	    }
+	}
+	else if (ret == `nfs || ret == `removable || ret == `file)
+	{
+	    ShadowButtons(UI::QueryWidget(`id(`source), `CurrentButton));
 	}
 	else if (ret == `remfile)
 	{
@@ -588,7 +593,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 			if (testall == false)
 			{
 			    y2error("Test Restore::TestAllVolumes() failed");
-			    UI::ErrorPopup(_("Volume test failed"));
+			    UI::ErrorPopup(_("Test of all volumes failed.\nProbably some archive file is corrupted."));
 
 			    ret = `back;
 			}
@@ -639,14 +644,14 @@ global define symbol ArchivePropertyDialog() ``{
 		`VSpacing(1.0),
 		`PushButton(`id(`details), _("&Show archive contents...")),
 		`VSpacing(1),
-		`PushButton(`id(`options), _("Res&tore options...")),
+		`PushButton(`id(`options), _("E&xpert options...")),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
 	);
 
     Wizard::SetContents(_("Archive properties"),
-	contents, "help", true, true);
+	contents, ArchivePropertyHelp(), true, true);
 
     symbol ret = nil;
 
@@ -764,7 +769,7 @@ global define symbol SelectionInstallDialog() ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::SetContents(_("Package restoration - installation"), contents, "help", true, true);
+    Wizard::SetContents(_("Package restoration - installation"), contents, InstallPackageHelp(), true, true);
 
     symbol ret = nil;
 
@@ -864,7 +869,7 @@ global define symbol SelectionUninstallDialog() ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::SetContents(_("Package restoration - uninstallation"), contents, "help", true, true);
+    Wizard::SetContents(_("Package restoration - uninstallation"), contents, UninstallPackageHelp(), true, true);
 
     symbol ret = nil;
 
@@ -973,10 +978,10 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
     if (!personal)
     {
-	helptext = helptext + _("<BR>To select files which will be restored from archive press <B>Select files</B> button.");
+	helptext = helptext + _("<P><BR>To select files which will be restored from archive press <B>Select files</B> button.</P>");
     }
 
-    Wizard::SetContents(_("Packages to restore"), contents, helptext, true, true);
+    Wizard::SetContents(_("Packages to restore"), contents, RestoreSelectionHelp(personal), true, true);
 
     // set currnet item in the table
     if (size(tablecontents) > 0)
@@ -1156,7 +1161,7 @@ global define symbol RestoreOptionsDialog() ``{
 
     Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
 
-    Wizard::SetContents(_("Restore options"), contents, "help", true, true);
+    Wizard::SetContents(_("Restore options"), contents, RestoreOptionsHelp(), true, true);
 
     symbol ret = nil;
 
@@ -1242,7 +1247,7 @@ global define symbol FileSelectionDialog(string packagename) ``{
     Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
 
     // for translatores: %1 is name of package (e.g. "aaa_base")
-    Wizard::SetContents(sformat(_("File selection - package %1"), packagename), contents, "help", true, true);
+    Wizard::SetContents(sformat(_("File selection - package %1"), packagename), contents, FileSelectionHelp(), true, true);
 
     symbol ret = nil;
 
@@ -1323,7 +1328,7 @@ global define symbol ArchiveContentsDialog() ``{
 
     Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
 
-    Wizard::SetContents(_("Archive content"), contents, "help", true, true);
+    Wizard::SetContents(_("Archive content"), contents, ArchiveContentHelp(), true, true);
 
     symbol ret = nil;
 
@@ -1377,7 +1382,7 @@ global define symbol RestoreProgressDialog() ``{
 	return abort;
     };
 
-    Wizard::SetContents(_("Restoring files"), contents, "help", false, false);
+    Wizard::SetContents(_("Restoring files"), contents, RestoreProgressHelp(), false, false);
 
     // start restoration
     map result = Restore::Write(callback, progressbar, "/tmp/restore");  // TODO FIXME: unpack to "/"
@@ -1432,8 +1437,18 @@ global define symbol SuSEconfigDialog() ``{
 
     // TODO: CallModule("inst_suseconfig", []);
 
-    term contents = `Label(_("Here will be SuSEconfig started (optionally)."));
+    if (Restore::runlilo == true)
+    {
+	term contents = `Label(_("Starting lilo..."));
+	Wizard::SetContents("", contents, "", true, true);
+    }
 
+    // start lilo
+    map liloresult = Restore::Lilo();
+    lilostatus = lookup(liloresult, "lilo", false);
+
+
+    term contents = `Label(_("Here will be SuSEconfig started (optionally)."));
     Wizard::SetContents("", contents, "", true, true);
 
     symbol ret = nil;
@@ -1441,13 +1456,13 @@ global define symbol SuSEconfigDialog() ``{
     do
     {
 	ret = UI::UserInput();
-    }
-    while(ret != `next && ret != `abort && ret != `back);
 
-    if (ret == `cancel)
-    {
-	ret = `abort;
+	if (ret == `cancel)
+	{
+	    ret = `abort;
+	}
     }
+    while (ret != `next && ret != `abort && ret != `back);
 
     return ret;
 }
@@ -1481,7 +1496,7 @@ global define symbol SummaryDialog() ``{
 
     string extendedinfo = "<P><BR><B>Details:</B></P><P>Lilo return status: " + lilostr + "</P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>Restored files:</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
 
-    return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, "help", _("Summary of restoration"), `finish);
+    return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, SummaryHelp(), _("Summary of restoration"), `finish);
 }
 
 /**
@@ -1754,6 +1769,21 @@ global define string ProposeNextVolume(string volume) ``{
 	return "";
     }
 }
+
+global define void ShadowButtons(symbol type) ``{
+    UI::ChangeWidget(`id(`filename), `Enabled, type == `file);
+    UI::ChangeWidget(`id(`selectfile), `Enabled, type == `file);
+
+    UI::ChangeWidget(`id(`nfsserver), `Enabled, type == `nfs);
+    UI::ChangeWidget(`id(`nfsfilename), `Enabled, type == `nfs);
+    UI::ChangeWidget(`id(`selecthost), `Enabled, type == `nfs);
+
+    UI::ChangeWidget(`id(`device), `Enabled, type == `removable);
+    UI::ChangeWidget(`id(`remfilename), `Enabled, type == `removable);
+    UI::ChangeWidget(`id(`remfile), `Enabled, type == `removable);
+}
+
+
 /**
  * This function should be called only once before end of client. This function
  * cleans up the system - unmounts mounted files systems.

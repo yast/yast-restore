@@ -20,121 +20,157 @@
 {
     textdomain "restore";
 
-    /**
-     * Help for the ReadDialog () dialog.
-     * @return string The help text.
-     */
-    global define string ReadDialogHelp () ``{
-	// TODO FIXME: Modify it to your needs!
+    global define string ArchiveSelectionHelp() ``{
 	return
-	    // For translators: restore read dialog help, part 1 of 2
-_("<P><B><BIG>Initializing restore</BIG></B><BR>
-Please wait for a while...
-<BR></P>") +
-	    // For translators: restore read dialog help, part 2 of 2
-_("<P><B><BIG>Aborting the initialization:</BIG></B><BR>
-You can safely abort the configuration utility by pressing the <B>Abort</B>
-button now.
-</P>");
+	    // For translators: archive selection dialog help (part 1)
+_("<P><B><BIG>Restore module</BIG></B><BR> Restore module can restore your system
+from backup archive.</P>") +
+
+	    // For translators: archive selection dialog help, (part 2)
+_("<P><B>Archive selection</B><BR>Archive can be read from:</P>
+<P><B>Local file</B><BR>Archive is already available in the system, it is on mounted file system.
+<BR><B>Network</B><BR>Backup archive can be read from network using NFS.
+<BR><B>Removable device</B><BR>Archive is on removable device or
+on unmounted file system. Device can be selected from list or you can enter device file name
+(e.g. /dev/hdc) if device is not in the list.
+If you press <B>Select file</B> button device will be mounted
+and you can select file from dialog.</P>") +
+
+	// For translators: archive selection dialog help (part 3)
+_("<P>Note: If you have multi volume archive then select first volume.</P>");
     }
 
-    /**
-     * Help for the WriteDialog () dialog.
-     * @return string The help text.
-     */
-    global define string WriteDialogHelp () ``{
-	// TODO FIXME: Modify it to your needs!
+    global define ArchiveMultiSelectionHelp() ``{
 	return
-	    // For translators: restore write dialog help, part 1 of 2
-_("<P><B><BIG>Saving restore configuration</BIG></B><BR>
-Please wait for a while...
-<BR></P>") +
-	    // For translators: restore write dialog help, part 2 of 2
-_("<P><B><BIG>Aborting the saving:</BIG></B><BR>
-You can abort the saving by pressing the <B>Abort</B> button.
-An additional dialog will inform you whether it is safe to do so or not.
-</P>");
+_("<P><B><BIG>Multi volume archive</BIG></B><BR> Backup archive has more that
+one volume.</P>") +
+
+_("<P>In this dialog you will enter volumes which belongs to backup archive.
+Dialog will change after you select last part of backup archive.</P>") +
+
+_("<P>After volume is read the name of file will be automatically changed to
+next volume name, so you will probably only use button <B>Next</B> when next
+volume can be read.</P>") ;
+
     }
 
-    /**
-     * Help for the DetectedDialog () dialog.
-     * @return string The help text.
-     */
-    global define string DetectedDialogHelp () ``{
-	// TODO FIXME: Modify it to your needs!
+    global define string ArchivePropertyHelp() ``{
 	return
-	    // For translators: restore detected dialog help, part 1 of 3
-_("<P><B><BIG>Restore setup</BIG></B><BR>
-Here you can configure your restore.
-<BR></P>") +
-	    // For translators: restore detected dialog help, part 2 of 3
-_("<P><B><BIG>Adding a restore:</BIG></B><BR>
-Choose restore from the list of the detected restores. If your restore was
-not autodetected, use <B>Other (not detected)</B>. Then press
-<B>Configure</B>.
-</P>") +
-	    // For translators: restore detected dialog help, part 3 of 3
-_("<P><B><BIG>Editing or deleting:</BIG></B><BR>
-If you press <B>Edit</B>, an additional dialog (where you
-can change the configuration) will open.
-</P>");
+	    // For translators: archive property dialog help
+_("<P><B><BIG>Archive properties</BIG></B><BR> Here is displayed information
+stored in the backup archive.</P> <P>Press <B>Archive content</B> button to
+show content of the archive</P> <P>Press <B>Expert options</B> to set restore
+expert options.</P> <P>If archive is multi volume archive then after
+<B>Next</B> button press you will be asked to select more volumes.</P> ");
     }
 
-    /**
-     * Help for the OverviewDialog () dialog.
-     * @return string The help text.
-     */
-    global define string OverviewDialogHelp () ``{
-	// TODO FIXME: Modify it to your needs!
+    global define string ArchiveContentHelp() ``{
 	return
-	    // For translators: restore overview dialog help, part 1 of 3
-_("<P><B><BIG>Restore overview</BIG></B><BR>
-Here you can get an overview about installed restores. Additionally
-you can edit their configuration.
-<BR></P>") +
-	    // For translators: restore overview dialog help, part 2 of 3
-_("<P><B><BIG>Adding a restore:</BIG></B><BR>
-If you press <B>Add</B>, you can manually configure a restore.
-</P>") +
-	    // For translators: restore overview dialog help, part 3 of 3
-_("<P><B><BIG>Editing or deleting:</BIG></B><BR>
-Choose a restore, whose configuration you want to change or remove.
-Then press the appropriate button: <B>Edit</B> or <B>Delete</B>.
-</P>");
+	    // For translators: archive property dialog help
+_("<P><B><BIG>Archive content</BIG></B><BR>
+Here are displayed packages and files which are in the backup archive</P>");
     }
 
-    /**
-     * Help for the Configure1Dialog () dialog.
-     * @return string The help text.
-     */
-    global define string Configure1DialogHelp () ``{
-	// TODO FIXME: Modify it to your needs!
+
+    global define string RestoreOptionsHelp() ``{
 	return
-	    // For translators: restore configure1 dialog help, part 1 of 2
-_("<P><B><BIG>Configure, part one</BIG></B><BR>
-Please press the <B>Next</B> button.
-<BR></P>") +
-	    // For translators: restore configure1 dialog help, part 2 of 2
-_("<P><B><BIG>Selecting something:</BIG></B><BR>
-It is not possible, you must code it first :-)
-</P>");
+	    // For translators: option dialog help (part 1)
+_("<P><B><BIG>Restore options</BIG></B><BR> These options are intended for
+expert users, probably you will not need to change default values.</P>") +
+
+	    // For translators: option dialog help (part 2)
+_("<P><B>Run lilo</B> - if some files which are needed at system boot are changed
+then lilo have to be started.
+<BR><B>Run SuSEconfig</B> - SuSEconfig will activate changes in configuration files.
+<BR><B>Restore RPM db</B> - if you delete RPM database by mistake or if it is badly
+corrupted check this option - database will be restored if it is tha backup archive.
+In other cases leave this option unchecked.</P>");
     }
 
-    /**
-     * Help for the Configure2Dialog () dialog.
-     * @return string The help text.
-     */
-    global define string Configure2DialogHelp () ``{
-	// TODO FIXME: Modify it to your needs!
+    global define string RestorePackageHelp() ``{
 	return
-	    // For translators: restore configure1 dialog help, part 1 of 2
-_("<P><B><BIG>Configure, part two</BIG></B><BR>
-Please press the <B>Next</B> button.
-<BR></P>") +
-	    // For translators: restore configure1 dialog help, part 2 of 2
-_("<P><B><BIG>Selecting something:</BIG></B><BR>
-It is not possible, you must code it first :-)
-</P>");
+	    // For translators: package restoration note (used in more dialogs)
+_("<P>Set of installed packages must be restored to state which was at backup.</P>");
+    }
+
+
+    global define string InstallPackageHelp() ``{
+	return
+	    // For translators: package installation help (part 1)
+_("<P><B><BIG>Package restoration</BIG></B><BR>") +
+
+	    RestorePackageHelp() +
+
+	    // For translators: package installation help (part 2)
+_("<P>There is a list with uninstalled packages in the table. These packages
+were installed at backup time, but now they are missing.</P>") +
+
+_("<P>To get same system configuration as was at backup time you have to select all packages.</P>") +
+
+	    // For translators: package installation help (part 2)
+_("<P>Mark 'X' in the first column means that package will be installed.</P>");
+
+    }
+
+    global define string UninstallPackageHelp() ``{
+	return
+	    // For translators: package installation help (part 1)
+_("<P><B><BIG>Package restoration</BIG></B><BR>") +
+
+	    RestorePackageHelp() +
+
+	    // For translators: package installation help (part 2)
+_("<P>Packages in the table were not installed at backup time, but now they are.</P>") +
+
+_("<P>To get same system configuration as was at backup time you have to select all packages to uninstall. If you want to leave package installed deselect it.</P>") +
+
+	    // For translators: package installation help (part 2)
+_("<P>Mark 'X' in the first column means that package will be uninstalled.</P>");
+
+    }
+
+
+    global define string RestoreSelectionHelp(boolean personal) ``{
+	return
+	    // For translators: restore selection (part 1)
+_("<P><B><BIG>Selection</BIG></B><BR>
+Here you can select which packages will be restored from backup archive.</P>") +
+
+_("<P>In the first column is displayed restoration status of the package. It can be 'X' (package will restored) or empty (package will not be restored).") +
+
+((personal == false) ? "'P' means that package will be restored only partially. Press <B></B> to select files which will be restored." : "" ) +
+
+_("Number of selected files is in the second column.</P>");
+
+    }
+
+
+    global define string FileSelectionHelp() ``{
+	return
+	    // For translators: file selection help (part 1)
+_("<P><B><BIG>File selection</BIG></B><BR>
+Here you can select which files will be restored.
+</P>
+");
+
+    }
+
+    global define string RestoreProgressHelp() ``{
+	return
+_("<P><B><BIG>Restoring</BIG></B><BR>
+Files are restoring from backup archive now.
+It will take some time, depending on size and number of restored files.
+");
+    }
+
+    global define string SummaryHelp() ``{
+	return
+_("<P><B><BIG>Summary</BIG></B><BR>
+Here is displayed summary of restoration process. To see more details check option
+<B>Show details</B>. If you want to save summary to file press <B>Save to file</B> button.
+");
     }
 
 }
+
+

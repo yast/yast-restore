@@ -402,7 +402,7 @@
 	    return false;
 	}
 
-	y2debug("archivefiles: %1", archivefiles);
+	y2debug("read archivefiles: %1", archivefiles);
 
 	string infofiles = "info/comment info/hostname info/date info/installed_packages info/files info/packages_info";
 
@@ -421,6 +421,8 @@
 	    archivefiles = splitstring(archivefs, "\n");
 	    archivefiles = filter(string pk, archivefiles, ``{return pk != "" && pk != nil;});
 	}
+
+	y2debug("final archivefiles: %1", archivefiles);
 
 	// read installed packages
 	string installedpkgs_str = SCR::Read(.target.string, tempdir + "/info/installed_packages");
@@ -466,6 +468,7 @@
 		    if (line == nopackagestring)
 		    {
 			actualpkg = "";
+			actualversion = "";
 		    }
 		    else
 		    {
@@ -498,7 +501,7 @@
 	// add last package info
 	if (actualpkg != nil)
 	{
-	    archive_info = add(archive_info, actualpkg, $[ "files" : pkfiles, "prefix" : prefix ]);
+	    archive_info = add(archive_info, actualpkg, $[ "files" : pkfiles, "prefix" : prefix, "vers" : actualversion ]);
 	}
 
 	// read actual installed packages
@@ -1015,11 +1018,11 @@
      * @return map Map $[ "lilo" : integer exit_value, "stderr" : [ "stderr lines" ] ] or $[ "lilo" : nil ] if lilo was not started
      */
     global define map Lilo() ``{
-	if (runlilo == true)
+	if (runlilo == true && Mode::test == false)
 	{
 	    // start lilo
 	    map ret  = SCR::Execute(.target.bash_output, "/sbin/lilo");
-	    return $[ "lilo" : lookup(ret, "exit", -1), "stderr" : splitstring(lookup(ret, "stderr", ""), "\n") ];
+	    return $[ "lilo" : (lookup(ret, "exit", -1) == 0), "stderr" : lookup(ret, "stderr", "") ];
 	}
 	else
 	{
