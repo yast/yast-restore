@@ -1206,7 +1206,7 @@ It was probably not created by the backup module.
      * Uses variable Restore::runbootloader
      * @return boolean true on success
      */
-    global define boolean Bootloader() ``{
+    global define boolean ActivateBootloader() ``{
 	boolean ret = nil;
 
 	// disable Bootloader's progress bar
@@ -1693,7 +1693,7 @@ Press OK to exit.
 	    UI::ChangeWidget(`id(progress), `Value, i);
 	}
 
-	boolean bootload = Bootloader();
+	boolean bootload = ActivateBootloader();
 
 	return $[ "aborted" : aborted, "restored" : restoredfiles, "failed" : failedfiles, "packages" : restoredpackages, "bootloader" : bootload ];
     }

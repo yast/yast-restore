@@ -1,6 +1,6 @@
 @HEADER-COMMENT@
 
-# neededforbuild  yast2-devel-packages yast2-installation yast2-bootloader
+# neededforbuild  yast2-devel-packages yast2-installation yast2-bootloader yast2-storage
 
 @HEADER@
 Requires:	yast2 yast2-core bzip2 gzip tar yast2-installation yast2-bootloader aaa_base
