@@ -1095,7 +1095,7 @@ global define boolean InstallQuestion(string package, string version) ``{
 global define symbol PackageSelectionRestoreDialog() ``{
 
     // read product info
-    boolean personal = false; //TODO FIXME: Product::personal;
+    boolean personal = Product::personal;
 
     // in personal version is button = `Empty() and help text will be shorter
     term button = (!personal) ? `PushButton(`id(`files), _("S&elect files")) : `Empty();
@@ -1549,7 +1549,7 @@ global define symbol RestoreProgressDialog() ``{
     Wizard::SetContents(_("Restoring files"), contents, RestoreProgressHelp(), false, false);
 
     // start restoration
-    map result = Restore::Write(callback, progressbar, "/tmp/restore");  // TODO FIXME: unpack to "/"
+    map result = Restore::Write(callback, progressbar, "/");
 
     // set values from restoration
     ret = (lookup(result, "aborted", false)) ? `abort : `next;

@@ -128,8 +128,7 @@
     );
 
     Progress::off ();
-    // TODO FIXME: extract files to the root directory
-    map ret = Restore::Write( ``{ return false; }, nil, "/tmp/restore" );
+    map ret = Restore::Write( ``{ return false; }, nil, "/" );
     Progress::on ();
 
     return (size(lookup(ret, "failed", [])) == 0);
