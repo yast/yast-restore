@@ -31,7 +31,6 @@ import "Product";
 import "Popup";
 import "Label";
 import "Require";
-//include "ui/file_popups.ycp";
 include "wizard/sequencer.ycp";
 
 include "restore/helps.ycp";
@@ -288,9 +287,9 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 
 	if (ret == `selectfile)
 	{
-	    string file = PopupFileWithMask("/", ["*.tar"]);
+	    string file = UI::AskForExistingFile("/", "*.tar", _("Select archive file"));
 
-	    if (file != "")
+	    if (file != nil && file != "")
 	    {
 		UI::ChangeWidget(`id(`filename), `Value, file);
 	    }
@@ -320,9 +319,9 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 	    if (lookup(mount, "success", false) == true)
 	    {
 		string mountpnt = lookup(mount, "mpoint", "/");
-		string file = PopupFileWithMask(mountpnt + "/", ["*.tar"]);
+		string file = UI::AskForExistingFile(mountpnt + "/", "*.tar", _("Select archive file"));
 
-		if (file != "")
+		if (file != nil && file != "")
 		{
 		    // check if file is under mountpoint directory
 		    if (substring(file, 0, size(mountpnt)) != mountpnt)
@@ -1343,8 +1342,8 @@ Select them for restoration?
 		{
 		    // RPMoption is nil
 		    Popup::Warning(_("There is a conflict between selected
-packages and the RPM restoration option.
-Try to change selection or RPM restoration status."));
+packages and the RPM database restoration option.
+Try to change selection or RPM database restoration status."));
 		}
 	    }
 	}

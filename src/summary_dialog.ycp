@@ -25,7 +25,6 @@ import "Wizard";
 
 import "Popup";
 import "Label";
-include "ui/file_popups.ycp";
 include "wizard/sequencer.ycp";
 
 /**
@@ -118,7 +117,7 @@ global define symbol DisplaySummaryDialog(string text, string detail_text, strin
 	}
 	else if (ret == `save)
 	{
-	    string savefile = SaveFileAs("/");
+	    string savefile = UI::AskForSaveFileName("/", "*", _("Save summary to file"));
 
 	    if (savefile != "" && savefile != nil)
 	    {

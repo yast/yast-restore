@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Wed Nov 19 17:34:47 CET 2003 - lslezak@suse.cz
+
+- use UI:: file popup builtins
+- version 2.9.0
+
+-------------------------------------------------------------------
 Thu Sep 25 12:30:39 CEST 2003 - lslezak@suse.cz
 
 - use Require module (#31673)
