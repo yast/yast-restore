@@ -126,10 +126,10 @@ expert users. The default values are usually appropriate.</P>
 ") +
 
 	    // For translators: option dialog help (part 2)
-_("<P><B>Activate boot loader configuration</B> -- Check this option to reinstall boot loader.
-Some boot loaders (e.g. Lilo) have to be reinstalled if configuration files or files needed at system boot are changed.
+_("<P><B>Activate Boot Loader Configuration</B> -- Check this option to reinstall the boot loader.
+Some boot loaders (e.g., LILO) must be reinstalled if configuration files or files needed at system boot are changed.
 <BR><B>Run SuSEconfig</B> -- SuSEconfig will activate changes in configuration files.
-<BR><B>Restore RPM db</B> -- If you delete RPM database by mistake or if it is badly
+<BR><B>Restore RPM db</B> -- If you delete the RPM database by mistake or if it is badly
 corrupted, check this option.  The database will be restored if it is in the backup archive.
 In other cases, leave this option unchecked.</P>
 ");

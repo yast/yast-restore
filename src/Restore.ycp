@@ -1031,7 +1031,9 @@ It was probably not created by the backup module.
                         // popup message text - ask to install 'star' package
 			// %1 is translated 'Continue' label
                         boolean inst = UI::ContinueCancelPopup(sformat(_("Package 'star' is needed to extract
-files from archive.\nPress '%1' to install package."), cont));
+files from the archive.
+Press '%1' to install this package.
+"), cont));
 
                         if (inst == true)
                         {
@@ -1061,7 +1063,9 @@ files from archive.\nPress '%1' to install package."), cont));
                         if (inst == false)
                         {
 			    // error popup message
-			    Report::Error(_("Package 'star' is not installed!\nPress OK to exit."));
+			    Report::Error(_("Package 'star' is not installed.
+Press OK to exit.
+"));
                             y2error("star package wasn't installed - aborting");
 
 			    return $[ "aborted" : true, "restored" : restoredfiles, "failed" :
@@ -1373,7 +1377,7 @@ files from archive.\nPress '%1' to install package."), cont));
 	    if (ret == false)
 	    {
 		// error popup message
-		Report::Error(_("Boot loader configuration failed!"));
+		Report::Error(_("Boot loader configuration failed."));
 	    }
 
 	    y2milestone("boot loader activated: %1", ret);
