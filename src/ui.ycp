@@ -2064,6 +2064,10 @@ define any RestoreAutoSequence() ``{
 	$[
 	    `next	: "select",
 	    `abort	: `abort
+	],
+	"atexit" :
+	$[
+	    `next	: `next
 	]
     ];
 
