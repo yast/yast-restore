@@ -322,12 +322,41 @@ global define list CreateTableContents(map contents, boolean defaultval) ``{
 }
 
 
+global define list CreateTableContentsWithMismatched(map contents, boolean defaultval) ``{
+    list ret = [];
+    integer num = 0;
+
+    string defval = (defaultval) ? "X" : " ";
+
+    if (contents != nil)
+    {
+	foreach(string p, map m, contents, ``{
+
+		string ver = lookup(m, "ver", "");
+		string descr = lookup(m, "descr", "");
+		string installed = lookup(m, "inst", "");
+
+		ret = add(ret, `item(`id(num), defval, p, ver, installed, descr));
+		num = num + 1;
+	    }
+	);
+    }
+
+    return ret;
+}
+
 global define symbol SelectionInstallDialog() ``{
 
     // LATER: if all packages are installed return `next (or `back)
 
     list missing = [];
     map missingpackages = Restore::GetMissingPackages();
+
+    // add mismatched packages
+    foreach(string p, map info, Restore::GetMismatchedPackages(), ``{
+	    missingpackages = add(missingpackages, p, info);
+	}
+    );
 
     if (Mode::test == true)
     {
@@ -336,12 +365,12 @@ global define symbol SelectionInstallDialog() ``{
     }
     else
     {
-	missing = CreateTableContents(missingpackages, true);
+	missing = CreateTableContentsWithMismatched(missingpackages, true);
     }
 
     string widgetlabel = _("&Packages which will be installed");
 
-    term header = `header(" ", _("Package"), _("Version"), _("Description"));
+    term header = `header(" ", _("Package"), _("Backup version"), _("Installed version"), _("Description"));
 
     term contents = `HBox(
 	    `HSpacing(2),
@@ -368,11 +397,11 @@ global define symbol SelectionInstallDialog() ``{
 
 	if (ret == `all)
 	{
-	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContents(missingpackages, true));
+	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContentsWithMismatched(missingpackages, true));
 	}
 	else if (ret == `none)
 	{
-	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContents(missingpackages, false));
+	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContentsWithMismatched(missingpackages, false));
 	}
 	else if (ret == `pkg)
 	{
@@ -390,33 +419,35 @@ global define symbol SelectionInstallDialog() ``{
 
 	    UI::ChangeWidget(`id(`pkg), `Item(current, 0), current_value);
 	}
+	else if (ret == `cancel)
+	{
+	    ret = `abort;
+	}
     }
     while (ret != `next && ret != `abort && ret != `back);
 
-    integer num = size(missingpackages);
-    integer i = 0;
-    map selected = $[];
-
-    while (i < num)
+    if (ret != `abort)
     {
-	string s = select(UI::QueryWidget(`id(`pkg), `Item(i)), 1, " ");
-	string p = select(UI::QueryWidget(`id(`pkg), `Item(i)), 2, " ");
+	integer num = size(missingpackages);
+	integer i = 0;
+	map selected = $[];
 
-	if (s == "X")
+	while (i < num)
 	{
-	    map i = lookup(missingpackages, p, $[]);
-	    string v = lookup(i, "ver", "");
-	    selected = add(selected, p, $[ "ver" : v ]);
+	    string s = select(UI::QueryWidget(`id(`pkg), `Item(i)), 1, " ");
+	    string p = select(UI::QueryWidget(`id(`pkg), `Item(i)), 2, " ");
+
+	    if (s == "X")
+	    {
+		map i = lookup(missingpackages, p, $[]);
+		string v = lookup(i, "ver", "");
+		selected = add(selected, p, $[ "ver" : v ]);
+	    }
+
+	    i = i + 1;
 	}
 
-	i = i + 1;
-    }
-
-    y2milestone("Selected packages to install: %1", selected);
-
-    if (ret == `cancel)
-    {
-	ret = `abort;
+	y2milestone("Selected packages to install: %1", selected);
     }
 
     // TODO: warn if some packages are not available on CDs and display path selection dialog to packages
@@ -428,28 +459,30 @@ global define symbol SelectionInstallDialog() ``{
 
 global define symbol SelectionUninstallDialog() ``{
 
-//    CallModule("sw_single", ["./test"]);
-
-    // LATER: if no extra package is installed return `next (or `back)
+    // LATER: if all packages are installed return `next (or `back)
 
     list extra = [];
+    map extrapackages = Restore::GetExtraPackages();
 
     if (Mode::test == true)
     {
-	extra = [ `item(`id(1), "abcd-2.4.1-45", true), `item(`id(2), "tools-4.2-3", true) ];
+	//TODO: table items 
+	//extra = [ `item(`id(1), "aaa_base-2.4.1-45", true), `item(`id(2), "yast2-base-2.6.2-32", true), `item(`id(3), "sysconfig-base-2.6.1-2", true) ];
     }
     else
     {
-	extra = CreateTableContents(Restore::GetExtraPackages(), true);
+	extra = CreateTableContents(extrapackages, true);
     }
 
     string widgetlabel = _("&Packages which will be uninstalled");
+
+    term header = `header(" ", _("Package"), _("Version"), _("Description"));
 
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`ReplacePoint(`id(`rp), `MultiSelectionBox(`id(`pkg), widgetlabel, extra)),
+		`Table(`id(`pkg), `opt(`notify), header, extra),
 		`VSpacing(1),
 		`HBox(
 		    `PushButton(`id(`all), "&Select all"),
@@ -470,23 +503,58 @@ global define symbol SelectionUninstallDialog() ``{
 
 	if (ret == `all)
 	{
-	    UI::ReplaceWidget(`id(`rp), `MultiSelectionBox(`id(`pkg), widgetlabel, CreateTableContents(Restore::GetExtraPackages(), true)));
+	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContents(extrapackages, true));
 	}
 	else if (ret == `none)
 	{
-	    UI::ReplaceWidget(`id(`rp), `MultiSelectionBox(`id(`pkg), widgetlabel, CreateTableContents(Restore::GetExtraPackages(), false)));
+	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContents(extrapackages, false));
+	}
+	else if (ret == `pkg)
+	{
+	    integer current = UI::QueryWidget(`id(`pkg), `CurrentItem);
+	    string current_value = select(UI::QueryWidget(`id(`pkg), `Item(current)), 1, " ");
+
+	    if (current_value == " ")
+	    {
+		current_value = "X";
+	    }
+	    else
+	    {
+		current_value = " ";
+	    }
+
+	    UI::ChangeWidget(`id(`pkg), `Item(current, 0), current_value);
+	}
+	else if (ret == `cancel)
+	{
+	    ret = `abort;
 	}
     }
     while (ret != `next && ret != `abort && ret != `back);
 
-    if (ret == `cancel)
+    if (ret != `abort)
     {
-	ret = `abort;
+	integer num = size(extrapackages);
+	integer i = 0;
+	map selected = $[];
+
+	while (i < num)
+	{
+	    string s = select(UI::QueryWidget(`id(`pkg), `Item(i)), 1, " ");
+	    string p = select(UI::QueryWidget(`id(`pkg), `Item(i)), 2, " ");
+
+	    if (s == "X")
+	    {
+		map i = lookup(extrapackages, p, $[]);
+		string v = lookup(i, "ver", "");
+		selected = add(selected, p, $[ "ver" : v ]);
+	    }
+
+	    i = i + 1;
+	}
+
+	y2milestone("Selected packages to uninstall: %1", selected);
     }
-
-    y2milestone("Selected packages to uninstall: %1", UI::QueryWidget(`id(`pkg), `SelectedItems));
-
-    // TODO: uninstall selected packages
 
     return ret;
 }
@@ -497,13 +565,13 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`Table(`id(`pkgtable),`opt(`notify), `header(" ", _("Files"), _("Package"), _("Description")), [ `item(`id(1), "X", "all", "aaa_base-2.4.1-45", "Basic package"),
+		`Table(`id(`pkgtable),`opt(`notify), `header(" ", _("Files"), _("Package"), _("Version"), _("Description")), CreateTableContentsRestoreSelection(Restore::GetArchiveInfo(), Restore::GetActualInstalledPackages())
+
+/*		[ `item(`id(1), "X", "all", "aaa_base-2.4.1-45", "Basic package"),
 		    `item(`id(2), "P", "2 of 3", "yast2-base-2.6.2-32", "Yast basic package"), `item(`id(3), "", "", "sysconfig-base-2.6.1-2", "System configuration files")
-		]),
+		]*/),
 		`VSpacing(0.2),
 		`HBox(`PushButton(`id(`select), _("&Select package")), `PushButton(`id(`deselect), _("&Deselect package")), `PushButton(`id(`files), _("S&elect files"))),
-//		`VSpacing(0.2),
-//		`PushButton(`id(`options), _("Restore &options...")),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -519,12 +587,52 @@ global define symbol PackageSelectionRestoreDialog() ``{
     do
     {
 	ret = UI::UserInput();
-    }
-    while(ret != `next && ret != `abort && ret != `back && ret != `files);
 
-    if (ret == `cancel)
+	if (ret == `pkgtable)
+	{
+	    integer current = UI::QueryWidget(`id(`pkgtable), `CurrentItem);
+	    string current_value = select(UI::QueryWidget(`id(`pkgtable), `Item(current)), 1, " ");
+	    string current_pkgname = select(UI::QueryWidget(`id(`pkgtable), `Item(current)), 3, "");
+
+	    if (current_pkgname != "")
+	    {
+		if (current_pkgname == _("<none>"))
+		{
+		    current_pkgname = "";
+		}
+
+		// toggle restore selection: "X" -> " ", " " -> "X", "P" -> " "
+		if (current_value == " ")
+		{
+		    current_value = "X";
+		}
+		else
+		{
+		    current_value = " ";
+		}
+
+		UI::ChangeWidget(`id(`pkgtable), `Item(current, 0), current_value);
+
+		Restore::SetRestoreSelection(current_pkgname, $["sel_type" : current_value]);
+	    }
+	}
+	else if (ret == `cancel)
+	{
+	    ret = `abort;
+	}
+    }
+    while (ret != `next && ret != `abort && ret != `back && ret != `files);
+
+    if (ret != `abort)
     {
-	ret = `abort;
+	map final = Restore::GetArchiveInfo();
+
+	final = filter(string p, map i, final, ``{
+		return (lookup(i, "sel_type", " ") != " ");
+	    }
+	);
+
+	y2internal("Final restore selection: %1", final);
     }
 
     return ret;
@@ -623,7 +731,7 @@ global define symbol ArchiveContentsDialog() ``{
 
     if (archivecontentscache == nil)
     {
-	archivecontentscache = CreateArchiveContentTable(Restore::GetArchiveinfo());
+	archivecontentscache = CreateArchiveContentTable(Restore::GetArchiveInfo());
     }
 
     term contents = `HBox(
@@ -798,6 +906,60 @@ global define list CreateArchiveContentTable(map packagesinfo) ``{
 			num = num + 1;
 		    }
 		);
+	    }
+	);
+    }
+
+    return ret;
+}
+
+
+
+global define list CreateTableContentsRestoreSelection(map backupselection, map installed) ``{
+    list ret = [];
+    // id of item in the table
+    integer num = 0;
+
+    if (backupselection != nil)
+    {
+	foreach(string p, map m, backupselection, ``{
+
+		string ver = lookup(m, "vers", "");
+		string descr = lookup(m, "descr", "");
+
+		string seltype = lookup(m, "sel_type", " ");
+
+		string numfiles = "";
+
+		if (seltype == "X")
+		{
+		    numfiles = _("all");
+		}
+		else if (seltype == " ")
+		{
+		    numfiles = "";
+		}
+		else if (seltype == "P")
+		{
+		    integer total = size(lookup(m, "files", []));
+		    integer sel = size(lookup(m, "sel_file", []));
+
+		    numfiles = sformat(_("%1 of %2"), sel, total);
+		}
+		else
+		{
+		    y2error("Unknown selection type: %1", seltype);
+		}
+
+		// set name for "none" package
+		if (p == "")
+		{
+		    p = _("<none>");
+		}
+
+		ret = add(ret, `item(`id(num), seltype, numfiles, p, ver, descr));
+
+		num = num + 1;
 	    }
 	);
     }

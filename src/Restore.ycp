@@ -39,9 +39,11 @@
     // list of installed packages
     map actualinstalledpackages = $[];
 
+    // restoration archive and selection
+    // "vers" : "version", "files" : ["files"], "prefix" : "prefix", "descr" : "description", "sel_type" : "X", "sel_file" : [""]
     map archive_info = $[];
 
-    // informations stored in archive
+    // information stored in archive
     string date = "";
     string hostname = "";
     string comment = "";
@@ -88,7 +90,7 @@
 
 	if (actualinstalledpackages == $[])
 	{
-	    actualinstalledpackages = GetActualInstalledPackages();
+	    actualinstalledpackages = ReadActualInstalledPackages();
 	}
 
 	// filter actual installed packages out
@@ -120,34 +122,53 @@
 
 	if (actualinstalledpackages == $[])
 	{
-	    actualinstalledpackages = GetActualInstalledPackages();
+	    actualinstalledpackages = ReadActualInstalledPackages();
 	}
 
+	// filter actual installed packages out
 	ret = filter(string p, string v, actualinstalledpackages, ``{
 		return (haskey(installedpkgs, p) != true);
+	    }
+	);
+
+	// add descriptions
+	ret = mapmap(string pkg, string version, ret, ``{
+		string descr = select(SCR::Read(.package.shortDesc, pkg), 0, "");
+
+		if (descr == nil)
+		{
+		    return [pkg, $["ver" : version]];
+		}
+		else
+		{
+		    return [pkg, $["ver" : version, "descr" : descr ]];
+		}
 	    }
 	);
 
 	return ret;
     }
 
-    // package name: [actual, at backup time]
+    // package name: $["inst": actual, "ver : "at backup time, "descr" : package description]
     global define map GetMismatchedPackages() ``{
 	map ret = $[];
 
 	if (actualinstalledpackages == $[])
 	{
-	    actualinstalledpackages = GetActualInstalledPackages();
+	    actualinstalledpackages = ReadActualInstalledPackages();
 	}
 
 	foreach(string p, string v, actualinstalledpackages, ``{
 		if (haskey(installedpkgs, p) == true)
 		{
-		    string installedversion = lookup(installedpkgs, p, "");
+		    string backupversion = lookup(installedpkgs, p, "");
 
-		    if (installedversion != v)
+		    if (backupversion != v)
 		    {
-			ret = add(ret, p, [v, installedversion]);
+			string descr = select(SCR::Read(.package.shortDesc, p), 0, "");
+
+			ret = (descr != nil) ? add(ret, p, $["ver": backupversion, "inst" : v, "descr" : descr]) :
+			    add(ret, p, $["ver": backupversion, "inst" : v]);
 		    }
 		}
 	    }
@@ -157,6 +178,15 @@
     }
 
     global define map GetActualInstalledPackages() ``{
+	if (actualinstalledpackages == $[] || actualinstalledpackages == nil)
+	{
+	    actualinstalledpackages = ReadActualInstalledPackages();
+	}
+
+	return actualinstalledpackages;
+    }
+
+    global define map ReadActualInstalledPackages() ``{
 	// read info about installed packages
 	map info = SCR::Read(.targetpkg.info);
 
@@ -170,7 +200,6 @@
 		    ret = add(ret, name, version);
 		}
 	    );
-
 	}
 
 	return ret;
@@ -421,9 +450,6 @@
 	    }
 	);
 
-
-
-
 	string pkginfo_str = SCR::Read(.target.string, tempdir + "/info/packages_info");
 
 	list pkginfo = splitstring(pkginfo_str, "\n");
@@ -487,32 +513,37 @@
 	    archive_info = add(archive_info, actualpkg, $[ "files" : pkfiles, "prefix" : prefix ]);
 	}
 
+	// read actual installed packages
+        if (actualinstalledpackages == $[] || actualinstalledpackages == nil)
+	{
+	    actualinstalledpackages = ReadActualInstalledPackages();
+	}
 
-	// add package descriptions
+	// add package descriptions and default selection
 	archive_info = mapmap(string p, map i, archive_info, ``{
+		string descr = (p == "") ? _("Files not owned by any package") : select(SCR::Read(.package.shortDesc, p), 0, "");
+		map t = add(i, "descr", descr);
+
+		string sel_type = " ";
+
+		// set default selection to "X" (package is installed) or " " (package is not installed)
 		if (p == "")
 		{
-		    return [p, i];
+		    // set "no package" default value to "X"
+		    sel_type = "X";
 		}
 		else
 		{
-		    string descr = select(SCR::Read(.package.shortDesc, p), 0, "");
-		    map t = add(i, "descr", descr);
-
-		    return [p, t];
+		    sel_type = (haskey(actualinstalledpackages, p)) ? "X" : " ";
 		}
+
+		t = add(t, "sel_type", sel_type);
+
+		return [p, t];
 	    }
 	);
 
-
-
-//	y2internal("SCR::Read(.package.packageList): %1", SCR::Read(.package.shortDesc, "ggv"));
-
-
 	y2milestone("values from archive: date=%1, comment=%2, hostname=%3", date, comment, hostname);
-
-/*	y2milestone("installed packages at backup time: %1", installedpkgs);
-	y2milestone("actual installed packages: %1", GetActualInstalledPackages());*/
 
 	y2debug("installed packages at backup time: %1", installedpkgs);
 	y2debug("actual installed packages: %1", GetActualInstalledPackages());
@@ -525,90 +556,38 @@
 	return archive_info;
     }
 
-/*	if (filename == "" || filename == nil)
+
+    global define void SetRestoreSelection(string pkgname, map selection) ``{
+	if (haskey(archive_info, pkgname) == false)
 	{
-	    return nil;
+	    y2warning("Package %1 is not in archive, cannot be restored!");
 	}
+	else
+	{
+//"vers" : actualversion, "files" : [pkfiles], "prefix" : prefix, "descr", "sel_type" : "X", "sel_file" : []
+	    string sel_type = lookup(selection, "sel_type", " ");
+	    list sel_file = [];
+	    map pkginfo = lookup(archive_info, pkgname, $[]);
 
-	map result = $[];
-
-	SCR::Execute(.target.bash_output, "/bin/tar -C " + tempdir + " -x -f " + filename + " info/packages_info");
-
-	string pkginfo_str = SCR::Read(.target.string, tempdir + "/info/packages_info");
-
-	list pkginfo = splitstring(pkginfo_str, "\n");
-	pkginfo = filter(string pk, pkginfo, ``{return pk != "" && pk != nil;});
-
-	string actualpkg = nil;
-	string prefix = "";
-	list pkfiles = [];
-
-	string packagestring = "Package: ";
-	string nopackagestring = "Nopackage:";
-	string prefixstring = "Installed: ";
-
-	foreach(string line, pkginfo, ``{
-		if (substring(line, 0, size(packagestring)) == packagestring || line == nopackagestring)
-		{
-		    if (actualpkg != nil)
-		    {
-			result = add(result, actualpkg, $[ "files" : pkfiles, "prefix" : prefix ]);
-		    }
-
-		    pkfiles = [];
-		    prefix = "";
-
-		    actualpkg = (line == nopackagestring) ? "" : substring(line, size(packagestring));
-		}
-		else if (substring(line, 0, size(prefixstring)) == prefixstring)
-		{
-		    prefix = substring(line, size(prefixstring));
-
-		    if (prefix == "(none)")
-		    {
-			prefix = "";
-		    }
-		}
-		else if (substring(line, 0, 1) == "/")
-		{
-		    pkfiles = add(pkfiles, line);
-		}
-		else
-		{
-		    y2error("Unknown line in file packages_info: %1", line);
-		}
+	    if (sel_type == "P")
+	    {
+		sel_file = lookup(selection, "sel_file", []);
 	    }
-	);
+	    else if (sel_type != "X" && sel_type != " ")
+	    {
+		y2warning("Unknown selection type '%1' in package %2", sel_type, pkgname);
+	    }
 
-	// add last package info
-	if (actualpkg != nil)
-	{
-	    result = add(result, actualpkg, $[ "files" : pkfiles, "prefix" : prefix ]);
+	    pkginfo = add(pkginfo, "sel_type", sel_type);
+	    pkginfo = add(pkginfo, "sel_file", sel_file);
+
+	    archive_info = add(archive_info, pkgname, pkginfo);
 	}
-
-	return result;
-    }
-*/
-
-    global define void InstallPackages(list pkgs, list paths) ``{
     }
 
-    global define void UninstallPackages(list pkgs) ``{
-    }
-
-    global define void SetSelectedPackages(list selected, list semiselected) ``{
-    }
-
-    global define void RestoreFiles() ``{
-    }
-
-    global define void SetRestorePrefix(string prefix) ``{
-    }
-
-/*    global define void () ``{
-    }*/
 
     global define void Restore() ``{
+	// TODO: what does Init parameter mean?
 	Packages::Init(false);
     }
 
