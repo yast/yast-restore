@@ -29,7 +29,6 @@ archive created by Backup module.
 @clientdir@/restore_*.ycp
 @moduledir@/Restore.ycp
 @moduledir@/Restore.ybc
-@configdir@/restore.y2cc
 @desktopdir@/restore.desktop
 @ybindir@/restore_parse_pkginfo.pl
 %doc @docdir@
