@@ -1382,7 +1382,7 @@ global define symbol RestoreOptionsDialog() ``{
 	    `VBox(
 		`VSpacing(1),
 		// check box label - restore option
-		`Left(`CheckBox(`id(`lilo), _("Activate &bootloader configuration after restoration"), Restore::runbootloader)),
+		`Left(`CheckBox(`id(`lilo), _("Activate &boot loader configuration after restoration"), Restore::runbootloader)),
 		`VSpacing(0.2),
 		// check box label - restore option
 		`Left(`CheckBox(`id(`susecfg), _("Run &SuSEconfig after restoration"), Restore::runSuSEconfig)),
@@ -1751,7 +1751,7 @@ global define symbol SummaryDialog() ``{
     string SuSEinfo = StatusToString(susestatus);
 
     // summary information texts - details
-    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Bootloader configuration: ") + lilostr + "<BR>" + _("SuSEconfig status: ") + SuSEinfo + " </P><P><B>" + _("Restored files:") + "</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
+    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Boot loader configuration: ") + lilostr + "<BR>" + _("SuSEconfig status: ") + SuSEinfo + " </P><P><B>" + _("Restored files:") + "</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
 
     // dialog header
     return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, SummaryHelp(), _("Summary of restoration"), `finish);

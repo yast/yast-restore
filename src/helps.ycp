@@ -43,7 +43,7 @@ _("<P><B>Network</B><BR>Backup archive can be read from network using NFS.</P>")
 
 	    // For translators: archive selection dialog help, (part 5)
 _("<P><B>Removable device</B><BR>The archive is on a removable device or
-on an unmounted file system. Device can be selected from a list or you can enter the device file name
+on an unmounted file system. The device can be selected from a list or you can enter the device file name
 (e.g., /dev/hdc) if not listed.</P>
 ") +
 
@@ -255,15 +255,16 @@ It will take some time, depending on the size and number of restored files.
 // summary dialog help text 1/2
 _("<P><B><BIG>Summary</BIG></B><BR>
 This is a summary of the restoration process. To see more details, check 
-<B>Show details</B>. To save summary to a file, select <B>Save to file</B>.
+<B>Show details</B>. To save the summary to a file, select <B>Save to file</B>.
 </P>
 
 ") +
 // summary dialog help text 2/2
 _("<P><B>Note:</B><BR>
-Displaying detailed summary can take long time, depending on number
+Displaying the detailed summary can take a long time depending on number
 of restored files.
-</P>");
+</P>
+");
     }
 
 }

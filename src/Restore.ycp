@@ -1014,7 +1014,7 @@ It was probably not created by the backup module.
 	if (runbootloader == true && progress != nil)
 	{
 	    // progess bar label
-	    UI::ChangeWidget(`id(progress), `Label, _("Configuring bootloader..."));
+	    UI::ChangeWidget(`id(progress), `Label, _("Configuring boot loader..."));
 	    UI::ChangeWidget(`id(progress), `Value, i);
 	}
 
@@ -1210,7 +1210,7 @@ Boot loader was not updated."));
 		if (ret == false)
 		{
 		    // error message - lilo failed
-		    Report::Error(_("Lilo utility failed.
+		    Report::Error(_("LILO utility failed.
 Boot configuration was not updated.
 "));
 		}
