@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Tue Mar 30 04:32:25 CEST 2004 - nashif@suse.de
+
+- Also add sequence for atexit
+
+-------------------------------------------------------------------
 Tue Mar 30 03:19:08 CEST 2004 - nashif@suse.de
 
 - Added missing alias to autoyast workflow
