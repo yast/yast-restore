@@ -53,7 +53,10 @@
     string hostname = "";
     string comment = "";
 
-    boolean multiarchive = false;
+    boolean multivolume = false;
+
+    // list of files
+    list volumeparts = [];
 
     // temporary directory
     string tempdir = "";
@@ -81,8 +84,8 @@
      * Selected archive has more parts
      * @return boolen True if archive have more than one part.
      */
-    global define boolean IsMultiArchive() ``{
-	return multiarchive;
+    global define boolean IsMultiVolume() ``{
+	return multivolume;
     }
 
     /**
@@ -426,17 +429,51 @@
 	}
 
 	// get archive contents
-	// TODO use -v flag, filter out Volume label, set multiarchive flag
 	map result = SCR::Execute(.target.bash_output, "/bin/tar -t -f " + filename);
 
-	// TODO: result from multiarchive is 2!
+	// check tar exit value
 	if (lookup(result, "exit", -1) != 0)
 	{
-	    // test if archive is multi volume
-	    return false;
+	    // test if archive is multi volume - use -v parameter to get file descriptions
+	    map detailresult = SCR::Execute(.target.bash_output, "/bin/tar -v -t -f " + filename);
+
+	    list stdout = splitstring(lookup(detailresult, "stdout", ""), "\n");
+	    string firstline = select(stdout, 0, "");
+
+	    // check if there is first volume label
+	    if (regexpmatch(firstline, "V--------- .* YaST2 backup: Volume 1--.*--") == true)
+	    {
+		// multivolume archive found - continue
+		y2milestone("Found multivolume archive");
+		multivolume = true;
+
+		string tmpfile = tempdir + "/001.tar";
+
+		// copy multi volume part to temp directory
+		integer exit = SCR::Execute(.target.bash, "/bin/cp " + filename + " " + tmpfile);
+
+		if (exit == 0)
+		{
+		    // set list of volumes
+		    volumeparts = [ tmpfile ];
+
+		    // read archive info from local copy (should be faster)
+		    filename = tmpfile;
+		}
+		else
+		{
+		    y2error("Copy failed");
+		    return false;
+		}
+
+	    }
+	    else
+	    {
+		return false;
+	    }
 	}
 
-	// get list of files, TODO: multivolume archive
+	// get list of files
 	archivefiles = splitstring(lookup(result, "stdout", ""), "\n");
 	archivefiles = filter(string f, archivefiles, ``{return f != "" && f != nil;});
 
@@ -447,7 +484,7 @@
 	    return false;
 	}
 
-	y2milestone("archivefiles: %1", archivefiles);
+	y2debug("archivefiles: %1", archivefiles);
 
 	string infofiles = "info/comment info/hostname info/date info/installed_packages info/files info/packages_info";
 
