@@ -212,10 +212,12 @@ global define symbol ArchiveSelectionDialog() ``{
 	ret = `abort;
     }
 
-    if (ret == `next && Mode::test != true)
+    string fname = UI::QueryWidget(`id(`filename), `Value);
+
+    if (ret == `next && Mode::test != true && fname != Restore::GetArchiveName())
     {
 	Wizard::SetContents("", `Label(_("Reading archive contents...")), _("Please wait"), false, false);
-	Restore::ReadArchiveFile("/tmp/backup.tar");
+	Restore::ReadArchiveFile(fname);
     }
 
     return ret;
@@ -297,14 +299,21 @@ global define symbol ArchivePropertyDialog() ``{
     return ret;
 }
 
-global define list CreateMultiselectionContents(map contents, boolean defaultval) ``{
+global define list CreateTableContents(map contents, boolean defaultval) ``{
     list ret = [];
     integer num = 0;
 
+    string defval = (defaultval) ? "X" : " ";
+
     if (contents != nil)
     {
-	foreach(string p, string v, contents, ``{
-		ret = add(ret, `item(p + "-" + v, defaultval));
+	foreach(string p, map m, contents, ``{
+
+		string ver = lookup(m, "ver", "");
+		string descr = lookup(m, "descr", "");
+
+		ret = add(ret, `item(`id(num), defval, p, ver, descr));
+		num = num + 1;
 	    }
 	);
     }
@@ -318,32 +327,32 @@ global define symbol SelectionInstallDialog() ``{
     // LATER: if all packages are installed return `next (or `back)
 
     list missing = [];
+    map missingpackages = Restore::GetMissingPackages();
 
     if (Mode::test == true)
     {
-	missing = [ `item(`id(1), "aaa_base-2.4.1-45", true), `item(`id(2), "yast2-base-2.6.2-32", true), `item(`id(3), "sysconfig-base-2.6.1-2", true) ];
+	//TODO: table items 
+	//missing = [ `item(`id(1), "aaa_base-2.4.1-45", true), `item(`id(2), "yast2-base-2.6.2-32", true), `item(`id(3), "sysconfig-base-2.6.1-2", true) ];
     }
     else
     {
-	missing = CreateMultiselectionContents(Restore::GetMissingPackages(), true);
+	missing = CreateTableContents(missingpackages, true);
     }
+
+    string widgetlabel = _("&Packages which will be installed");
+
+    term header = `header(" ", _("Package"), _("Version"), _("Description"));
 
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`MultiSelectionBox(`id(`pkg), _("&Packages which will be installed"), missing),
+		`Table(`id(`pkg), `opt(`notify), header, missing),
 		`VSpacing(1),
 		`HBox(
 		    `PushButton(`id(`all), "&Select all"),
 		    `PushButton(`id(`none), "&Deselect all")
 		),
-
-/*		`VSpacing(0.2),
-		`CheckBox(`id(`all), "Display all packages"),
-		`VSpacing(0.2),
-		`HBox(`PushButton(`id(`select), "&Select package"), `PushButton(`id(`deselect), "&Deselect package"), `PushButton(`id(`files), _("&File selection"))),*/
-
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -359,14 +368,51 @@ global define symbol SelectionInstallDialog() ``{
 
 	if (ret == `all)
 	{
-	    UI::ChangeWidget(`id(`pkg), Values, CreateMultiselectionContents(Restore::GetMissingPackages(), true));
+	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContents(missingpackages, true));
 	}
 	else if (ret == `none)
 	{
-	    UI::ChangeWidget(`id(`pkg), Values, CreateMultiselectionContents(Restore::GetMissingPackages(), false));
+	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContents(missingpackages, false));
+	}
+	else if (ret == `pkg)
+	{
+	    integer current = UI::QueryWidget(`id(`pkg), `CurrentItem);
+	    string current_value = select(UI::QueryWidget(`id(`pkg), `Item(current)), 1, " ");
+
+	    if (current_value == " ")
+	    {
+		current_value = "X";
+	    }
+	    else
+	    {
+		current_value = " ";
+	    }
+
+	    UI::ChangeWidget(`id(`pkg), `Item(current, 0), current_value);
 	}
     }
     while (ret != `next && ret != `abort && ret != `back);
+
+    integer num = size(missingpackages);
+    integer i = 0;
+    map selected = $[];
+
+    while (i < num)
+    {
+	string s = select(UI::QueryWidget(`id(`pkg), `Item(i)), 1, " ");
+	string p = select(UI::QueryWidget(`id(`pkg), `Item(i)), 2, " ");
+
+	if (s == "X")
+	{
+	    map i = lookup(missingpackages, p, $[]);
+	    string v = lookup(i, "ver", "");
+	    selected = add(selected, p, $[ "ver" : v ]);
+	}
+
+	i = i + 1;
+    }
+
+    y2milestone("Selected packages to install: %1", selected);
 
     if (ret == `cancel)
     {
@@ -394,15 +440,16 @@ global define symbol SelectionUninstallDialog() ``{
     }
     else
     {
-	extra = CreateMultiselectionContents(Restore::GetExtraPackages(), true);
+	extra = CreateTableContents(Restore::GetExtraPackages(), true);
     }
 
+    string widgetlabel = _("&Packages which will be uninstalled");
 
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`MultiSelectionBox(`id(`pkg), _("&Packages which will be uninstalled"), extra),
+		`ReplacePoint(`id(`rp), `MultiSelectionBox(`id(`pkg), widgetlabel, extra)),
 		`VSpacing(1),
 		`HBox(
 		    `PushButton(`id(`all), "&Select all"),
@@ -420,6 +467,15 @@ global define symbol SelectionUninstallDialog() ``{
     do
     {
 	ret = UI::UserInput();
+
+	if (ret == `all)
+	{
+	    UI::ReplaceWidget(`id(`rp), `MultiSelectionBox(`id(`pkg), widgetlabel, CreateTableContents(Restore::GetExtraPackages(), true)));
+	}
+	else if (ret == `none)
+	{
+	    UI::ReplaceWidget(`id(`rp), `MultiSelectionBox(`id(`pkg), widgetlabel, CreateTableContents(Restore::GetExtraPackages(), false)));
+	}
     }
     while (ret != `next && ret != `abort && ret != `back);
 
@@ -427,6 +483,8 @@ global define symbol SelectionUninstallDialog() ``{
     {
 	ret = `abort;
     }
+
+    y2milestone("Selected packages to uninstall: %1", UI::QueryWidget(`id(`pkg), `SelectedItems));
 
     // TODO: uninstall selected packages
 
@@ -474,16 +532,15 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
 
 global define symbol RestoreOptionsDialog() ``{
-
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`Left(`CheckBox(`id(`lilo), _("Run &lilo after restoration"), true)),
+		`Left(`CheckBox(`id(`lilo), _("Run &lilo after restoration"), Restore::runlilo)),
 		`VSpacing(0.2),
-		`Left(`CheckBox(`id(`susecfg), _("Run &SuSEconfig after restoration"), true)),
+		`Left(`CheckBox(`id(`susecfg), _("Run &SuSEconfig after restoration"), Restore::runSuSEconfig)),
 		`VSpacing(0.2),
-		`Left(`CheckBox(`id(`rpmdb), _("Rewrite RPM &database"), false)),
+		`Left(`CheckBox(`id(`rpmdb), _("Rewrite RPM &database"), Restore::restoreRPMdb)),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -504,6 +561,12 @@ global define symbol RestoreOptionsDialog() ``{
     if (ret == `cancel)
     {
 	ret = `abort;
+    }
+    else
+    {
+	Restore::runlilo = UI::QueryWidget(`id(`lilo), `Value);
+	Restore::runSuSEconfig = UI::QueryWidget(`id(`susecfg), `Value);
+	Restore::restoreRPMdb = UI::QueryWidget(`id(`rpmdb), `Value);
     }
 
     Wizard::RestoreNextButton();
@@ -560,7 +623,7 @@ global define symbol ArchiveContentsDialog() ``{
 
     if (archivecontentscache == nil)
     {
-	archivecontentscache = CreateTableContent(Restore::GetArchiveContents());
+	archivecontentscache = CreateArchiveContentTable(Restore::GetArchiveinfo());
     }
 
     term contents = `HBox(
@@ -634,7 +697,6 @@ global define symbol SWsingleDialog() ``{
 /*    y2milestone("sw_single result: %1", CallModule("sw_single", ["beginner"]));
     CallModule("inst_suseconfig", []);*/
 
-
     term contents = `Label(_("Here will be sw_single dialog displayed and (un)installed packages."));
 
     Wizard::SetContents(_(""), contents, "", true, true);
@@ -653,6 +715,8 @@ global define symbol SWsingleDialog() ``{
     }
 
     return ret;
+
+    //TODO after package (un)install refresh actual installed packages in Restore::
 
 //    return `next;
 }
@@ -720,8 +784,7 @@ global define symbol SummaryDialog() ``{
 
 
 
-global define list CreateTableContent(map packagesinfo) ``{
-
+global define list CreateArchiveContentTable(map packagesinfo) ``{
     list ret = [];
     integer num = 0;
 

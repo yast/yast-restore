@@ -24,7 +24,10 @@
     import "Progress";
     import "Report";
 
+    import "Packages";
+
     textdomain "restore";
+
 
     string filename = "";
     // contents of archive
@@ -36,6 +39,8 @@
     // list of installed packages
     map actualinstalledpackages = $[];
 
+    map archive_info = $[];
+
     // informations stored in archive
     string date = "";
     string hostname = "";
@@ -44,6 +49,11 @@
     boolean multiarchive = false;
 
     string tempdir = "";
+
+    // restore options:
+    global boolean runlilo = true;
+    global boolean runSuSEconfig = true;
+    global boolean restoreRPMdb = false;
 
     global define boolean IsMultiArchive() ``{
 	return multiarchive;
@@ -81,8 +91,24 @@
 	    actualinstalledpackages = GetActualInstalledPackages();
 	}
 
+	// filter actual installed packages out
 	ret = filter(string p, string v, installedpkgs, ``{
 		return (haskey(actualinstalledpackages, p) != true);
+	    }
+	);
+
+	// add descriptions
+	ret = mapmap(string pkg, string version, ret, ``{
+		string descr = select(SCR::Read(.package.shortDesc, pkg), 0, "");
+
+		if (descr == nil)
+		{
+		    return [pkg, $["ver" : version]];
+		}
+		else
+		{
+		    return [pkg, $["ver" : version, "descr" : descr ]];
+		}
 	    }
 	);
 
@@ -356,7 +382,7 @@
 
 	y2milestone("archivefiles: %1", archivefiles);
 
-	string infofiles = "info/comment info/hostname info/date info/installed_packages info/files";
+	string infofiles = "info/comment info/hostname info/date info/installed_packages info/files info/packages_info";
 
 	if (tempdir == "")
 	{
@@ -395,6 +421,94 @@
 	    }
 	);
 
+
+
+
+	string pkginfo_str = SCR::Read(.target.string, tempdir + "/info/packages_info");
+
+	list pkginfo = splitstring(pkginfo_str, "\n");
+	pkginfo = filter(string pk, pkginfo, ``{return pk != "" && pk != nil;});
+
+	string actualpkg = nil;
+	string actualversion = "";
+	string prefix = "";
+	list pkfiles = [];
+
+	string packagestring = "Package: ";
+	string nopackagestring = "Nopackage:";
+	string prefixstring = "Installed: ";
+
+	foreach(string line, pkginfo, ``{
+		if (substring(line, 0, size(packagestring)) == packagestring || line == nopackagestring)
+		{
+		    if (actualpkg != nil)
+		    {
+			archive_info = add(archive_info, actualpkg, $[ "vers" : actualversion, "files" : pkfiles, "prefix" : prefix ]);
+		    }
+
+		    pkfiles = [];
+		    prefix = "";
+
+		    if (line == nopackagestring)
+		    {
+			actualpkg = "";
+		    }
+		    else
+		    {
+			string full = substring(line, size(packagestring));
+
+			actualversion = regexpsub(full, ".*-(.*-.*)", "\\1");
+			actualpkg = substring(full, 0, size(full) - size(actualversion) - 1);
+		    }
+		}
+		else if (substring(line, 0, size(prefixstring)) == prefixstring)
+		{
+		    prefix = substring(line, size(prefixstring));
+
+		    if (prefix == "(none)")
+		    {
+			prefix = "";
+		    }
+		}
+		else if (substring(line, 0, 1) == "/")
+		{
+		    pkfiles = add(pkfiles, line);
+		}
+		else
+		{
+		    y2error("Unknown line in file packages_info: %1", line);
+		}
+	    }
+	);
+
+	// add last package info
+	if (actualpkg != nil)
+	{
+	    archive_info = add(archive_info, actualpkg, $[ "files" : pkfiles, "prefix" : prefix ]);
+	}
+
+
+	// add package descriptions
+	archive_info = mapmap(string p, map i, archive_info, ``{
+		if (p == "")
+		{
+		    return [p, i];
+		}
+		else
+		{
+		    string descr = select(SCR::Read(.package.shortDesc, p), 0, "");
+		    map t = add(i, "descr", descr);
+
+		    return [p, t];
+		}
+	    }
+	);
+
+
+
+//	y2internal("SCR::Read(.package.packageList): %1", SCR::Read(.package.shortDesc, "ggv"));
+
+
 	y2milestone("values from archive: date=%1, comment=%2, hostname=%3", date, comment, hostname);
 
 /*	y2milestone("installed packages at backup time: %1", installedpkgs);
@@ -406,8 +520,12 @@
 	return true;
     }
 
-    global define map GetArchiveContents() ``{
-	if (filename == "" || filename == nil)
+
+    global define map GetArchiveInfo() ``{
+	return archive_info;
+    }
+
+/*	if (filename == "" || filename == nil)
 	{
 	    return nil;
 	}
@@ -470,6 +588,7 @@
 
 	return result;
     }
+*/
 
     global define void InstallPackages(list pkgs, list paths) ``{
     }
@@ -488,5 +607,9 @@
 
 /*    global define void () ``{
     }*/
+
+    global define void Restore() ``{
+	Packages::Init(false);
+    }
 
 }
