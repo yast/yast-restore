@@ -237,6 +237,31 @@
 	return ret;
     }
 
+
+    global define map GetSelectedPackages() ``{
+	map ret = $[];
+
+	if (archive_info != nil)
+	{
+	    // filter out unselected packages and compute total restored files
+	    ret = filter(string p, map info, archive_info, ``{
+		    string sel_type = lookup(info, "sel_type", " ");
+
+		    if (sel_type == "X" || sel_type == "P")
+		    {
+			return true;
+		    }
+		    else
+		    {
+			return false;
+		    }
+		}
+	    );
+	}
+
+	return ret;
+    }
+
     /**
      * Return installed packages. Result is cached in Restore module, so only first use takes long time
      * @return map Map $[ "packagename" : "version" ]
@@ -287,9 +312,18 @@
      * @param settings The YCP structure to be imported.
      * @return boolean True on success
      */
-    global define boolean Import (map settings) ``{
-	// TODO FIXME: your code here (fill the above mentioned variables)...
-	sleep (3000);
+    global define boolean Import(map settings) ``{
+	if (settings == nil || settings == $[])
+	{
+	    return false;
+	}
+
+	inputname = lookup(settings, "backupfile", "");
+	volumeparts = lookup(settings, "volumes", []);
+	runlilo = lookup(settings, "runlilo", true);
+	runSuSEconfig = lookup(settings, "runSuSEconfig", true);
+	restoreRPMdb = lookup(settings, "restoreRPMdb", false);
+
 	return true;
     }
 
@@ -297,10 +331,14 @@
      * Dump the restore settings to a single map - for use by autoinstallation.
      * @return map Dumped settings (later acceptable by Import ())
      */
-    global define map Export () ``{
-	// TODO FIXME: your code here (return the above mentioned variables)...
-	sleep (3000);
-	return $[];
+    global define map Export() ``{
+	return $[
+	    "backupfile"	: inputname,
+	    "volumes"		: volumeparts,
+	    "runlilo"		: runlilo,
+	    "runSuSEconfig"	: runSuSEconfig,
+	    "restoreRPMdb"	: restoreRPMdb
+	];
     }
 
     /**
@@ -361,7 +399,7 @@
 
 	if (lookup(mresult, "success", false) == false)
 	{
-	    y2error("Can not mount file system");
+	    Report::Error(_("Cannot mount file system."));
 	    return false;
 	}
 
@@ -386,9 +424,35 @@
 	    }
 	    else
 	    {
+		Report::Error(_("Cannot read archive file.\nIt is not tar archive or it is broken."));
 		return false;
 	    }
 
+	}
+	else
+	{
+	    // if archive is not local or NFS file copy it to tempdir (even if it isn't multi volume),
+	    // so removable device (e.g. CD-ROM) can be used for package installation later
+	    if (substring(input, 0, size("file://")) != "file://" && substring(input, 0, size("nfs://")) != "nfs://")
+	    {
+		// copy archive to local file
+		map copy = CopyVolume(filename, 0);
+
+		if (lookup(copy, "success", false) == true)
+		{
+		    // set file name to local copy
+		    filename = lookup(copy, "file", "");
+
+		    // umount file system
+		    Umount();
+		}
+		else
+		{
+		    // copy failed
+		    Report::Error(_("Cannot copy archive file\nto temporary directory"));
+		    return false;
+		}
+	    }
 	}
 
 	// get list of files
@@ -399,6 +463,8 @@
 	{
 	    // archive doesn't contain files from backup - file is not backup archive or not first volume of multi volume archive
 	    y2error("Archive does not contain 'info/files' or 'info/packages_info' or 'info/installed_packages' file!");
+
+	    Report::Error(_("Archive does not contain required files.\nIt was probably not created by Backup module."));
 	    return false;
 	}
 
@@ -887,7 +953,9 @@
 	    }
 	);
 
-	return $[ "aborted" : aborted, "restored" : restoredfiles, "failed" : failedfiles, "packages" : restoredpackages ];
+	map liloret = Lilo();
+
+	return $[ "aborted" : aborted, "restored" : restoredfiles, "failed" : failedfiles, "packages" : restoredpackages, "lilo" : liloret ];
     }
 
 
@@ -1015,14 +1083,24 @@
 
     /**
      * Start lilo if requested.
-     * @return map Map $[ "lilo" : integer exit_value, "stderr" : [ "stderr lines" ] ] or $[ "lilo" : nil ] if lilo was not started
+     * @return map Map $[ "lilo" : boolean (true if success), "stderr" : "stderr output"  ] or $[ "lilo" : nil ] if lilo was not started
      */
     global define map Lilo() ``{
 	if (runlilo == true && Mode::test == false)
 	{
 	    // start lilo
 	    map ret  = SCR::Execute(.target.bash_output, "/sbin/lilo");
-	    return $[ "lilo" : (lookup(ret, "exit", -1) == 0), "stderr" : lookup(ret, "stderr", "") ];
+
+	    integer exitval = lookup(ret, "exit", -1);
+	    string stderr = lookup(ret, "stderr", "");
+
+	    if (exitval != 0)
+	    {
+		Report::Error(_("Lilo utility failed,\nboot configuration was not updated."));
+		y2error("lilo error: %1", stderr);
+	    }
+
+	    return $[ "lilo" : (exitval == 0), "stderr" : stderr ];
 	}
 	else
 	{

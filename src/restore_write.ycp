@@ -20,25 +20,27 @@
 /**
  * @param first a map of test settings
  * @return boolean success of operation
- * @example map mm = $[ "FAIL_DELAY" : "77" ];
- * @example any ret = CallModule ("restoer_write", [ mm ]);
+ * @example map mm = $[ ... ];
+ * @example any ret = CallModule ("restore_write", [ mm ]);
  */
 
 {
-    textdomain "test";
+    textdomain "restore";
 
-    import "Test";
+    import "Restore";
     import "Progress";
+
+    include "restore/ui.ycp";
 
     list args = Args ();
     if ( size (args) <= 0 )
     {
-	y2error ("NOT writing, probably some mistake...");
+	y2error ("Argument missing - NOT writing, probably some mistake...");
 	return false;
     }
     if ( !is ( Args (0), map ) )
     {
-	y2error ("Bad argument for test write: %1", Args (0));
+	y2error ("Bad argument for restore_write: %1", Args (0));
 	return false;
     }
 
@@ -46,13 +48,50 @@
     map settings = select (args, 0, $[]);
     y2milestone("Only writing... (%1)", settings);
 
-    if (! Test::Import (settings))
+    if (! Restore::Import(settings))
     {
 	return false;
     }
 
+    // Read archive file
+    string inputfile = lookup(settings, "backupfile", "");
+
+    boolean read = false;
+
+    if (size(inputfile) > 0)
+    {
+	read = Restore::Read(inputfile);
+    }
+
+    if (read == false || size(inputfile) == 0)
+    {
+	if (UI::YesNoPopup("Archive file can not be read.\nDo you want to select it manually?") == true)
+	{
+	    // select file
+	    Wizard::CreateDialog();	// TODO remove this ?
+	    ArchiveSelectionDialog(false);
+	    UI::CloseDialog();		// TODO remove this ?
+	}
+	else
+	{
+	    return false;
+	}
+    }
+
+    if (Restore::IsMultiVolume() == true)
+    {
+	UI::MessagePopup("Archive has multiple volumes,\nplease select next volume.");
+	Wizard::CreateDialog();		// TODO remove this ?
+	ArchiveSelectionDialog(true);
+	UI::CloseDialog();		// TODO remove this ?
+    }
+
+
     Progress::off ();
-    boolean ret = Test::Write ( ``{ return false; } );
+    // TODO FIXME: extract files to the root directory
+    map ret = Restore::Write( ``{ return false; }, nil, "/tmp/restore" );
     Progress::on ();
-    return ret;
+
+    return (size(lookup(ret, "failed", [])) == 0);
 }
+

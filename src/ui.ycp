@@ -46,6 +46,8 @@ global list failedfiles = [];
 global integer restoredpackages = 0;
 global boolean lilostatus = nil;
 
+global map packagestoinstall = nil;
+global map packagestouninstall = nil;
 // mounted directory
 global string mountdir = "";
 
@@ -118,19 +120,19 @@ global define any RestoreSequence () ``{
 	],
 	"uninstall" :
 	$[
-	    `next	: "select",
+	    `next	: "sw_single",
 	    `abort	: "atexit"
 	],
 	"sw_single" :
 	$[
-	    `next	: "restore",
+	    `next	: "select",
 	    `abort	: "atexit"
 	],
 	"select" :
 	$[
 	    `files	: "selectfile",
 	    `abort	: "atexit",
-	    `next	: "sw_single"
+	    `next	: "restore"
 	],
 	"restore" :
 	$[
@@ -486,7 +488,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 
 	    if (Mode::test == true)
 	    {
-		input = "file:///tmp/testmodearchivename.tar";
+		input = "file:///tmp/archive.tar";
 	    }
 	    else if (type == `file)
 	    {
@@ -681,7 +683,7 @@ global define symbol ArchivePropertyDialog() ``{
  * @param defaultval if true "X" is in the first column, else " "
  * @return list Contents for Table widget
  */
-global define list CreateTableContents(map contents, boolean defaultval) ``{
+global define list CreateTableContents(map contents, map selected, boolean defaultval) ``{
     list ret = [];
     integer num = 0;
 
@@ -693,6 +695,11 @@ global define list CreateTableContents(map contents, boolean defaultval) ``{
 
 		string ver = lookup(m, "ver", "");
 		string descr = lookup(m, "descr", "");
+
+		if (selected != nil)
+		{
+		    defval = haskey(selected, p) ? "X" : " ";
+		}
 
 		ret = add(ret, `item(`id(num), defval, p, ver, descr));
 		num = num + 1;
@@ -710,11 +717,11 @@ global define list CreateTableContents(map contents, boolean defaultval) ``{
  * @param defaultval if true "X" is in the first column, else " "
  * @return list Contents for Table widget
  */
-global define list CreateTableContentsWithMismatched(map contents, boolean defaultval) ``{
+global define list CreateTableContentsWithMismatched(map contents, map selected, boolean defaultval) ``{
     list ret = [];
     integer num = 0;
 
-    string defval = (defaultval) ? "X" : " ";
+    string defval = (defaultval == true) ? "X" : " ";
 
     if (contents != nil)
     {
@@ -723,6 +730,11 @@ global define list CreateTableContentsWithMismatched(map contents, boolean defau
 		string ver = lookup(m, "ver", "");
 		string descr = lookup(m, "descr", "");
 		string installed = lookup(m, "inst", "");
+
+		if (selected != nil)
+		{
+		    defval = haskey(selected, p) ? "X" : " ";
+		}
 
 		ret = add(ret, `item(`id(num), defval, p, ver, installed, descr));
 		num = num + 1;
@@ -750,7 +762,7 @@ global define symbol SelectionInstallDialog() ``{
 	}
     );
 
-    list missing = CreateTableContentsWithMismatched(missingpackages, true);
+    list missing = CreateTableContentsWithMismatched(missingpackages, packagestoinstall, true);
     string widgetlabel = _("&Packages which will be installed");
     term header = `header(" ", _("Package"), _("Backup version"), _("Installed version"), _("Description"));
 
@@ -779,11 +791,11 @@ global define symbol SelectionInstallDialog() ``{
 
 	if (ret == `all)
 	{
-	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContentsWithMismatched(missingpackages, true));
+	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContentsWithMismatched(missingpackages, nil, true));
 	}
 	else if (ret == `none)
 	{
-	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContentsWithMismatched(missingpackages, false));
+	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContentsWithMismatched(missingpackages, nil, false));
 	}
 	else if (ret == `pkg)
 	{
@@ -812,7 +824,8 @@ global define symbol SelectionInstallDialog() ``{
     {
 	integer num = size(missingpackages);
 	integer i = 0;
-	map selected = $[];
+
+	packagestoinstall = $[];
 
 	while (i < num)
 	{
@@ -823,13 +836,32 @@ global define symbol SelectionInstallDialog() ``{
 	    {
 		map i = lookup(missingpackages, p, $[]);
 		string v = lookup(i, "ver", "");
-		selected = add(selected, p, $[ "ver" : v ]);
+		packagestoinstall = add(packagestoinstall, p, $[ "ver" : v ]);
+
+		// change default restore status to 'restore' for packages which will be installed
+		if (haskey(Restore::GetArchiveInfo(), p))
+		{
+		    Restore::SetRestoreSelection(p, $[ "sel_type" : "X" ] );
+		}
+	    }
+	    else
+	    {
+		// change default restore status to 'do not restore' for packages which will not be installed
+		if (haskey(Restore::GetArchiveInfo(), p))
+		{
+		    Restore::SetRestoreSelection(p, $[ "sel_type" : " " ] );
+		}
+
+		if (haskey(packagestoinstall, p))
+		{
+		    packagestoinstall = remove(packagestoinstall, p);
+		}
 	    }
 
 	    i = i + 1;
 	}
 
-	y2milestone("Selected packages to install: %1", selected);
+	y2milestone("Selected packages to install: %1", packagestoinstall);
     }
 
     // TODO: warn if some packages are not available on CDs and display path selection dialog to packages
@@ -848,7 +880,7 @@ global define symbol SelectionUninstallDialog() ``{
     // LATER: if all packages are installed return `next (or `back)
 
     map extrapackages = Restore::GetExtraPackages();
-    list extra = CreateTableContents(extrapackages, true);
+    list extra = CreateTableContents(extrapackages, packagestouninstall, true);
 
     string widgetlabel = _("&Packages which will be uninstalled");
 
@@ -879,11 +911,11 @@ global define symbol SelectionUninstallDialog() ``{
 
 	if (ret == `all)
 	{
-	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContents(extrapackages, true));
+	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContents(extrapackages, nil, true));
 	}
 	else if (ret == `none)
 	{
-	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContents(extrapackages, false));
+	    UI::ChangeWidget(`id(`pkg), `Items, CreateTableContents(extrapackages, nil, false));
 	}
 	else if (ret == `pkg)
 	{
@@ -912,7 +944,8 @@ global define symbol SelectionUninstallDialog() ``{
     {
 	integer num = size(extrapackages);
 	integer i = 0;
-	map selected = $[];
+
+	packagestouninstall = $[];
 
 	while (i < num)
 	{
@@ -923,13 +956,34 @@ global define symbol SelectionUninstallDialog() ``{
 	    {
 		map i = lookup(extrapackages, p, $[]);
 		string v = lookup(i, "ver", "");
-		selected = add(selected, p, $[ "ver" : v ]);
+		packagestouninstall = add(packagestouninstall, p, $[ "ver" : v ]);
+	    }
+	    else if (haskey(packagestouninstall, p))
+	    {
+		packagestouninstall = remove(packagestouninstall, p);
 	    }
 
 	    i = i + 1;
 	}
 
-	y2milestone("Selected packages to uninstall: %1", selected);
+	y2milestone("Selected packages to uninstall: %1", packagestouninstall);
+    }
+
+    return ret;
+}
+
+global define boolean InstallQuestion(string package, string version) ``{
+    boolean ret = false;
+
+    if (package != "" && !haskey(Restore::GetActualInstalledPackages(), package) && !haskey(packagestoinstall, package))
+    {
+	ret = UI::AnyQuestionPopup("", sformat(_("Package '%1' is not installed in your system.\nDo you want to install it?"), package + "-" + version), YesButtonLabel(), NoButtonLabel(), `focus_yes);
+
+	if (ret == true)
+	{
+	    // add package to the map of installed packages
+	    packagestoinstall = add(packagestoinstall, package, $[ "ver" : version ]);
+	}
     }
 
     return ret;
@@ -942,7 +996,7 @@ global define symbol SelectionUninstallDialog() ``{
 global define symbol PackageSelectionRestoreDialog() ``{
 
     // read product info
-    boolean personal = false;  // TODO FIXME Product::personal;
+    boolean personal = false; //TODO FIXME: Product::personal;
 
     // in personal version is button = `Empty() and help text will be shorter
     term button = (!personal) ? `PushButton(`id(`files), _("S&elect files")) : `Empty();
@@ -989,7 +1043,6 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	UI::ChangeWidget(`id(`pkgtable), `CurrentItem, position);
     }
 
-
     symbol ret = nil;
 
     do
@@ -999,12 +1052,14 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	integer current = 0;
 	string current_value = "";
 	string current_pkgname = "";
+	string current_version = "";
 
 	if (size(tablecontents) > 0)
 	{
 	    current = UI::QueryWidget(`id(`pkgtable), `CurrentItem);
 	    current_value = select(UI::QueryWidget(`id(`pkgtable), `Item(current)), 1, " ");
 	    current_pkgname = select(UI::QueryWidget(`id(`pkgtable), `Item(current)), 3, "");
+	    current_version = select(UI::QueryWidget(`id(`pkgtable), `Item(current)), 4, "");
 	}
 
 	restorepackagename = current_pkgname;
@@ -1021,9 +1076,9 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	    {
 		// check if package is installed
 		// TODO check versions
-		if (current_pkgname != "" && haskey(Restore::GetActualInstalledPackages(), current_pkgname) == false)
+		if (current_pkgname != "" && !haskey(Restore::GetActualInstalledPackages(), current_pkgname) && !haskey(packagestoinstall, current_pkgname))
 		{
-		    current_value = (UI::AnyQuestionPopup("", sformat(_("Package '%1' is not installed in your system.\nDo you really want to restore its files?"), current_pkgname), YesButtonLabel(), NoButtonLabel(), `focus_no) == true)  ? "X" : " " ;
+		    current_value = InstallQuestion(current_pkgname, current_version) ? "X" : " ";
 		}
 		else
 		{
@@ -1046,9 +1101,9 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	{
 	    // check if package is installed
 	    // TODO check versions
-	    if (current_value == " " && current_pkgname != "" && haskey(Restore::GetActualInstalledPackages(), current_pkgname) == false)
+	    if (current_value == " " && current_pkgname != "" && !haskey(Restore::GetActualInstalledPackages(), current_pkgname) && !haskey(packagestoinstall, current_pkgname))
 	    {
-		if (UI::AnyQuestionPopup("", sformat(_("Package '%1' is not installed in your system.\nDo you really want to restore its files?"), current_pkgname), YesButtonLabel(), NoButtonLabel(), `focus_no) != true)
+		if (InstallQuestion(current_pkgname, current_version) == false)
 		{
 		    ret = `dummy;
 		}
@@ -1390,6 +1445,10 @@ global define symbol RestoreProgressDialog() ``{
     // set values from restoration
     ret = (lookup(result, "aborted", false)) ? `abort : `next;
 
+    // get lilo status
+    map liloresult = lookup(result, "lilo", $[]);
+    lilostatus = lookup(liloresult, "lilo", false);
+
     if (ret == `next)
     {
 	 restoredfiles = lookup(result, "restored", []);
@@ -1406,6 +1465,7 @@ global define symbol RestoreProgressDialog() ``{
 global define symbol SWsingleDialog() ``{
 
     // TODO:  CallModule("sw_single", ["beginner"]);
+    // TODO: if not in autoinstall mode reinstall all packages which will be restored
 
     term contents = `Label(_("Here will be sw_single dialog displayed and (un)installed packages."));
 
@@ -1442,11 +1502,6 @@ global define symbol SuSEconfigDialog() ``{
 	term contents = `Label(_("Starting lilo..."));
 	Wizard::SetContents("", contents, "", true, true);
     }
-
-    // start lilo
-    map liloresult = Restore::Lilo();
-    lilostatus = lookup(liloresult, "lilo", false);
-
 
     term contents = `Label(_("Here will be SuSEconfig started (optionally)."));
     Wizard::SetContents("", contents, "", true, true);
