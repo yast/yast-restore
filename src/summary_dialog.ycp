@@ -1,0 +1,138 @@
+/**
+ * File:
+ *   include/restore/summary_dialog.ycp
+ *
+ * Package:
+ *   Restore module
+ *
+ * Summary:
+ *   Display summary dialog.
+ *
+ * Authors:
+ *   Ladislav Slezak <lslezak@suse.cz>
+ *
+ * $Id$
+ *
+ * Display summary dialog in wizard with optional details. Summary can be saved to file.
+ *
+ */
+
+{
+
+textdomain "restore";
+
+import "Wizard";
+import "Mode";
+
+include "ui/common_popups.ycp";
+include "ui/common_messages.ycp";
+include "ui/file_popups.ycp";
+include "wizard/sequencer.ycp";
+
+/**
+ * This function removes HTML tags from input string
+ * @param input Input string
+ * @return string String without tags
+ */
+
+global define string RemoveTags(string input) ``{
+    string ret = input;
+
+    map tagmapping = $[ "br" : "\n", "/p" : "\n", "p" : "", "b" : "", "/b" : "",
+	"em" : "", "/em" : "", "i" : "", "/i" : "", "tt" : "", "/tt" : "",
+	"/big" : "", "big" : "", "code" : "/code", "strong" : "", "/strong" : "", "pre" : "", "/pre" : "",
+	 "large" : "", "/large" : "", "hr" : "", "h1" : "", "/h1" : "", "h2" : "", "/h2" : "",
+	 "h3" : "", "/h3" : ""
+    ];
+
+    foreach(string t, string repl, tagmapping, ``{
+	    tag = "<" + t + ">";
+
+	    while (issubstring(ret, tolower(tag)))
+	    {
+		ret = regexpsub(ret, "(.*)" + tag + "(.*)", "\\1" + repl + "\\2");
+	    }
+
+	    while (issubstring(ret, toupper(tag)))
+	    {
+		ret = regexpsub(ret, "(.*)" + tag + "(.*)", "\\1" + repl + "\\2");
+	    }
+	}
+    );
+
+    return ret;
+}
+
+/**
+ * Display summary dialog with optional details, it is possible to save dialog contents to file
+ * @param text Summary text
+ * @param detail_text Detailed summary text
+ * @param helptext Help text for wizard
+ * @param label Text in label
+ * @param button Label for `next button, possible values are `next (label is "Next"), `ok ("Ok") or `finish ("Finish")
+ * @return symbol Id of pressed button (`next, `back, `abort)
+ */
+
+global define symbol DisplaySummaryDialog(string text, string detail_text, string helptext, string label, symbol button) ``{
+
+    term contents = `VBox(
+	    `VSpacing(0.5),
+	    `RichText(`id(`rt), text),
+	    `VSpacing(0.5),
+	    `HBox(`CheckBox(`id(`details), `opt(`notify), _("&Show details"), false), `HSpacing(3), `PushButton(`id(`save), _("Sa&ve to file..."))),
+	    `VSpacing(1.0)
+	);
+
+    if (button == `finish)
+    {
+	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), FinishButtonLabel()));
+    }
+    else if (button == `ok)
+    {
+	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OkButtonLabel()));
+    }
+    else if (button == `next)
+    {
+	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), NextButtonLabel()));
+    }
+    else
+    {
+	y2warning("Unknown button: %1", button);
+    }
+
+    Wizard::SetContents(label, contents, helptext, true, true);
+
+    symbol ret = nil;
+
+    do
+    {
+	ret = UI::UserInput();
+
+	boolean details = UI::QueryWidget(`id(`details), `Value);
+
+	if (ret == `details)
+	{
+	    UI::ChangeWidget(`id(`rt), `Value, (details == true) ? detail_text : text);
+	}
+	else if (ret == `save)
+	{
+	    string savefile = SaveFileAs("/");
+
+	    SCR::Write(.target.string, savefile, RemoveTags((details == true) ? detail_text : text));
+	    y2milestone("Summary saved to file: %1", savefile);
+	}
+	else if (ret == `cancel)
+	{
+	    ret = `abort;
+	}
+    }
+    while(ret != `next && ret != `abort && ret != `back);
+
+
+    Wizard::RestoreNextButton();
+
+    return ret;
+}
+
+}
+

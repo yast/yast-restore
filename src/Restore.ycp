@@ -23,6 +23,7 @@
     module "Restore";
     import "Progress";
     import "Report";
+    import "Mode";
 
     import "Packages";
 
@@ -101,7 +102,7 @@
 
 	// add descriptions
 	ret = mapmap(string pkg, string version, ret, ``{
-		string descr = select(SCR::Read(.package.shortDesc, pkg), 0, "");
+		string descr = (Mode::test == false) ? select(SCR::Read(.package.shortDesc, pkg), 0, "") : "";
 
 		if (descr == nil)
 		{
@@ -133,7 +134,7 @@
 
 	// add descriptions
 	ret = mapmap(string pkg, string version, ret, ``{
-		string descr = select(SCR::Read(.package.shortDesc, pkg), 0, "");
+		string descr = (Mode::test == false) ? select(SCR::Read(.package.shortDesc, pkg), 0, "") : "";
 
 		if (descr == nil)
 		{
@@ -165,7 +166,7 @@
 
 		    if (backupversion != v)
 		    {
-			string descr = select(SCR::Read(.package.shortDesc, p), 0, "");
+			string descr = (Mode::test == false) ? select(SCR::Read(.package.shortDesc, p), 0, "") : "";
 
 			ret = (descr != nil) ? add(ret, p, $["ver": backupversion, "inst" : v, "descr" : descr]) :
 			    add(ret, p, $["ver": backupversion, "inst" : v]);
@@ -385,6 +386,40 @@
     }
 
     global define boolean ReadArchiveFile(string archivefile) ``{
+
+	if (Mode::test == true)
+	{
+	    filename = archivefile;
+
+	    archivefiles = [ "info/", "info/date", "info/comment", "info/files",
+		"info/packages_info", "info/installed_packages", "info/hostname",
+		"NOPACKAGE-20020509-0.tar.gz", "kdebase3-3.0-19-20020509-0.tar.gz", "lprng-3.8.5-49-20020509-0.tar.gz",
+		"mozilla-0.9.8-54-20020509-0.tar.gz", "netcfg-2002.3.20-0-20020509-0.tar.gz" ];
+
+	    date = "13.01.2002 14:25";
+	    comment = "Some comments";
+	    hostname = "linux.local";
+
+	    installedpkgs = $["netcfg" : "2002.3.20-0", "lprng" : "3.8.5-49", "kdebase3" : "3.0-19", "gnome-applets" : "1.4.0.5-98"];
+	    actualinstalledpackages = $["ggv" : "1.1.93-167", "netcfg" : "2002.3.20-0", "lprng" : "3.8.5-49", "kdebase3" : "3.0-19", "aterm" : "0.4.0"];
+
+	    archive_info = $["" : $["descr" : "Files not owned by any package", "files":["/.qt/", "/dev/dvd", "/dev/cdrom"], "sel_type" : "X" ],
+		"kdebase3" : $["descr" : "KDE base package: base system", "files":["/etc/opt/kde3/share/config/kdm/kdmrc"], "prefix" : "", "sel_type" : "X", "vers" : "3.0-19"],
+		"mozilla" : $["descr" : "Open Source WWW browser", "files" : ["/opt/mozilla/chrome/installed-chrome.txt"], "prefix" : "", "sel_type" : "X", "vers" : "0.9.8-54"],
+		"lprng" : $["descr" : "LPRng Print Spooler", "files" : ["/etc/init.d/lpd"], "prefix" : "", "sel_type" : "X", "vers" : "3.8.5-49"],
+		"netcfg":$["descr" : "Network configuration files in /etc", "files" : ["/etc/HOSTNAME", "/etc/defaultdomain", "/etc/exports", "/etc/hosts"], "prefix":"", "sel_type":"X", "vers":"2002.3.20-0"]
+		];
+
+	    // set default selection
+	    archive_info = mapmap(string p, map i, archive_info, ``{
+		    i = add(i, "sel_type", (p == "") ? "X" : ((haskey(actualinstalledpackages, p)) ? "X" : " "));
+
+		    return [p, i];
+		}
+	    );
+
+	    return true;
+	}
 	// get archive contents
 	// TODO use -v flag, filter out Volume label, set multiarchive flag
 	map result = SCR::Execute(.target.bash_output, "/bin/tar -t -f " + archivefile);
@@ -587,8 +622,11 @@
 
 
     global define void Restore() ``{
-	// TODO: what does Init parameter mean?
-	Packages::Init(false);
+	// false = no force, do not reset previous package selection
+	if (Mode::test == false)
+	{
+	    Packages::Init(false);
+	}
     }
 
 }

@@ -16,6 +16,7 @@ clients_DATA =			\
 ynclude_DATA =			\
 	helps.ycp		\
 	misc.ycp		\
+	summary_dialog.ycp	\
 	ui.ycp
 
 config_DATA =			\

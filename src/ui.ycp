@@ -33,6 +33,7 @@ include "ui/file_popups.ycp";
 include "wizard/sequencer.ycp";
 
 include "restore/helps.ycp";
+include "restore/summary_dialog.ycp";
 
 
 global string restorepackagename = nil;
@@ -212,9 +213,9 @@ global define symbol ArchiveSelectionDialog() ``{
 	ret = `abort;
     }
 
-    string fname = UI::QueryWidget(`id(`filename), `Value);
+    string fname = (Mode::test != true) ? UI::QueryWidget(`id(`filename), `Value) : "/tmp/testmodearchivename.tar";
 
-    if (ret == `next && Mode::test != true && fname != Restore::GetArchiveName())
+    if (ret == `next && fname != Restore::GetArchiveName())
     {
 	Wizard::SetContents("", `Label(_("Reading archive contents...")), _("Please wait"), false, false);
 	Restore::ReadArchiveFile(fname);
@@ -227,39 +228,14 @@ global define symbol ArchiveSelectionDialog() ``{
 
 global define symbol ArchivePropertyDialog() ``{
 
-    // TODO: install read archive contents
+    y2milestone("missing packages %1: ", Restore::GetMissingPackages());
+    y2milestone("extra packages %1: ", Restore::GetExtraPackages());
+    y2milestone("mismatched packages %1: ", Restore::GetMismatchedPackages());
 
-//    Restore::ReadArchiveFile(UI::QueryWidget(`id(`filename), `Value));
-
-    if (Mode::test != true)
-    {
-	y2milestone("missing packages %1: ", Restore::GetMissingPackages());
-	y2milestone("extra packages %1: ", Restore::GetExtraPackages());
-	y2milestone("mismatched packages %1: ", Restore::GetMismatchedPackages());
-    }
-
-//    y2milestone("Archive contents: %1", Restore::GetArchiveContents());
-
-
-    string date = "";
-    string hostname = "";
-    string comment = "";
-    string archname = "";
-
-    if (Mode::test == true)
-    {
-	date = "13.01.2002 14:25";
-	hostname = "linux.local";
-	comment = "Test mode comment";
-	archname = "/tmp/testarchive.tar";
-    }
-    else
-    {
-	date = Restore::GetArchiveDate();
-	hostname = Restore::GetArchiveHostname();
-	comment = Restore::GetArchiveComment();
-	archname = Restore::GetArchiveName();
-    }
+    string date = Restore::GetArchiveDate();
+    string hostname = Restore::GetArchiveHostname();
+    string comment = Restore::GetArchiveComment();
+    string archname = Restore::GetArchiveName();
 
     term contents = `HBox(
 	    `HSpacing(2),
@@ -349,7 +325,6 @@ global define symbol SelectionInstallDialog() ``{
 
     // LATER: if all packages are installed return `next (or `back)
 
-    list missing = [];
     map missingpackages = Restore::GetMissingPackages();
 
     // add mismatched packages
@@ -358,18 +333,8 @@ global define symbol SelectionInstallDialog() ``{
 	}
     );
 
-    if (Mode::test == true)
-    {
-	//TODO: table items 
-	//missing = [ `item(`id(1), "aaa_base-2.4.1-45", true), `item(`id(2), "yast2-base-2.6.2-32", true), `item(`id(3), "sysconfig-base-2.6.1-2", true) ];
-    }
-    else
-    {
-	missing = CreateTableContentsWithMismatched(missingpackages, true);
-    }
-
+    list missing = CreateTableContentsWithMismatched(missingpackages, true);
     string widgetlabel = _("&Packages which will be installed");
-
     term header = `header(" ", _("Package"), _("Backup version"), _("Installed version"), _("Description"));
 
     term contents = `HBox(
@@ -461,18 +426,8 @@ global define symbol SelectionUninstallDialog() ``{
 
     // LATER: if all packages are installed return `next (or `back)
 
-    list extra = [];
     map extrapackages = Restore::GetExtraPackages();
-
-    if (Mode::test == true)
-    {
-	//TODO: table items 
-	//extra = [ `item(`id(1), "aaa_base-2.4.1-45", true), `item(`id(2), "yast2-base-2.6.2-32", true), `item(`id(3), "sysconfig-base-2.6.1-2", true) ];
-    }
-    else
-    {
-	extra = CreateTableContents(extrapackages, true);
-    }
+    list extra = CreateTableContents(extrapackages, true);
 
     string widgetlabel = _("&Packages which will be uninstalled");
 
@@ -991,74 +946,12 @@ global define symbol SuSEconfigDialog() ``{
 }
 
 
-global define string RemoveTags(string input) ``{
-    string ret = input;
-
-    map tagmapping = $[ "<br>" : "\n", "<BR>" : "\n", "</P>" : "\n", "</p>" : "\n", "<p>" : "", "<P>" : "", "<B>" : "", "<b>" : "", "</B>" : "", "</b>" : "" ];
-
-    foreach(string tag, string repl, tagmapping, ``{
-	    while (issubstring(ret, tag))
-	    {
-		ret = regexpsub(ret, "(.*)" + tag + "(.*)", "\\1" + repl + "\\2");
-	    }
-	}
-    );
-
-    return ret;
-}
-
-
 global define symbol SummaryDialog() ``{
 
     string basicinfo = "<P>Number of installed packages: 3<BR>Number of uninstalled packages: 0</P><P>Total restored packages: 34<BR>Total restored files: 228</P><P>Restore status: Ok</P>";
     string extendedinfo = "<P><BR><B>Details:</B></P><P>Lilo return status: Ok</P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>Restored files:</B><BR>/sdfsdf/sdf<BR>/sdf/sdf/sdf<BR></P>";
 
-    string cont = basicinfo;
-
-    term contents = `VBox(
-	    `VSpacing(0.5),
-	    `RichText(`id(`rt), cont),
-	    `VSpacing(0.5),
-	    `HBox(`CheckBox(`id(`details), `opt(`notify), _("&Show details"), false), `HSpacing(3), `PushButton(`id(`save), _("Save to file..."))),
-	    `VSpacing(1.0)
-	);
-
-    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), FinishButtonLabel()));
-
-    Wizard::SetContents(_("Summary of restoration"), contents, "help", true, true);
-
-    symbol ret = nil;
-
-    do
-    {
-	ret = UI::UserInput();
-
-	if (ret == `details)
-	{
-	    boolean details = UI::QueryWidget(`id(`details), `Value);
-
-	    cont = (details == true) ? basicinfo + extendedinfo : basicinfo;
-
-	    UI::ChangeWidget(`id(`rt), `Value, cont);
-	}
-	else if (ret == `save)
-	{
-	    string savefile = SaveFileAs("/var/log/restore.log");
-
-	    SCR::Write(.target.string, savefile, RemoveTags(cont));
-	    y2milestone("Summary saved to file: %1", savefile);
-	}
-    }
-    while(ret != `next && ret != `abort && ret != `back);
-
-    if (ret == `cancel)
-    {
-	ret = `abort;
-    }
-
-    Wizard::RestoreNextButton();
-
-    return ret;
+    return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, "help", _("Summary of restoration"), `finish);
 }
 
 
