@@ -177,7 +177,7 @@ global define symbol ArchiveSelectionDialog() ``{
 	    `HSpacing(2),
 	    `VBox(
 		`HBox(
-		    `TextEntry(`id(`filename), _("Archive file na&me:"), "/tmp/backup.tar"),
+		    `TextEntry(`id(`filename), _("Archive file na&me:"), "/tmp/bk.tar"),
 		    `HSpacing(2),
 		    `PushButton(`id(`file), _("&Select file"))
 		),
@@ -867,6 +867,10 @@ global define symbol RestoreProgressDialog() ``{
 
     map restore = Restore::GetArchiveInfo();
     integer total = 0;
+    integer restored = 0;
+
+    // FIXME: set to "/";
+    string targetdir = "/tmp/restore";
 
     // filter out unselected packages and compute total restored files
     restore = filter(string p, map info, restore, ``{
@@ -903,16 +907,84 @@ global define symbol RestoreProgressDialog() ``{
 
     Wizard::SetContents(_("Restoring files"), contents, "help", true, true);
 
+    string tmp = SCR::Read(.target.tmpdir);
+    list arch_cont = Restore::GetArchiveFiles();
 
     foreach(string package, map info, restore, ``{
-	    // TODO: unpack subarchive
-
 	    string label = (package == "") ? _("Restoring files not owned by any package ...") : sformat(_("Restoring package %1 ..."), package);
-
 	    UI::ChangeWidget(`id(`progress), `Label, label);
-	    sleep(2000);
 
-	    // TODO: unpack files from subarchive
+	    string sel_type = lookup(info, "sel_type", "");
+
+	    if (Mode::test == true)
+	    {
+		integer numf = (sel_type == "P") ? size(lookup(info, "sel_file", [])) : size(lookup(info, "files", []));
+
+		while (numf > 0)
+		{
+		    restored = restored + 1;
+		    UI::ChangeWidget(`id(`progress), `Value, restored);
+		    sleep(300);
+		    numf = numf - 1;
+		}
+	    }
+	    else
+	    {
+		// get subarchive name
+		string name = (package == "") ? "NOPACKAGE" : package + "-" + lookup(info, "vers", "");
+		string fileinarchive = "";
+
+		foreach(string f, arch_cont, ``{
+			if (regexpmatch(f, "^" + name + "-........-.\\.tar.*") == true)
+			{
+			    y2milestone("package %1 is in archive file %2", package, f);
+			    fileinarchive = f;
+			}
+		    }
+		);
+
+		if (fileinarchive == "")
+		{
+		    y2error("Can't find subarchive for package %1", package);
+		}
+		else
+		{
+		    // unpack subarchive
+		    SCR::Execute(.target.bash, "export LC_ALL=C; /bin/tar -C " + targetdir + " -x -f " + Restore::GetArchiveName() + " " + fileinarchive);
+
+		    // set compression parameter
+		    string compress = "";
+		    if (regexpmatch(fileinarchive, ".*\.tar\.gz$") == true)
+		    {
+			compress = "-z";
+		    }
+		    else if (regexpmatch(fileinarchive, ".*\.tar\.bz2$") == true)
+		    {
+			compress = "-j";
+		    }
+
+		    string RPMdb = (Restore::restoreRPMdb) ? "" : "--exclude var/lib/rpm";
+
+		    // files to unpack, "" means all files
+		    string unpackfiles = "";
+
+		    // select files to unpack
+		    if (sel_type == "P")
+		    {
+			// strip leading '/'
+			foreach(string f, lookup(info, "sel_file", []), ``{
+				if (size(f) > 1 && substring(f, 0, 1) == "/")
+				{
+				    unpackfiles = unpackfiles + " " + substring(f, 1);
+				}
+			    }
+			);
+		    }
+
+		    // unpack files (or whole) subarchive
+		    SCR::Execute(.target.bash, "export LC_ALL=C; /bin/tar -C " + "/tmp/restore" + " " + compress + " -x -f " + tmp + "/" + fileinarchive + " " + RPMdb + " " + unpackfiles);
+		}
+	    }
 	}
     );
 

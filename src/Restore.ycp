@@ -82,6 +82,10 @@
 	return installedpkgs;
     }
 
+    global define list GetArchiveFiles() ``{
+	return archivefiles;
+    }
+
 /*    global define list GetNotDistributedPackages() ``{
 	return [];
     }
