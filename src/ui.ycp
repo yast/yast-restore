@@ -40,6 +40,11 @@ global string restorepackagename = nil;
 
 global list archivecontentscache = nil;
 
+global list restoredfiles = [];
+global list failedfiles = [];
+global integer restoredpackages = 0;
+
+
 /**
  * Whole configuration of restore
  * @return any Returned value from WizardSequencer() call
@@ -219,6 +224,8 @@ global define symbol ArchiveSelectionDialog() ``{
     {
 	Wizard::SetContents("", `Label(_("Reading archive contents...")), _("Please wait"), false, false);
 	Restore::ReadArchiveFile(fname);
+	restoredfiles = [];
+	failedfiles = [];
     }
 
     return ret;
@@ -515,6 +522,9 @@ global define symbol SelectionUninstallDialog() ``{
 }
 
 global define symbol PackageSelectionRestoreDialog() ``{
+
+    // TODO: warn user if there are missing packages and/or packages with different version
+
     // TODO: read this value from system
     boolean profi = true;
 
@@ -542,12 +552,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`Table(`id(`pkgtable),`opt(`notify), `header(" ", _("Files"), _("Package"), _("Version"), _("Description")), tablecontents
-		//CreateTableContentsRestoreSelection(Restore::GetArchiveInfo(), Restore::GetActualInstalledPackages())
-
-/*		[ `item(`id(1), "X", "all", "aaa_base-2.4.1-45", "Basic package"),
-		    `item(`id(2), "P", "2 of 3", "yast2-base-2.6.2-32", "Yast basic package"), `item(`id(3), "", "", "sysconfig-base-2.6.1-2", "System configuration files")
-		]*/),
+		`Table(`id(`pkgtable),`opt(`notify), `header(" ", _("Files"), _("Package"), _("Version"), _("Description")), tablecontents),
 		`VSpacing(0.2),
 		`HBox(`PushButton(`id(`select), _("&Select all")), `PushButton(`id(`deselect), _("&Deselect all")), button),
 		`VSpacing(1.5)
@@ -596,7 +601,16 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	    // toggle restore selection: "X" -> " ", " " -> "X", "P" -> " "
 	    if (current_value == " ")
 	    {
-		current_value = "X";
+		// check if package is installed
+		// TODO check versions
+		if (current_pkgname != "" && haskey(Restore::GetActualInstalledPackages(), current_pkgname) == false)
+		{
+		    current_value = (UI::YesNoPopup(sformat(_("Package '%1' is not installed in your system.\nDo you really want to restore its files?"), current_pkgname)) == true) ? "X" : " " ;
+		}
+		else
+		{
+		    current_value = "X";
+		}
 	    }
 	    else
 	    {
@@ -612,12 +626,24 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	}
 	else if (ret == `files)
 	{
+	    // check if package is installed
+	    // TODO check versions
+	    if (current_value == " " && current_pkgname != "" && haskey(Restore::GetActualInstalledPackages(), current_pkgname) == false)
+	    {
+		if (UI::YesNoPopup(sformat(_("Package '%1' is not installed in your system.\nDo you really want to restore its files?"), current_pkgname)) != true)
+		{
+		    ret = `dummy;
+		}
+	    }
+
 	    restorepackagename = current_pkgname;
 	}
 	else if ((ret == `select || ret == `deselect) && size(tablecontents) > 0)
 	{
 	    // set selection type
 	    string sel_type = (ret == `select) ? "X" : " ";
+
+	    // TODO check whether some packages are missing, ask if they should be selected too
 
 	    // set selection type for all packages
 	    foreach(string p, map info, Restore::GetArchiveInfo(), ``{
@@ -744,10 +770,6 @@ global define symbol FileSelectionDialog(string packagename) ``{
 	    `VBox(
 		`VSpacing(1),
 		`ReplacePoint(`id(`rp), `MultiSelectionBox(`id(`mbox), mlabel, cont)),
-
-/*		 [ `item(`id(1), "/usr/blah/blah.cfg", true),
-		    `item(`id(2), "/etc/sysconfig/qwerty", true)
-		]*/
 		`VSpacing(1),
 		`HBox(
 		    `PushButton(`id(`all), "&Select all"),
@@ -832,10 +854,7 @@ global define symbol ArchiveContentsDialog() ``{
 	    `VBox(
 		`VSpacing(1),
 
-		`Table(`id(`table), `header(_("Package"), _("File")), archivecontentscache
-		/*[ `item(`id(1), "/dsf/fsdfsdf", "aaa_base-2.4.1-45"), `item(`id(2), "/qert/ret/erqt", "aaa_base-2.4.1-45"),
-		    `item(`id(3),  "/adfg/dafg/hg", "yast2-base-2.6.2-32"), `item(`id(4), "/gfh/sg/gsfh/gh", "sysconfig-base-2.6.1-2")
-		]*/),
+		`Table(`id(`table), `header(_("Package"), _("File")), archivecontentscache),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -966,7 +985,7 @@ global define symbol RestoreProgressDialog() ``{
 	    else
 	    {
 		// unpack subarchive
-		SCR::Execute(.target.bash, "export LC_ALL=C; /bin/tar -C " + tmp + " -x -f " + Restore::GetArchiveName() + " " + fileinarchive);
+		integer result = SCR::Execute(.target.bash, "export LC_ALL=C; /bin/tar -C " + tmp + " -x -f " + Restore::GetArchiveName() + " " + fileinarchive);
 
 		// set compression parameter
 		string compress = "";
@@ -998,14 +1017,14 @@ global define symbol RestoreProgressDialog() ``{
 		}
 
 		// start subprocess
-		SCR::Execute(.background.run, "export LC_ALL=C; /bin/tar -C " + targetdir + " " + compress + " -x -v -f " + tmp + "/" + fileinarchive + " " + RPMdb + " " + unpackfiles + " 2> " + tmp + "/tar.stderr");
+		boolean started = SCR::Execute(.background.run_output, "export LC_ALL=C; /bin/tar -C " + targetdir + " " + compress + " -x -v -f " + tmp + "/" + fileinarchive + " " + RPMdb + " " + unpackfiles + " 2> " + tmp + "/tar.stderr");
 
 		while(SCR::Read(.background.output_open) || (SCR::Read(.background.newlines) > 0))
 		{
 		    restored = restored + SCR::Read(.background.newlines);
 
-		    // reset new lines counter
-		    SCR::Read(.background.newout);
+		    // read output from tar
+		    restoredfiles = merge(restoredfiles, SCR::Read(.background.newout));
 
 		    // update progressbar
 		    UI::ChangeWidget(`id(`progress), `Value, restored);
@@ -1036,6 +1055,26 @@ global define symbol RestoreProgressDialog() ``{
 
 		}
 
+		// read failedfiles
+		failedfiles = merge(failedfiles, splitstring(SCR::Read(.target.string, tmp + "/tar.stderr"), "\n"));
+
+		y2milestone("restored files: %1", restored);
+
+		// package retoration failed
+		if (size(failedfiles) == size(restoredfiles))
+		{
+		    y2error("failed package: %1", pakage);
+		}
+		else
+		{
+		    restoredpackages = restoredpackages  + 1;
+		}
+
+		if (size(failedfiles) > 0)
+		{
+		    y2error("failed files: %1", failedfiles);
+		}
+
 		if (ret == `abort)
 		{
 		    break;
@@ -1044,6 +1083,21 @@ global define symbol RestoreProgressDialog() ``{
 	}
 
 	i = i + 1;
+    }
+
+    // sort list of restored files and remove duplicates (caused by multiple unpacking)
+    restoredfiles = toset(restoredfiles);
+
+    // remove failed files
+    restoredfiles = filter(string f, restoredfiles, ``{
+	    return !contains(failedfiles, f);
+	}
+    );
+
+    // UI::PollInput() returns nil if there is no user input, change it to `next
+    if (ret == nil)
+    {
+	ret = `next;
     }
 
     return ret;
@@ -1105,8 +1159,14 @@ global define symbol SuSEconfigDialog() ``{
 
 global define symbol SummaryDialog() ``{
 
-    string basicinfo = "<P>Number of installed packages: 3<BR>Number of uninstalled packages: 0</P><P>Total restored packages: 34<BR>Total restored files: 228</P><P>Restore status: Ok</P>";
-    string extendedinfo = "<P><BR><B>Details:</B></P><P>Lilo return status: Ok</P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>Restored files:</B><BR>/sdfsdf/sdf<BR>/sdf/sdf/sdf<BR></P>";
+    string basicinfo = "<P>Number of installed packages: 3<BR>Number of uninstalled packages: 0</P><P>Total restored packages: " + restoredpackages + "<BR>Total restored files: " + size(restoredfiles) + "</P><P>Restore status: Ok</P>";
+
+    if (size(failedfiles) > 0)
+    {
+	 basicinfo = basicinfo + "<P><B>Failed files</B><BR>" + mergestring(failedfiles, "<BR>") + "</P>";
+    }
+
+    string extendedinfo = "<P><BR><B>Details:</B></P><P>Lilo return status: Ok</P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>Restored files:</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
 
     return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, "help", _("Summary of restoration"), `finish);
 }
