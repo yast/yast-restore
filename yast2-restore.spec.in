@@ -3,7 +3,7 @@
 # neededforbuild  yast2-devel-packages yast2-installation yast2-bootloader
 
 @HEADER@
-Requires:	yast2 yast2-core bzip gzip tar yast2-installation yast2-bootloader
+Requires:	yast2 yast2-core bzip2 gzip tar yast2-installation yast2-bootloader
 BuildArchitectures:	noarch
 
 Summary:	YaST2 Restore module

@@ -27,6 +27,8 @@
     import "Mode";
     import "Packages";
 
+    import "Lilo";
+    include "lilo/routines.ycp";
     include "lilo/io.ycp";
 
     textdomain "restore";
@@ -944,10 +946,16 @@ It was probably not created by the backup module.
 
 		    // read restored files
 		    list stdout =  splitstring(SCR::Read(.target.string, tempdir + "/tar.stdout"), "\n");
+
+		    // remove empty lines
+		    stdout = filter(`line, stdout, ``{return size(line) > 0;});
 		    restoredfiles = merge(restoredfiles, stdout);
 
 		    // read failed files
 		    list stderr =  splitstring(SCR::Read(.target.string, tempdir + "/tar.stderr"), "\n");
+
+		    // remove empty lines
+		    stderr = filter(`line, stderr, ``{return size(line) > 0;});
 		    integer packagefailedfiles = 0;
 
 		    if (stderr != [])
@@ -994,12 +1002,6 @@ It was probably not created by the backup module.
 	    i = i + 1;
 	}
 
-	if (progress != nil)
-	{
-	    // update progress to 100%
-	    UI::ChangeWidget(`id(progress), `Value, i);
-	}
-
 	// sort list of restored files and remove duplicates (caused by multiple unpacking)
 	restoredfiles = toset(restoredfiles);
 
@@ -1008,6 +1010,13 @@ It was probably not created by the backup module.
 		return !contains(failedfiles, f);
 	    }
 	);
+
+	if (runbootloader == true && progress != nil)
+	{
+	    // progess bar label
+	    UI::ChangeWidget(`id(progress), `Label, _("Configuring bootloader..."));
+	    UI::ChangeWidget(`id(progress), `Value, i);
+	}
 
 	boolean bootload = Bootloader();
 
@@ -1183,6 +1192,7 @@ It was probably not created by the backup module.
 	    {
 		y2milestone("starting grub configuration");
 		ret = (DoGrub() == 0);
+		y2milestone("grub configured: %1", ret);
 
 		if (ret == false)
 		{
@@ -1195,10 +1205,11 @@ Boot loader was not updated."));
 	    {
 		y2milestone("starting lilo configuration");
 		ret = (DoLilo() == 0);
+		y2milestone("lilo configured: %1", ret);
 
 		if (ret == false)
 		{
-		    // error message
+		    // error message - lilo failed
 		    Report::Error(_("Lilo utility failed.
 Boot configuration was not updated.
 "));

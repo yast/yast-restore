@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Fri Aug  9 15:41:34 CEST 2002 - lslezak@suse.de
+
+- fixed summary dialog
+- fixed bootloader configuration
+- added help texts for translators
+- version 2.6.5
+
+-------------------------------------------------------------------
 Mon Aug  5 13:47:47 CEST 2002 - lslezak@suse.cz
 
 - added help texts for translators

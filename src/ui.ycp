@@ -45,11 +45,11 @@ global list archivecontentscache = nil;
 global list restoredfiles = [];
 global list failedfiles = [];
 global integer restoredpackages = 0;
-global boolean lilostatus = nil;
+global boolean bloaderstatus = nil;
 global boolean susestatus = nil;
 
-global map packagestoinstall = nil;
-global map packagestouninstall = nil;
+global map packagestoinstall = $[];
+global map packagestouninstall = $[];
 // mounted directory
 global string mountdir = "";
 
@@ -89,7 +89,7 @@ global define any RestoreSequence () ``{
 	];
 
     map sequence = $[
-	"ws_start" : "archive",
+	"ws_start" :  "archive",
 	"archive" :
 	$[
 	    `next	: "property",
@@ -165,7 +165,9 @@ global define any RestoreSequence () ``{
 	]
     ];
 
+    // dialog header
     string caption = _("Restore module");
+    // dialog message
     term contents = `Label (_("Initializing ..."));
 
     Wizard::CreateDialog ();
@@ -263,7 +265,9 @@ global define any RestoreAutoSequence (map selection) ``{
 	]
     ];
 
+    // dialog header
     string caption = _("Restore module configuration");
+    // dialog message
     term contents = `Label (_("Initializing ..."));
 
     Wizard::CreateDialog ();
@@ -433,40 +437,52 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
     Restore::Umount();
 
     term contents = `VBox(
+		// frame label
 		`Frame((multivolume == false ? _("Backup archive") : _("Multivolume archive")),
 			`HBox(
 			    `RadioButtonGroup(`id(`source), `opt(`notify),
 				`VBox(
 				    `VSpacing(0.5),
+				    // radio button label
 				    `Left(`RadioButton(`id(`file),  `opt(`notify), _("&Local file"), type == `file)),
 				    `HBox(
 					`HSpacing(2),
+					// text entry label
 					`TextEntry(`id(`filename), _("Archive file na&me:"), file_name),
 					`HSpacing(1),
+					// push button label
 					`Bottom(`PushButton(`id(`selectfile), _("&Select file...")))
 				    ),
 				    `VSpacing(1),
+				    // radio button label
 				    `Left(`RadioButton(`id(`nfs), `opt(`notify), _("Network (N&FS)"), type == `nfs)),
 				    `HBox(
 					`HSpacing(2),
+					// text entry label
 					`TextEntry(`id(`nfsserver), _("I&P adress or name of NFS server:"), nfs_server),
 					`HSpacing(1),
+					// push button label
 					`Bottom(`PushButton(`id(`selecthost), _("Select &host...")))
 				    ),
 				    `HBox(
 					`HSpacing(2),
+					// text entry label
 					`TextEntry(`id(`nfsfilename), _("&Archive file name:"), nfs_file)
 				    ),
 				    `VSpacing(1),
+				    // radio button label
 				    `Left(`RadioButton(`id(`removable), `opt(`notify), _("Rem&ovable device"), type == `removable)),
 				    `HBox(
 					`HSpacing(2),
+					// combo box label
 					`Left(`ComboBox(`id(`device), `opt(`editable), _("&Device"), CreateDeviceList(removabledevices, dev)))
 				    ),
 				    `HBox(
 					`HSpacing(2),
+					// text entry label
 					`TextEntry(`id(`remfilename), _("Archi&ve file name:"), cd_file),
 					`HSpacing(1),
+					// push button label
 					`Bottom(`PushButton(`id(`remfile), _("S&elect file...")))
 				    ),
 				    `VSpacing(1)
@@ -478,7 +494,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 		`VSpacing(1)
 	);
 
-    string help = (multivolume == false) ? _("Help") : _("Multivolume help");
+    // dialog header
     string title = (multivolume == false) ? _("Archive selection") : _("Multivolume archive selection");
 
     Wizard::SetContents(title, contents, (multivolume == true ? ArchiveMultiSelectionHelp() : ArchiveSelectionHelp()), true, true);
@@ -515,6 +531,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 		}
 	    }
 
+	    // popup dialog header - selection of network host
 	    string selectedhost = SelectFromList(_("Network &hosts:"), hosts, UI::QueryWidget(`id(`nfsserver), `Value));
 
 	    if (selectedhost != "" && selectedhost != nil)
@@ -545,7 +562,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 		    // check if file is under mountpoint directory
 		    if (substring(file, 0, size(mountpnt)) != mountpnt)
 		    {
-			// selected file is out of mounted file system
+			// error message - selected file is out of mounted file system
 			UI::ErrorPopup(_("The selected file is not on the mounted device."));
 		    }
 		    else
@@ -560,6 +577,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 	    }
 	    else
 	    {
+		// error message
 		UI::ErrorPopup(_("Cannot mount file system."));
 	    }
 	}
@@ -599,7 +617,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 	    boolean readresult = false;
 	    boolean lastvolume = false;
 
-	    // read archive file
+	    // progress message
 	    UI::OpenDialog(`Label(_("Reading archive contents...")));
 
 	    if (Restore::IsMultiVolume() == false)
@@ -618,6 +636,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 
 	    if (readresult == false)
 	    {
+		// error message - %1 is archive file name
 		UI::ErrorPopup(sformat(_("Cannot read backup archive file '%1'."), input));
 		Restore::Umount();
 		ret = `dummy;
@@ -676,6 +695,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 			if (testall == false)
 			{
 			    y2error("Test Restore::TestAllVolumes() failed");
+			    // error message - multi volume archive consistency check failed
 			    UI::ErrorPopup(_("Test of all volumes failed.
 An archive file is probably corrupted.
 "));
@@ -720,24 +740,32 @@ global define symbol ArchivePropertyDialog() ``{
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
+		// label text
 		`Left(`HBox(`Label(`id(`flabel), _("Archive file name:")), `HSpacing(2), `Label(`id(`flabel2), archname))),
 		`VSpacing(0.5),
+		// label text
 		`Left(`HBox(`Label(`id(`dlabel), _("Date of backup:")), `HSpacing(2), `Label(`id(`dlabel2), date))),
 		`VSpacing(0.5),
+		// label text
 		`Left(`HBox(`Label(`id(`hlabel), _("Backup host name:")), `HSpacing(2), `Label(`id(`hlabel2), hostname))),
 		`VSpacing(0.5),
+		// label text
 		`Left(`HBox(`Label(`id(`mlabel), _("Multivolume archive:")), `HSpacing(2), `Label(`id(`mlabel2), multivolume))),
 		`VSpacing(1.0),
+		// multi line widget label
 		`MultiLineEdit(`id(`description), `opt(`disabled), _("Archive &description:"), comment),
 		`VSpacing(1.0),
+		// push button label
 		`PushButton(`id(`details), _("&Archive content...")),
 		`VSpacing(1),
+		// push button label
 		`PushButton(`id(`options), _("E&xpert options...")),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
 	);
 
+    // dialog header
     Wizard::SetContents(_("Archive properties"),
 	contents, ArchivePropertyHelp(), true, true);
 
@@ -840,8 +868,6 @@ global define list CreateTableContentsWithMismatched(map contents, map selected,
  */
 global define symbol SelectionInstallDialog() ``{
 
-    // LATER: if all packages are installed return `next (or `back)
-
     map missingpackages = Restore::GetMissingPackages();
 
     // add mismatched packages
@@ -850,8 +876,14 @@ global define symbol SelectionInstallDialog() ``{
 	}
     );
 
+    // if all packages are installed return `next (or `back)
+    if (size(missingpackages) == 0)
+    {
+	return lastret;
+    }
+
     list missing = CreateTableContentsWithMismatched(missingpackages, packagestoinstall, true);
-    string widgetlabel = _("&Packages to install");
+    // table header
     term header = `header(" ", _("Package"), _("Version"), _("Installed version"), _("Description"));
 
     term contents = `HBox(
@@ -861,7 +893,9 @@ global define symbol SelectionInstallDialog() ``{
 		`Table(`id(`pkg), `opt(`notify), header, missing),
 		`VSpacing(1),
 		`HBox(
+		    // push button label
 		    `PushButton(`id(`all), _("&Select all")),
+		    // push button label
 		    `PushButton(`id(`none), _("&Deselect all"))
 		),
 		`VSpacing(1.5)
@@ -869,6 +903,7 @@ global define symbol SelectionInstallDialog() ``{
 	    `HSpacing(2)
 	);
 
+    // dialog header
     Wizard::SetContents(_("Package restoration -- installation"), contents, InstallPackageHelp(), true, true);
 
     symbol ret = nil;
@@ -955,6 +990,7 @@ global define symbol SelectionInstallDialog() ``{
     // TODO: warn if some packages are not available on CDs and display path selection dialog to packages
     // LATER: allow to select package from backup archive (YOU stores packages to /var/... and they can be used)
 
+    lastret = ret;
     return ret;
 }
 
@@ -965,13 +1001,16 @@ global define symbol SelectionInstallDialog() ``{
  */
 global define symbol SelectionUninstallDialog() ``{
 
-    // LATER: if all packages are installed return `next (or `back)
-
     map extrapackages = Restore::GetExtraPackages();
+
+    // if none extra package is installed return `next (or `back)
+    if (size(extrapackages) == 0)
+    {
+	return lastret;
+    }
+
     list extra = CreateTableContents(extrapackages, packagestouninstall, true);
-
-    string widgetlabel = _("&Packages to uninstall");
-
+    // table header
     term header = `header(" ", _("Package"), _("Version"), _("Description"));
 
     term contents = `HBox(
@@ -981,7 +1020,9 @@ global define symbol SelectionUninstallDialog() ``{
 		`Table(`id(`pkg), `opt(`notify), header, extra),
 		`VSpacing(1),
 		`HBox(
+		    // push button label
 		    `PushButton(`id(`all), _("&Select all")),
+		    // push button label
 		    `PushButton(`id(`none), _("&Deselect all"))
 		),
 		`VSpacing(1.5)
@@ -989,6 +1030,7 @@ global define symbol SelectionUninstallDialog() ``{
 	    `HSpacing(2)
 	);
 
+    // dialog header
     Wizard::SetContents(_("Package restoration -- uninstallation"), contents, UninstallPackageHelp(), true, true);
 
     symbol ret = nil;
@@ -1057,6 +1099,7 @@ global define symbol SelectionUninstallDialog() ``{
 	y2milestone("Selected packages to uninstall: %1", packagestouninstall);
     }
 
+    lastret = ret;
     return ret;
 }
 
@@ -1078,6 +1121,7 @@ global define boolean InstallQuestion(string package, string version) ``{
 
     if (package != "" && !haskey(Restore::GetActualInstalledPackages(), package) && !haskey(packagestoinstall, package))
     {
+	// popup question - %1 is package name
 	ret = UI::AnyQuestionPopup("", sformat(_("Package '%1' is not installed in your system.
 Install it?
 "), package + "-" + version), YesButtonLabel(), NoButtonLabel(), `focus_yes);
@@ -1102,6 +1146,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
     boolean personal = Product::personal;
 
     // in personal version is button = `Empty() and help text will be shorter
+    // push button label
     term button = (!personal) ? `PushButton(`id(`files), _("S&elect files")) : `Empty();
 
     list tablecontents = CreateTableContentsRestoreSelection(Restore::GetArchiveInfo());
@@ -1123,21 +1168,26 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
+		// table header
 		`Table(`id(`pkgtable),`opt(`notify), `header(" ", _("Files"), _("Package"), _("Version"), _("Description")), tablecontents),
 		`VSpacing(0.2),
+		// push button label
 		`HBox(`PushButton(`id(`select), _("&Select all")), `PushButton(`id(`deselect), _("&Deselect all")), button),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
 	);
 
+    // description of symbols in the table 1/2
     string helptext = _("X = Restore all files from backup, P = Partial restore of manually selected files");
 
     if (!personal)
     {
+	// description of symbols in the table 2/2
 	helptext = helptext + _("<P><BR>To select files to restore from the archive, press <B>Select files</B>.</P>");
     }
 
+    // dialog header
     Wizard::SetContents(_("Packages to restore"), contents, RestoreSelectionHelp(personal), true, true);
 
     if (Mode::config == true)
@@ -1172,6 +1222,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
 	restorepackagename = current_pkgname;
 
+	// package name "none" - files not owned by any package
 	if (current_pkgname == _("<none>"))
 	{
 	    current_pkgname = "";
@@ -1198,6 +1249,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 		current_value = " ";
 	    }
 
+	    // files are selected to restore - all
 	    string selectionstring = (current_value == "X") ? _("all") : "";
 
 	    UI::ChangeWidget(`id(`pkgtable), `Item(current, 0), current_value);
@@ -1232,6 +1284,9 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
 		if (missing != $[] && Mode::config == false)
 		{
+		    // user selected to restore all packages,
+		    // but some packages are not installed
+		    // ask to restore them
 		    string question = _("Some packages are not installed.
 Select them for restoration?
 ");
@@ -1244,6 +1299,9 @@ Select them for restoration?
 
 		if (mismatched != $[] && Mode::config == false)
 		{
+		    // user selected to restore all packages,
+		    // but some installed packages have different version than at backup
+		    // ask to restore them
 		    string question = _("Some installed packages have a different
 version than in the backup archive.
 Select them for restoration?
@@ -1310,6 +1368,7 @@ Select them for restoration?
 	Wizard::RestoreNextButton();
     }
 
+    lastret = ret;
     return ret;
 }
 
@@ -1322,10 +1381,13 @@ global define symbol RestoreOptionsDialog() ``{
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
+		// check box label - restore option
 		`Left(`CheckBox(`id(`lilo), _("Activate &bootloader configuration after restoration"), Restore::runbootloader)),
 		`VSpacing(0.2),
+		// check box label - restore option
 		`Left(`CheckBox(`id(`susecfg), _("Run &SuSEconfig after restoration"), Restore::runSuSEconfig)),
 		`VSpacing(0.2),
+		// check box label - restore option
 		`Left(`CheckBox(`id(`rpmdb), _("Restore RPM &database (if present in archive)"), Restore::restoreRPMdb)),
 		`VSpacing(1.5)
 	    ),
@@ -1334,6 +1396,7 @@ global define symbol RestoreOptionsDialog() ``{
 
     Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
 
+    // dialog header
     Wizard::SetContents(_("Restore options"), contents, RestoreOptionsHelp(), true, true);
 
     symbol ret = nil;
@@ -1401,6 +1464,7 @@ global define symbol FileSelectionDialog(string packagename) ``{
 	}
     );
 
+    // multi selection box label
     string mlabel = _("&Files to restore");
 
     term contents = `HBox(
@@ -1410,7 +1474,9 @@ global define symbol FileSelectionDialog(string packagename) ``{
 		`ReplacePoint(`id(`rp), `MultiSelectionBox(`id(`mbox), mlabel, cont)),
 		`VSpacing(1),
 		`HBox(
+		    // push button label
 		    `PushButton(`id(`all), _("&Select all")),
+		    // push button label
 		    `PushButton(`id(`none), _("&Deselect all"))
 		),
 		`VSpacing(1.5)
@@ -1420,7 +1486,7 @@ global define symbol FileSelectionDialog(string packagename) ``{
 
     Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
 
-    // for translatores: %1 is name of package (e.g. "aaa_base")
+    // dialog header - %1 is name of package (e.g. "aaa_base")
     Wizard::SetContents(sformat(_("File selection -- package %1"), packagename), contents, FileSelectionHelp(), true, true);
 
     symbol ret = nil;
@@ -1493,6 +1559,7 @@ global define symbol ArchiveContentsDialog() ``{
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
+		// tree label
 		`Tree(`id(`tree), _("Archive &contents:"), CreateArchiveContentTree(Restore::GetArchiveInfo())),
 		`VSpacing(1.5)
 	    ),
@@ -1501,6 +1568,7 @@ global define symbol ArchiveContentsDialog() ``{
 
     Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
 
+    // dialog header
     Wizard::SetContents(_("Archive contents"), contents, ArchiveContentHelp(), true, true);
 
     symbol ret = nil;
@@ -1530,11 +1598,13 @@ global define symbol RestoreProgressDialog() ``{
     symbol ret = nil;
     symbol progressbar = `progress;
 
+    integer bootloaderstep = (Restore::runbootloader == true) ? 1 : 0;
+
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`ProgressBar(`id(progressbar), " ", Restore::TotalPackagesToRestore(), 0),
+		`ProgressBar(`id(progressbar), " ", Restore::TotalPackagesToRestore() + bootloaderstep, 0),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -1549,23 +1619,24 @@ global define symbol RestoreProgressDialog() ``{
 
 	if (ret == `abort || ret == `cancel)
 	{
+	    // abort popup question
 	    abort = UI::AnyQuestionPopup(_("Abort confirmation"), _("Really abort restore?"), YesButtonLabel(), NoButtonLabel(), `focus_no);
 	}
 
 	return abort;
     };
 
+    // dialog header
     Wizard::SetContents(_("Restoring files"), contents, RestoreProgressHelp(), false, false);
 
     // start restoration
-    map result = Restore::Write(callback, progressbar, "/");
+    map result = Restore::Write(callback, progressbar, "/tmp/restore_root");
 
     // set values from restoration
     ret = (lookup(result, "aborted", false)) ? `abort : `next;
 
     // get lilo status
-    map liloresult = lookup(result, "lilo", $[]);
-    lilostatus = lookup(liloresult, "lilo", false);
+    bloaderstatus = lookup(result, "bootloader", false);
 
     if (ret == `next)
     {
@@ -1591,8 +1662,15 @@ global define symbol SWsingleDialog() ``{
 	return `back;
     }
 
-    foreach(`k, `v, install, ``{install = add(install, k);});
-    foreach(`k, `v, uninstall, ``{uninstall = add(uninstall, k);});
+    if (size(packagestoinstall) > 0)
+    {
+	foreach(`k, `v, packagestoinstall, ``{install = add(install, k);});
+    }
+
+    if (size(packagestouninstall) > 0)
+    {
+	foreach(`k, `v, packagestouninstall, ``{uninstall = add(uninstall, k);});
+    }
 
     y2milestone("install: %1", install);
     y2milestone("uninstall: %1", uninstall);
@@ -1632,14 +1710,17 @@ global define symbol SuSEconfigDialog() ``{
  */
 
 global define string StatusToString(boolean status) ``{
+    // program return status - program was not started
     string ret = "<I>" + _("Not started") + "</I>";
 
     if (status == true)
     {
+	// program return status - success
 	ret = _("Ok");
     }
     else if (status == false)
     {
+	// program return status - failed
 	ret = "<B>" + _("Failed") + "</B>";
     }
 
@@ -1653,22 +1734,26 @@ global define string StatusToString(boolean status) ``{
  */
 global define symbol SummaryDialog() ``{
 
-    string basicinfo = "<P>Number of installed packages: 3<BR>Number of uninstalled packages: 0" + "</P><P>" + _("Total restored packages: ") + restoredpackages + "<BR>" + _("Total restored files: ") + size(restoredfiles) + "</P>";
+    // summary information texts
+    string basicinfo = "<P>" + _("Number of installed packages: ") + size(packagestoinstall) + "<BR>" + _("Number of uninstalled packages: ") + size(packagestouninstall) + "</P><P>" + _("Total restored packages: ") + restoredpackages + "<BR>" + _("Total restored files: ") + size(restoredfiles) + "</P>";
 
     // display failed files if any
     if (size(failedfiles) > 0)
     {
+	// summary information text - header
 	 basicinfo = basicinfo + "<P><B>" + _("Failed files") + "</B><BR>" + mergestring(failedfiles, "<BR>") + "</P>";
     }
 
     // set lilo result string
-    string lilostr = StatusToString(lilostatus);
+    string lilostr = StatusToString(bloaderstatus);
 
     // set SuSEconfig result string
     string SuSEinfo = StatusToString(susestatus);
 
-    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Bootloader configuration: ") + lilostr + "</P><P>" + _("SuSEconfig status: ") + SuSEinfo + " </P><P><B>" + _("Restored files:") + "</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
+    // summary information texts - details
+    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Bootloader configuration: ") + lilostr + "<BR>" + _("SuSEconfig status: ") + SuSEinfo + " </P><P><B>" + _("Restored files:") + "</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
 
+    // dialog header
     return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, SummaryHelp(), _("Summary of restoration"), `finish);
 }
 
@@ -1718,6 +1803,7 @@ global define list CreateArchiveContentTree(map packagesinfo) ``{
 
 		if (p == "")
 		{
+		    // package name for files not owned by any package
 		    p = _("-- No package --");
 		}
 
@@ -1753,6 +1839,7 @@ global define list CreateTableContentsRestoreSelection(map restoreselection) ``{
 
 		if (seltype == "X")
 		{
+		    // all files selected for restoration
 		    numfiles = _("all");
 		}
 		else if (seltype == " ")
@@ -1764,6 +1851,7 @@ global define list CreateTableContentsRestoreSelection(map restoreselection) ``{
 		    integer total = size(lookup(m, "files", []));
 		    integer sel = size(lookup(m, "sel_file", []));
 
+		    // selected %1 (number of files) of %2 (number of files)
 		    numfiles = sformat(_("%1 of %2"), sel, total);
 		}
 		else
@@ -1771,10 +1859,10 @@ global define list CreateTableContentsRestoreSelection(map restoreselection) ``{
 		    y2error("Unknown selection type: %1", seltype);
 		}
 
-		// set name for "none" package
 		if (p == "")
 		{
-		    p = _("<none>");
+		    // name for "no package" - files not owned by any package
+		    p = _("-- No package --");
 		}
 
 		ret = add(ret, `item(`id(num), seltype, numfiles, p, ver, descr));
@@ -1853,6 +1941,7 @@ global define map DetectRemovable() ``{
 	    {
 		if (lookup(dev, "bus", "") == "Floppy")
 		{
+		    // floppy disk drive - combo box item
 		    device = _("Floppy");
 		}
 	    }
