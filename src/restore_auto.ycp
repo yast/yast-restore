@@ -32,29 +32,41 @@
 
     include "restore/ui.ycp";
 
-    list args = Args ();
-    if ( size (args) <= 0 )
+    list args = Args();
+
+    Mode::config = true;	// TODO remove this line!
+
+    if (size(args) <= 0)
     {
-	y2error ("Did not get the settings, probably some mistake...");
+	y2error("Did not get the settings, probably some mistake...");
 	return false;
     }
-    if ( !is ( Args (0), map ) )
+
+    if (!is(Args(0), map))
     {
-	y2error ("Bad argument for restore_auto: %1", Args (0));
+	y2error("Bad argument for restore_auto: %1", Args (0));
 	return false;
     }
 
     // The settings are in the first argument
-    map settings = select (args, 0, $[]);
-    y2milestone("Imported: (%1)", settings);
+    map settings = select(args, 0, $[]);
+    y2milestone("Imported: %1", settings);
 
-    Restore::Import ( settings );
+    Restore::Import(settings);
 
-    symbol ret = RestoreAutoSequence ();
+    input = select(lookup(settings, "archives", []), 0, "");
+
+    // start configuration
+    symbol ret = RestoreAutoSequence();
+    map result = $[];
 
     if (ret == `next || ret == `finish)
     {
-	return Restore::Export ();
+	result = Restore::Export();
     }
-    return $[];
+
+    y2milestone("Exported: %1", result);
+
+    return result;
 }
+

@@ -35,6 +35,9 @@
     // entered file name (e.g. nfs://server:/dir/archive.tar)
     string inputname = "";
 
+    // list of volumes in URL-like syntax
+    list inputvolumes = [];
+
     // contents of archive
     list archivefiles = [];
 
@@ -243,7 +246,7 @@
 
 	if (archive_info != nil)
 	{
-	    // filter out unselected packages and compute total restored files
+	    // filter out unselected packages
 	    ret = filter(string p, map info, archive_info, ``{
 		    string sel_type = lookup(info, "sel_type", " ");
 
@@ -281,6 +284,11 @@
      * @return map Map $[ "packagename" : "version" ]
      */
     global define map ReadActualInstalledPackages() ``{
+	if (Mode::config == true)
+	{
+	    return $[];
+	}
+
 	// read info about installed packages
 	map info = SCR::Read(.targetpkg.info);
 
@@ -318,8 +326,6 @@
 	    return false;
 	}
 
-	inputname = lookup(settings, "backupfile", "");
-	volumeparts = lookup(settings, "volumes", []);
 	runlilo = lookup(settings, "runlilo", true);
 	runSuSEconfig = lookup(settings, "runSuSEconfig", true);
 	restoreRPMdb = lookup(settings, "restoreRPMdb", false);
@@ -332,12 +338,23 @@
      * @return map Dumped settings (later acceptable by Import ())
      */
     global define map Export() ``{
+
+	map selection = $[];
+
+	foreach(string package, map info, archive_info, ``{
+		string sel_type = lookup(info, "sel_type", " ");
+		list sel_file = lookup(info, "sel_file", []);
+
+		selection = add(selection, package, $[ "sel_type" : sel_type, "sel_file" : sel_file ]);
+	    }
+	);
+
 	return $[
-	    "backupfile"	: inputname,
-	    "volumes"		: volumeparts,
+	    "archives"		: prepend(inputvolumes, inputname),
 	    "runlilo"		: runlilo,
 	    "runSuSEconfig"	: runSuSEconfig,
-	    "restoreRPMdb"	: restoreRPMdb
+	    "restoreRPMdb"	: restoreRPMdb,
+	    "selection"		: selection
 	];
     }
 
@@ -583,15 +600,23 @@
 
 		string sel_type = " ";
 
-		// set default selection to "X" (package is installed) or " " (package is not installed)
-		if (p == "")
+		if (Mode::config == true)
 		{
-		    // set "no package" default value to "X"
+		    // in autoinstall config preselect all files
 		    sel_type = "X";
 		}
 		else
 		{
-		    sel_type = (haskey(actualinstalledpackages, p) && !haskey(mismatched, p)) ? "X" : " ";
+		    // set default selection to "X" (package is installed) or " " (package is not installed)
+		    if (p == "")
+		    {
+			// set "no package" default value to "X"
+			sel_type = "X";
+		    }
+		    else
+		    {
+			sel_type = (haskey(actualinstalledpackages, p) && !haskey(mismatched, p)) ? "X" : " ";
+		    }
 		}
 
 		t = add(t, "sel_type", sel_type);
@@ -979,6 +1004,11 @@
 
 	    ret = lookup(addvol, "success", false);
 	    last = lookup(addvol, "lastvolume", true);
+
+	    if (ret == true)
+	    {
+		inputvolumes = add(inputvolumes, input);
+	    }
 	}
 
 	return $[ "success" : ret, "lastvolume" : last ];

@@ -54,38 +54,66 @@
     }
 
     // Read archive file
-    string inputfile = lookup(settings, "backupfile", "");
+    list volumes = lookup(settings, "archives", []);
 
-    boolean read = false;
-
-    if (size(inputfile) > 0)
+    if (size(volumes) == 0)
     {
-	read = Restore::Read(inputfile);
+	return false;
     }
 
-    if (read == false || size(inputfile) == 0)
-    {
-	if (UI::YesNoPopup("Archive file can not be read.\nDo you want to select it manually?") == true)
+    boolean first = true;
+    boolean read = false;
+    symbol ui = `dummy;
+
+    foreach(string volume, volumes, ``{
+
+	if (ui == `abort)
 	{
-	    // select file
-	    Wizard::CreateDialog();	// TODO remove this ?
-	    ArchiveSelectionDialog(false);
-	    UI::CloseDialog();		// TODO remove this ?
+	    return;
+	}
+
+	if (first == true)
+	{
+	    read = Restore::Read(volume);
 	}
 	else
 	{
-	    return false;
+	    read = Restore::ReadNextVolume(volume);
 	}
+
+	if (read == false)
+	{
+	    // read failed, offer manual selection
+	    if (UI::YesNoPopup((first == true ? _("Archive file cannot be read.") : _("Archive volume cannot be read.")) + _("\nDo you want to select it manually?"))  == true)
+	    {
+		// select file
+		Wizard::CreateDialog();		// TODO remove this ?
+		ui = ArchiveSelectionDialog(!first);
+
+		// ask for more volumes
+		if (first == true && Restore::IsMultiVolume() == true)
+		{
+		    ui = ArchiveSelectionDialog(true);
+		}
+
+		UI::CloseDialog();		// TODO remove this ?
+	    }
+	    else
+	    {
+		return false;
+	    }
+	}
+
+	first = false;
     }
 
-    if (Restore::IsMultiVolume() == true)
-    {
-	UI::MessagePopup("Archive has multiple volumes,\nplease select next volume.");
-	Wizard::CreateDialog();		// TODO remove this ?
-	ArchiveSelectionDialog(true);
-	UI::CloseDialog();		// TODO remove this ?
-    }
+    // set selection
+    map selection = lookup(settings, "selection", $[]);
 
+    foreach(string package, map info, selection, ``{
+	    Restore::SetRestoreSelection(package, info);
+	}
+    );
 
     Progress::off ();
     // TODO FIXME: extract files to the root directory

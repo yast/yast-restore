@@ -177,12 +177,67 @@ global define any RestoreSequence () ``{
 }
 
 /**
- * Whole configuration of restore but without reading and writing.
+ * Restoration without reading and writing.
  * For use with autoinstallation.
  * @return any Returned value from WizardSequencer() call
  */
 global define any RestoreAutoSequence () ``{
-    string caption = _("Restore configuration");
+
+    map aliases =
+	$[
+	    "archive"	:   ``( ArchiveSelectionDialog(false) ),
+	    "property"	:   ``( ArchivePropertyDialog() ),
+	    "marchive"	: [ ``( ArchiveSelectionDialog(true) ), true ],
+	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
+	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
+	    "select"	:   ``( PackageSelectionRestoreDialog() ),
+	    "selectfile": [ ``( FileSelectionDialog(restorepackagename) ), true ],
+	];
+
+    map sequence = $[
+	"ws_start" : "archive",
+	"archive" :
+	$[
+	    `next	: "property",
+	    `abort	: `abort
+	],
+	"marchive" :
+	$[
+	    `next	: "select",
+	    `abort	: `abort
+	],
+	"property" :
+	$[
+	    `details	: "contents",
+	    `options	: "options",
+	    `multi	: "marchive",
+	    `next	: "select",
+	    `abort	: `abort
+	],
+	"contents" :
+	$[
+	    `next	: "property",
+	    `abort	: `abort
+	],
+	"options" :
+	$[
+	    `next	: "property",
+	    `abort	: `abort
+	],
+	"select" :
+	$[
+	    `files	: "selectfile",
+	    `abort	: `abort,
+	    `next	: `next
+	],
+	"selectfile" :
+	$[
+	    `next	: "select",
+	    `abort	: `abort
+	]
+    ];
+
+    string caption = _("Restore module configuration");
     term contents = `Label (_("Initializing ..."));
 
     Wizard::CreateDialog ();
@@ -192,8 +247,7 @@ global define any RestoreAutoSequence () ``{
 				BackButtonLabel (),
 				NextButtonLabel ());
 
-    // Run the main configuration workflow
-    any ret = MainSequence ();
+    any ret = WizardSequencer (aliases, sequence);
 
     UI::CloseDialog ();
     return ret;
@@ -644,7 +698,7 @@ global define symbol ArchivePropertyDialog() ``{
 		`VSpacing(1.0),
 		`MultiLineEdit(`id(`description), `opt(`disabled), _("Archive &description:"), comment),
 		`VSpacing(1.0),
-		`PushButton(`id(`details), _("&Show archive contents...")),
+		`PushButton(`id(`details), _("&Archive content...")),
 		`VSpacing(1),
 		`PushButton(`id(`options), _("E&xpert options...")),
 		`VSpacing(1.5)
@@ -975,6 +1029,12 @@ global define symbol SelectionUninstallDialog() ``{
 global define boolean InstallQuestion(string package, string version) ``{
     boolean ret = false;
 
+    if (Mode::config == true)
+    {
+	// do not ask in autoinstall config mode
+	return true;
+    }
+
     if (package != "" && !haskey(Restore::GetActualInstalledPackages(), package) && !haskey(packagestoinstall, package))
     {
 	ret = UI::AnyQuestionPopup("", sformat(_("Package '%1' is not installed in your system.\nDo you want to install it?"), package + "-" + version), YesButtonLabel(), NoButtonLabel(), `focus_yes);
@@ -1036,6 +1096,11 @@ global define symbol PackageSelectionRestoreDialog() ``{
     }
 
     Wizard::SetContents(_("Packages to restore"), contents, RestoreSelectionHelp(personal), true, true);
+
+    if (Mode::config == true)
+    {
+        Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), FinishButtonLabel()));
+    }
 
     // set currnet item in the table
     if (size(tablecontents) > 0)
@@ -1120,9 +1185,9 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	    {
 		// check whether some packages are missing, ask if they should be selected too
 		map missing = Restore::GetMissingPackages();
-		boolean selmissing = false;
+		boolean selmissing = Mode::config;	// select all packages in autoinstall config mode
 
-		if (missing != $[])
+		if (missing != $[] && Mode::config == false)
 		{
 		    string question = _("Some packages are not installed.\nDo you want to select them for restoration?");
 		    selmissing = UI::AnyQuestionPopup("", question, YesButtonLabel(), NoButtonLabel(), `focus_no);
@@ -1130,9 +1195,9 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
 		// ask about mismatched packages
 		map mismatched = Restore::GetMismatchedPackages();
-		boolean selmismatch = false;
+		boolean selmismatch = Mode::config;	// select all packages in autoinstall config mode
 
-		if (mismatched != $[])
+		if (mismatched != $[] && Mode::config == false)
 		{
 		    string question = _("Some installed packages have different\nversion than is in backup archive.\nDo you want to select them for restoration?");
 		    selmismatch = UI::AnyQuestionPopup("", question, YesButtonLabel(), NoButtonLabel(), `focus_no);
@@ -1190,6 +1255,11 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	);
 
 	y2debug("Final restore selection: %1", final);
+    }
+
+    if (Mode::config == true)
+    {
+	Wizard::RestoreNextButton();
     }
 
     return ret;
