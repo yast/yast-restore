@@ -7,17 +7,17 @@
 [Y2Module restore]
 
 ; name of the entry, shown in y2cc
-Name = _("restore module")
+Name = _("Restore system")
 
 ; "raw" group name to which this module belongs
 ; see /usr/lib/YaST2/etc/y2controlcentericons.y2cc for valid values
-Group = Misc
+Group = System
 
 ; icon displayed in y2cc
 Icon = restore.png
 
 ; *one* *short* descriptive line for y2cc
-Helptext = _("Configure restore")
+Helptext = _("Restore files from backup archive")
 
 ; arguments, seperated by space
 Arguments = 
@@ -33,5 +33,8 @@ SortKey =
 
 ; which textdomain to use for translations (important!)
 Textdomain = restore 
+
+; autoinstallation is supported
+Autoinst = all
 
 ; vim:syntax=dosini

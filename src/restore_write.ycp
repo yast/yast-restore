@@ -61,39 +61,51 @@
 	return false;
     }
 
-    boolean first = true;
     boolean read = false;
     symbol ui = `dummy;
 
-    foreach(string volume, volumes, ``{
+    integer index = 0;
 
+    foreach(string volume, volumes, ``{
 	if (ui == `abort)
 	{
 	    return;
 	}
 
-	if (first == true)
+	if (index == 0)
 	{
 	    read = Restore::Read(volume);
 	}
 	else
 	{
-	    read = Restore::ReadNextVolume(volume);
+	    read = lookup(Restore::ReadNextVolume(volume), "success", false);
 	}
 
 	if (read == false)
 	{
 	    // read failed, offer manual selection
-	    if (UI::YesNoPopup((first == true ? _("Archive file cannot be read.") : _("Archive volume cannot be read.")) + _("\nDo you want to select it manually?"))  == true)
+	    input = volume;
+
+	    if (UI::YesNoPopup((index == 0 ? _("Archive file cannot be read.") : _("Archive volume cannot be read.")) + _("\nDo you want to select it manually?")) == true)
 	    {
+		if (index == 0)
+		{
+		    input = select(volumes, index, "");
+		}
+		else
+		{
+		    // in selection dialog is proposed new file name, use previous one
+		    input = select(volumes, index - 1, "");
+		}
+
 		// select file
 		Wizard::CreateDialog();		// TODO remove this ?
-		ui = ArchiveSelectionDialog(!first);
+		ui = ArchiveSelectionDialog(index != 0, false);	// false = ask only for one file, others are in 'volumes'
 
-		// ask for more volumes
-		if (first == true && Restore::IsMultiVolume() == true)
+		// ask for more volumes if they are not specified
+		if (index == 0 && Restore::IsMultiVolume() == true && size(volumes) == 1)
 		{
-		    ui = ArchiveSelectionDialog(true);
+		    ui = ArchiveSelectionDialog(true, false);
 		}
 
 		UI::CloseDialog();		// TODO remove this ?
@@ -104,8 +116,8 @@
 	    }
 	}
 
-	first = false;
-    }
+	index = index + 1;
+    });
 
     // set selection
     map selection = lookup(settings, "selection", $[]);

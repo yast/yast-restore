@@ -240,6 +240,10 @@
 	return ret;
     }
 
+    /**
+     * Returns selected packages (even partially).
+     * @return map Map with same keys as map returned by GetArchiveInfo()
+     */
 
     global define map GetSelectedPackages() ``{
 	map ret = $[];
@@ -316,21 +320,31 @@
      }
 
     /**
-     * Get all restore settings - for use by autoinstallation.
-     * @param settings The YCP structure to be imported.
+     * Get all restore settings - for use by autoinstallation
+     * @param settings The YCP structure to be imported
      * @return boolean True on success
      */
+
     global define boolean Import(map settings) ``{
 	if (settings == nil || settings == $[])
 	{
 	    return false;
 	}
 
+	Set(settings);
+
+	return true;
+    }
+
+    /**
+     * Set settings
+     * @param settings Map with settings: start lilo, run SuSEconfig, restore RPM db
+     */
+
+    global define void Set(map settings) ``{
 	runlilo = lookup(settings, "runlilo", true);
 	runSuSEconfig = lookup(settings, "runSuSEconfig", true);
 	restoreRPMdb = lookup(settings, "restoreRPMdb", false);
-
-	return true;
     }
 
     /**
@@ -360,7 +374,7 @@
 
     /**
      * Read contents of archive
-     * @param archivefile File name of backup archive. File on NFS server is 'nfs://server:/dir/file.tar', local file: 'file:///dir/file.tar' (prefix is file://, directory is /dir)
+     * @param input File name of backup archive. File on NFS server is 'nfs://server:/dir/file.tar', local file: 'file:///dir/file.tar' (prefix is file://, directory is /dir)
      * @return boolean True if archive was succesfully read, otherwise false (file does not exist, not tar archive, broken archive, archive not created by Backup module, ...)
      */
     global define boolean Read(string input) ``{
@@ -983,6 +997,11 @@
 	return $[ "aborted" : aborted, "restored" : restoredfiles, "failed" : failedfiles, "packages" : restoredpackages, "lilo" : liloret ];
     }
 
+    /**
+     * Read next volume of multi volume archive
+     * @param input Archive name in URL-like syntax
+     * @return map Map $[ "success" : boolean (true on success), "lastvolume" : boolean (true if archive is last volume) ]
+     */
 
     global define map ReadNextVolume(string input) ``{
 
@@ -1015,6 +1034,12 @@
     }
 
 
+    /**
+     * Add next volume - check volume, copy volume to the temp. dir.
+     * @param file File name of volume
+     * @return map Map $[ "success" : boolean (true on success), "lastvolume" : boolean (true if archive is last volume) ]
+     */
+
     define map AddVolume(string file) ``{
 
 	integer vol = size(volumeparts) + 1;
@@ -1045,6 +1070,12 @@
 	return $[ "success" : success, "lastvolume" : lookup(check, "lastvolume", true) ];
     }
 
+    /**
+     * Check if volume number in archive is equal to expected volume number
+     * @param filename Volume file name
+     * @param num Number of volume
+     * @return map Map $[ "success" : boolean (true on success), "lastvolume" : boolean (true if archive is last volume) ]
+     */
 
     define map CheckVolume(string filename, integer num) ``{
 	boolean success = false;
@@ -1068,6 +1099,11 @@
     }
 
 
+    /**
+     * Test all volumes together
+     * @return boolean True: all volumes are OK, false: an error occured
+     */
+
     global define boolean TestAllVolumes() ``{
 	boolean ret = false;
 
@@ -1090,6 +1126,12 @@
 	return ret;
     }
 
+    /**
+     * Copy volume to the local temporary directory
+     * @param filename Source file
+     * @param num Number of volume
+     * @return map Map $[ "success" : boolean (true on success), "file" : string (file name in the temporary directory) ]
+     */
 
     define map CopyVolume(string filename, integer num) ``{
 	boolean success = false;
@@ -1139,6 +1181,11 @@
 	}
     }
 
+    /**
+     * Mount input source
+     * @param input File in URl-like syntax
+     * @return map Map $[ "success" : boolean (true on success), "mpoint" : string (mount point), "file" : string (file name on the local system) ];
+     */
 
     global define map MountInput(string input) ``{
 
@@ -1279,7 +1326,12 @@
     }
 
 
-
+    /**
+     * Access to file on NFS server
+     * @param server Name or IP adress of NFS server
+     * @param file File on the server
+     * @return map $[ "mounted" : boolena (true on success), "mountpoint" : string (mount point) , "file" : string (file name), "server_dir" : string (directory on the server) ]
+     */
 
     define map mountNFS(string server, string file) ``{
 	integer pos = findlastof(file, "/");
@@ -1312,6 +1364,12 @@
     }
 
 
+    /**
+     * Access to file on CD
+     * @param cdindex Index of CD drive (in list SCR::Read(.probe.cdrom))
+     * @return map $[ "mounted" : boolena (true on success), "mpoint" : string (mount point) ]
+     */
+
     define map mountCD(integer cdindex) ``{
 	list drives = SCR::Read(.probe.cdrom);
 
@@ -1332,6 +1390,13 @@
 	return $[ "mounted" : result, "mpoint" : mpoint ];
     }
 
+
+    /**
+     * Access to file on floppy
+     * @param fdindex Index of floppy drive (in list SCR::Read(.probe.floppy))
+     * @return map $[ "mounted" : boolena (true on success), "mpoint" : string (mount point) ]
+     */
+
     define map mountFloppy(integer fdindex) ``{
 	list drives = SCR::Read(.probe.floppy);
 
@@ -1342,7 +1407,7 @@
 
 	string fddevice = lookup(select(drives, fdindex, $[]), "dev_name", "/dev/fd0");
 	string tmpdir = SCR::Read(.target.tmpdir);
-	string mpoint = tmpdir + "/cd";
+	string mpoint = tmpdir + "/fd";
 
 	// create mount point directory
 	SCR::Execute(.target.mkdir, mpoint);
@@ -1351,6 +1416,13 @@
 
 	return $[ "mounted" : result, "mpoint" : mpoint ];
     }
+
+
+    /**
+     * Mount device
+     * @param device Device file name (e.g. /dev/cdrom, /dev/sda...)
+     * @return map Map $[ "mounted" : boolean (true on success), "mpoint" : string (mount point where device was mounted) ];
+     */
 
     define map mountDevice(string device) ``{
 	if (device == nil || device == "")
@@ -1383,6 +1455,9 @@
 	}
     }
 
+    /**
+     * Clear all archive settings
+     */
 
     global define void ResetArchiveSelection() ``{
 	// clear selected archive
@@ -1408,6 +1483,11 @@
 
 	Umount();
     }
+
+
+    /**
+     * Clear all settings (archive and list of installed packages)
+     */
 
     global define void ResetAll() ``{
 	ResetArchiveSelection();

@@ -67,9 +67,9 @@ global map removabledevices = nil;
 global define any RestoreSequence () ``{
     map aliases =
 	$[
-	    "archive"	:   ``( ArchiveSelectionDialog(false) ),
+	    "archive"	:   ``( ArchiveSelectionDialog(false, false) ),
 	    "property"	:   ``( ArchivePropertyDialog() ),
-	    "marchive"	: [ ``( ArchiveSelectionDialog(true) ), true ],
+	    "marchive"	: [ ``( ArchiveSelectionDialog(true, true) ), true ],
 	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
 	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
 	    "install"	:   ``( SelectionInstallDialog() ),
@@ -160,7 +160,7 @@ global define any RestoreSequence () ``{
 	]
     ];
 
-    string caption = _("Restore configuration");
+    string caption = _("Restore module");
     term contents = `Label (_("Initializing ..."));
 
     Wizard::CreateDialog ();
@@ -177,17 +177,38 @@ global define any RestoreSequence () ``{
 }
 
 /**
+ * Set selection in _auto client and display properties of archive
+ * @param settings Restoration selection
+ * @return symbol User input at archive property dialog
+ */
+
+global define symbol SetSelectionProperty(map settings) ``{
+
+    // set selection for this archive and display archive propertyt
+    foreach(string package, map info, settings, ``{
+	    y2debug("setting selection: package:%1, selection:%2)", package, info);
+	    Restore::SetRestoreSelection(package, info);
+	}
+    );
+
+    return ArchivePropertyDialog();
+}
+
+
+
+/**
  * Restoration without reading and writing.
  * For use with autoinstallation.
+ * @param selection Restoration selection
  * @return any Returned value from WizardSequencer() call
  */
-global define any RestoreAutoSequence () ``{
+global define any RestoreAutoSequence (map selection) ``{
 
     map aliases =
 	$[
-	    "archive"	:   ``( ArchiveSelectionDialog(false) ),
-	    "property"	:   ``( ArchivePropertyDialog() ),
-	    "marchive"	: [ ``( ArchiveSelectionDialog(true) ), true ],
+	    "archive"	:   ``( ArchiveSelectionDialog(false, false) ),
+	    "property"	:   ``( SetSelectionProperty(selection) ),
+	    "marchive"	: [ ``( ArchiveSelectionDialog(true, true) ), true ],
 	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
 	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
 	    "select"	:   ``( PackageSelectionRestoreDialog() ),
@@ -256,9 +277,11 @@ global define any RestoreAutoSequence () ``{
 
 /**
  * Backup archive is selected in this dialog.
+ * @param multivolume True = first archive file is entered, otherwise volume parts are entered
+ * @param askformore False: ask only for one volume part, true: ask until all volumes are entered
  * @return symbol UI::UserInput() result
  */
-global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
+global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore) ``{
 
     // cache removable devices
     if (removabledevices == nil)
@@ -600,7 +623,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
 		restoredfiles = [];
 		failedfiles = [];
 
-		if (Restore::IsMultiVolume() == true)
+		if (Restore::IsMultiVolume() == true && askformore == true)
 		{
 		    // umount source and ask for next volume
 		    Restore::Umount();
@@ -673,9 +696,12 @@ global define symbol ArchiveSelectionDialog(boolean multivolume) ``{
  */
 global define symbol ArchivePropertyDialog() ``{
 
-    y2milestone("missing packages %1: ", Restore::GetMissingPackages());
-    y2milestone("extra packages %1: ", Restore::GetExtraPackages());
-    y2milestone("mismatched packages %1: ", Restore::GetMismatchedPackages());
+    if (Mode::config == false)
+    {
+	y2milestone("missing packages %1: ", Restore::GetMissingPackages());
+	y2milestone("extra packages %1: ", Restore::GetExtraPackages());
+	y2milestone("mismatched packages %1: ", Restore::GetMismatchedPackages());
+    }
 
     string date = Restore::GetArchiveDate();
     string hostname = Restore::GetArchiveHostname();
@@ -735,6 +761,7 @@ global define symbol ArchivePropertyDialog() ``{
  * Create content for table widget - columns: selection mark, package name, version, description
  * @param contents Map $[ "packagename" : $[ "ver" : "version", "descr" : "short description" ] ]
  * @param defaultval if true "X" is in the first column, else " "
+ * @param selected Selected packages (only for autoinstallation, otherwise should be nil)
  * @return list Contents for Table widget
  */
 global define list CreateTableContents(map contents, map selected, boolean defaultval) ``{
@@ -769,6 +796,7 @@ global define list CreateTableContents(map contents, map selected, boolean defau
  * Create content for table widget - columns: selection mark, package name, backup version, installed version, description
  * @param contents Map $[ "packagename" : $[ "ver" : "version", "descr" : "short description" ] ]
  * @param defaultval if true "X" is in the first column, else " "
+ * @param selected Selected packages (only for autoinstallation, otherwise should be nil)
  * @return list Contents for Table widget
  */
 global define list CreateTableContentsWithMismatched(map contents, map selected, boolean defaultval) ``{
@@ -1025,6 +1053,13 @@ global define symbol SelectionUninstallDialog() ``{
 
     return ret;
 }
+
+/**
+ * Ask wheter missing package should be installed and restored
+ * @param package Package name
+ * @param version Package version
+ * @return boolean True if package should be installed
+ */
 
 global define boolean InstallQuestion(string package, string version) ``{
     boolean ret = false;
@@ -1313,7 +1348,8 @@ global define symbol RestoreOptionsDialog() ``{
 }
 
 /**
- * Display all files in backup archive which belong to package. User can select wqhich files will be resored.
+ * Display all files in backup archive which belong to package. User can select which files will be resored.
+ * @param packagename Name of package
  * @return symbol UI::UserInput() result
  */
 global define symbol FileSelectionDialog(string packagename) ``{
@@ -1739,6 +1775,14 @@ global define list CreateTableContentsRestoreSelection(map restoreselection) ``{
     return ret;
 }
 
+/**
+ * Select item from list
+ * @param label Label in dialog
+ * @param inputlist List of values
+ * @param selected Default selected value
+ * @return string Selected value or empty string ("") if dialog was closed
+ */
+
 global define string SelectFromList(string label, list inputlist, string selected) ``{
 
     UI::OpenDialog(
@@ -1777,6 +1821,10 @@ global define string SelectFromList(string label, list inputlist, string selecte
     return ret;
 }
 
+/**
+ * Try to detect all removable devices present in the system
+ * @return map Removable devices info
+ */
 
 global define map DetectRemovable() ``{
     map ret = $[];
@@ -1826,6 +1874,12 @@ global define map DetectRemovable() ``{
     return ret;
 }
 
+/**
+ * Create list of removable devices for combo box widget.
+ * @param dev Map with devices
+ * @param sel Preselected device
+ * @return list Combo box content
+ */
 
 global define list CreateDeviceList(map dev, string sel) ``{
     list ret = [];
@@ -1844,6 +1898,12 @@ global define list CreateDeviceList(map dev, string sel) ``{
     return ret;
 }
 
+/**
+ * Convert selected device name in combobox to URL-like equivalent
+ * @param selected Selected string in combo box
+ * @param dev Devices info
+ * @return string Device name in URL-like syntax
+ */
 
 global define string ComboToDevice(string selected, map dev) ``{
     string ret = "";
@@ -1864,6 +1924,11 @@ global define string ComboToDevice(string selected, map dev) ``{
     return ret;
 }
 
+/**
+ * Propose next file name of volume from file name
+ * @param volume Previuos volume name
+ * @return string Proposed next volume name
+ */
 
 global define string ProposeNextVolume(string volume) ``{
     // increase number in file name
@@ -1894,6 +1959,12 @@ global define string ProposeNextVolume(string volume) ``{
 	return "";
     }
 }
+
+/**
+ * Enable/disable widget in file selction dialog according to
+ * selected input type
+ * @param type Symbol of widget which will be enabled (possible values are `file, `nfs, `removable)
+ */
 
 global define void ShadowButtons(symbol type) ``{
     UI::ChangeWidget(`id(`filename), `Enabled, type == `file);

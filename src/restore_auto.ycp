@@ -57,7 +57,7 @@
     input = select(lookup(settings, "archives", []), 0, "");
 
     // start configuration
-    symbol ret = RestoreAutoSequence();
+    symbol ret = RestoreAutoSequence(lookup(settings, "selection", $[]));
     map result = $[];
 
     if (ret == `next || ret == `finish)
@@ -67,6 +67,6 @@
 
     y2milestone("Exported: %1", result);
 
-    return result;
+    return [ret, result];
 }
 

@@ -20,6 +20,12 @@
 {
     textdomain "restore";
 
+
+    /**
+     * Help text for archive selection dialog
+     * @return string Help text
+     */
+
     global define string ArchiveSelectionHelp() ``{
 	return
 	    // For translators: archive selection dialog help (part 1)
@@ -28,19 +34,25 @@ from backup archive.</P>") +
 
 	    // For translators: archive selection dialog help, (part 2)
 _("<P><B>Archive selection</B><BR>Archive can be read from:</P>
-<P><B>Local file</B><BR>Archive is already available in the system, it is on mounted file system.
-<BR><B>Network</B><BR>Backup archive can be read from network using NFS.
-<BR><B>Removable device</B><BR>Archive is on removable device or
+<P><B>Local file</B><BR>Archive is already available in the system, it is on mounted file system.</P>
+<P><B>Network</B><BR>Backup archive can be read from network using NFS.</P>
+<P><B>Removable device</B><BR>Archive is on removable device or
 on unmounted file system. Device can be selected from list or you can enter device file name
-(e.g. /dev/hdc) if device is not in the list.
-If you press <B>Select file</B> button device will be mounted
+(e.g. /dev/hdc) if device is not in the list.</P>
+<P>If you press <B>Select file</B> button device will be mounted
 and you can select file from dialog.</P>") +
 
 	// For translators: archive selection dialog help (part 3)
 _("<P>Note: If you have multi volume archive then select first volume.</P>");
     }
 
-    global define ArchiveMultiSelectionHelp() ``{
+
+    /**
+     * Help text for multivolume archive dialog
+     * @return string Help text
+     */
+
+    global define string ArchiveMultiSelectionHelp() ``{
 	return
 _("<P><B><BIG>Multi volume archive</BIG></B><BR> Backup archive has more that
 one volume.</P>") +
@@ -50,9 +62,14 @@ Dialog will change after you select last part of backup archive.</P>") +
 
 _("<P>After volume is read the name of file will be automatically changed to
 next volume name, so you will probably only use button <B>Next</B> when next
-volume can be read.</P>") ;
-
+volume can be read.</P>");
     }
+
+
+    /**
+     * Help text for archive property dialog
+     * @return string Help text
+     */
 
     global define string ArchivePropertyHelp() ``{
 	return
@@ -64,6 +81,12 @@ expert options.</P> <P>If archive is multi volume archive then after
 <B>Next</B> button press you will be asked to select more volumes.</P> ");
     }
 
+
+    /**
+     * Help text for archive content dialog
+     * @return string Help text
+     */
+
     global define string ArchiveContentHelp() ``{
 	return
 	    // For translators: archive property dialog help
@@ -71,6 +94,11 @@ _("<P><B><BIG>Archive content</BIG></B><BR>
 Here are displayed packages and files which are in the backup archive</P>");
     }
 
+
+    /**
+     * Help text for options dialog
+     * @return string Help text
+     */
 
     global define string RestoreOptionsHelp() ``{
 	return
@@ -87,21 +115,29 @@ corrupted check this option - database will be restored if it is tha backup arch
 In other cases leave this option unchecked.</P>");
     }
 
+
+    /**
+     * Part of help text, it is used at more help texts
+     * @return string Help text
+     */
+
     global define string RestorePackageHelp() ``{
 	return
 	    // For translators: package restoration note (used in more dialogs)
-_("<P>Set of installed packages must be restored to state which was at backup.</P>");
+_("<P><B><BIG>Package restoration</BIG></B><BR>Set of installed packages must be restored to state which was at backup.</P>");
     }
 
 
+    /**
+     * Help text for install package selection dialog
+     * @return string Help text
+     */
+
     global define string InstallPackageHelp() ``{
 	return
-	    // For translators: package installation help (part 1)
-_("<P><B><BIG>Package restoration</BIG></B><BR>") +
-
 	    RestorePackageHelp() +
 
-	    // For translators: package installation help (part 2)
+	    // For translators: package installation help (part 1)
 _("<P>There is a list with uninstalled packages in the table. These packages
 were installed at backup time, but now they are missing.</P>") +
 
@@ -109,26 +145,33 @@ _("<P>To get same system configuration as was at backup time you have to select 
 
 	    // For translators: package installation help (part 2)
 _("<P>Mark 'X' in the first column means that package will be installed.</P>");
-
     }
+
+
+    /**
+     * Help text for uninstall package selection dialog
+     * @return string Help text
+     */
 
     global define string UninstallPackageHelp() ``{
 	return
-	    // For translators: package installation help (part 1)
-_("<P><B><BIG>Package restoration</BIG></B><BR>") +
-
 	    RestorePackageHelp() +
 
-	    // For translators: package installation help (part 2)
+	    // For translators: package installation help (part 1)
 _("<P>Packages in the table were not installed at backup time, but now they are.</P>") +
 
 _("<P>To get same system configuration as was at backup time you have to select all packages to uninstall. If you want to leave package installed deselect it.</P>") +
 
 	    // For translators: package installation help (part 2)
 _("<P>Mark 'X' in the first column means that package will be uninstalled.</P>");
-
     }
 
+
+    /**
+     * Help text for package selection dialog
+     * @param personal If false, add partial selection help text
+     * @return string Help text
+     */
 
     global define string RestoreSelectionHelp(boolean personal) ``{
 	return
@@ -136,14 +179,18 @@ _("<P>Mark 'X' in the first column means that package will be uninstalled.</P>")
 _("<P><B><BIG>Selection</BIG></B><BR>
 Here you can select which packages will be restored from backup archive.</P>") +
 
-_("<P>In the first column is displayed restoration status of the package. It can be 'X' (package will restored) or empty (package will not be restored).") +
+_("<P>In the first column is displayed restoration status of the package. It can be 'X' (package will restored) or empty (package will not be restored).</P>") +
 
-((personal == false) ? "'P' means that package will be restored only partially. Press <B>Select files</B> button to restore package partially. " : "" ) +
+((personal == false) ? "<P>'P' means that package will be restored only partially. Press <B>Select files</B> button to restore package partially.</P>" : "" ) +
 
-_("Number of selected files which will be restored from archive is in the second column.</P>");
-
+_("<P>Number of selected files which will be restored from archive is in the second column.</P>");
     }
 
+
+    /**
+     * Help text for file selection dialog
+     * @return string Help text
+     */
 
     global define string FileSelectionHelp() ``{
 	return
@@ -152,23 +199,34 @@ _("<P><B><BIG>File selection</BIG></B><BR>
 Here you can select which files will be restored.
 </P>
 ");
-
     }
+
+
+    /**
+     * Help text for progress dialog
+     * @return string Help text
+     */
 
     global define string RestoreProgressHelp() ``{
 	return
 _("<P><B><BIG>Restoring</BIG></B><BR>
 Files are restoring from backup archive now.
 It will take some time, depending on size and number of restored files.
-");
+</P>");
     }
+
+
+    /**
+     * Help text for summary dialog
+     * @return string Help text
+     */
 
     global define string SummaryHelp() ``{
 	return
 _("<P><B><BIG>Summary</BIG></B><BR>
 Here is displayed summary of restoration process. To see more details check option
 <B>Show details</B>. If you want to save summary to file press <B>Save to file</B> button.
-");
+</P>");
     }
 
 }
