@@ -1421,7 +1421,7 @@ It was probably not created by the backup module.
 		}
 
 		// get subarchive name
-		string name = (package == "") ? "NOPACKAGE" : package + "-" + info["vers"]:"";
+		string name = (package == "") ? "NOPACKAGE" : (package + "-" + info["vers"]:"");
 		string fileinarchive = "";
 
 		foreach(string f, archivefiles, ``{

@@ -29,10 +29,10 @@ ybin_SCRIPTS = \
 
 include $(top_srcdir)/Makefile.am.common
 
-symlinks:
-	test -L restore || ln -sf . restore
+restore:
+	ln -sf . restore
 
-ycpchook = symlinks
+ycpchook = restore
 
 YCPCFLAGS=-I.
 
