@@ -795,7 +795,7 @@ define symbol ArchiveContentsDialog() ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::OKButton()));
+    Wizard::SetNextButton(`next, Label::OKButton() );
 
     // dialog header
     Wizard::SetContents(_("Archive contents"), contents, ArchiveContentHelp(), true, true);
@@ -840,7 +840,7 @@ define symbol RestoreOptionsDialog() ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::OKButton()));
+    Wizard::SetNextButton(`next, Label::OKButton() );
 
     // dialog header
     Wizard::SetContents(_("Restore options"), contents, RestoreOptionsHelp(), true, true);
@@ -1385,11 +1385,11 @@ define symbol PackageSelectionRestoreDialog() ``{
 
     if (Mode::config == true)
     {
-        Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::FinishButton()));
+	Wizard::SetNextButton(`next, Label::FinishButton() );
     }
     else
     {
-        Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::AcceptButton()));
+	Wizard::SetNextButton(`next, Label::AcceptButton() );
     }
 
     if (Restore::RPMrestorable() == false)
@@ -1673,7 +1673,7 @@ define symbol FileSelectionDialog(string packagename) ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::OKButton()));
+    Wizard::SetNextButton(`next, Label::OKButton() );
 
     // dialog header - %1 is name of package (e.g. "aaa_base")
     Wizard::SetContents(sformat(_("File selection -- package %1"), packagename), contents, FileSelectionHelp(), true, true);

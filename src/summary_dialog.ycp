@@ -85,15 +85,15 @@ define symbol DisplaySummaryDialog(string text, string detail_text, string helpt
 
     if (button == `finish)
     {
-	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::FinishButton()));
+	Wizard::SetNextButton(`next, Label::FinishButton() );
     }
     else if (button == `ok)
     {
-	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::OKButton()));
+	Wizard::SetNextButton(`next, Label::OKButton() );
     }
     else if (button == `next)
     {
-	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::NextButton()));
+	Wizard::RestoreNextButton();
     }
     else
     {
