@@ -35,7 +35,6 @@ include "require.ycp";
 
 include "restore/helps.ycp";
 include "restore/summary_dialog.ycp";
-include "restore/misc.ycp";
 include "ui/common_messages.ycp";
 
 global string restorepackagename = nil;
@@ -788,6 +787,7 @@ global define symbol ArchivePropertyDialog() ``{
 	ret = `multi;
     }
 
+    lastret = ret;
     return ret;
 }
 
@@ -1630,7 +1630,7 @@ global define symbol RestoreProgressDialog() ``{
     Wizard::SetContents(_("Restoring files"), contents, RestoreProgressHelp(), false, false);
 
     // start restoration
-    map result = Restore::Write(callback, progressbar, "/tmp/restore_root");
+    map result = Restore::Write(callback, progressbar, "/");
 
     // set values from restoration
     ret = (lookup(result, "aborted", false)) ? `abort : `next;

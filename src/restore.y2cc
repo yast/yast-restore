@@ -14,7 +14,7 @@ Name = _("Restore system")
 Group = System
 
 ; icon displayed in y2cc
-Icon = restore.png
+Icon = system.png
 
 ; *one* *short* descriptive line for y2cc
 Helptext = _("Restore files from backup archive")
