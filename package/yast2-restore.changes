@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Sep  4 16:19:07 CEST 2002 - lslezak@suse.cz
+
+- fixed importing
+- new icon in y2cc
+- version 2.6.10
+
+-------------------------------------------------------------------
 Mon Aug 26 17:41:57 CEST 2002 - lslezak@suse.cz
 
 - use Pkg::GetPackages to get list of installed packages

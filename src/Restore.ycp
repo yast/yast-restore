@@ -69,7 +69,8 @@
     // mount point, stored for unmounting
     string mountpoint = "";
 
-    //
+    // nopackage identification stored in Exported map
+    // (to prevent empty tag in XML profile)
     string nopackage_id = "_NoPackage_";
 
     /**
@@ -740,6 +741,11 @@ It was probably not created by the backup module.
      * @param selection New restore selection for package, map  $[ "sel_type" : "X", "sel_file" : ["files"] ]
      */
     global define void SetRestoreSelection(string pkgname, map selection) ``{
+	if (pkgname == nopackage_id)
+	{
+	    pkgname = "";
+	}
+
 	if (haskey(archive_info, pkgname) == false)
 	{
 	    y2warning("Package %1 is not in archive, cannot be restored!", pkgname);
