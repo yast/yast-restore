@@ -172,7 +172,12 @@ else if (func == "Write")
     ret = (size(write_ret["failed"]:[]) == 0);
     return ret;
 }
-
+else if (func == "GetModified") {
+    ret =  Restore::Modified();
+}
+else if (func == "SetModified") {
+    Restore::SetModified();
+}
 /* unknown function */
 else
 {
