@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Wed Mar 12 13:25:04 CET 2003 - lslezak@suse.de
+
+- fixed extra } at the end of src/restore_auto.ycp file
+- version 2.7.5
+
+-------------------------------------------------------------------
 Mon Mar 10 13:03:54 CET 2003 - lslezak@suse.de
 
 - start portmapper if it isn't runnig (needed at autoinstallation
