@@ -1322,7 +1322,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	);
     }
 
-    map proposedRPMrestoration = Restore::ProposeRPMdbRestoration();
+    map<string, any> proposedRPMrestoration = Restore::ProposeRPMdbRestoration();
     y2milestone("Proposed RPM restoration: %1", proposedRPMrestoration);
 
     boolean RPMoption = Restore::restoreRPMdb;
@@ -1331,7 +1331,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
     if (RPMoption == nil)
     {
-	RPMoption = proposedRPMrestoration["proposed"]:false;
+	RPMoption = (boolean) proposedRPMrestoration["proposed"]:false;
     }
 
     y2warning("RPMoption: %1", RPMoption);

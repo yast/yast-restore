@@ -24,6 +24,9 @@ desktop_DATA =			\
 module_DATA =			\
 	Restore.ycp
 
+include $(top_srcdir)/Makefile.am.common
+
+
 ybin_SCRIPTS = \
 	restore_parse_pkginfo.pl
 

@@ -27,7 +27,7 @@
     import "Mode";
     import "Summary";
     import "Bootloader";
-    import "Runlevel";
+    import "Service";
     import "Require";
     import "Label";
     import "Popup";
@@ -177,13 +177,15 @@
 	Pkg::TargetInit("/", false);
 
 	// read info about installed packages
-	list info = Pkg::GetPackages(`installed, false);
+	list<string> info = Pkg::GetPackages(`installed, false);
 
 	// process version info
-	map ret = listmap(string pkg, info, ``{
+	map ret = $[];
+
+	foreach(string pkg, info, ``{
 		list all = splitstring(pkg, " ");
 
-		return $[all[0]:"unknown" : all[1]:"" + "-" + all[2]:""];
+		ret = add(ret, all[0]:"unknown", all[1]:"" + "-" + all[2]:"");
 	    }
 	);
 
@@ -505,13 +507,13 @@
 	    }
 
 	    // check if portmapper is running
-	    integer portmapper_status = Runlevel::ServiceStatus("portmap");
+	    integer portmapper_status = Service::Status("portmap");
 	    y2milestone("portmap status: %1", portmapper_status);
 
 	    if (portmapper_status != 0)
 	    {
 		// start portmapper
-		integer started = Runlevel::RunInitScript("portmap", "start");
+		boolean started = Service::Start("portmap");
 		y2milestone("portmap start result: %1", started);
 	    }
 
@@ -971,11 +973,13 @@ It was probably not created by the backup module.
 	installedpkgs_list = filter(string pk, installedpkgs_list, ``{return pk != "" && pk != nil;});
 
 	// convert list to map (key - package name, value - package version)
-	installedpkgs = listmap(string fullname, installedpkgs_list, ``{
+	installedpkgs = $[];
+
+	foreach(string fullname, installedpkgs_list, ``{
 		string version = regexpsub(fullname, ".*-(.*-.*)", "\\1");
 		string name = substring(fullname, 0, size(fullname) - size(version) - 1);
 
-		return $[name: version];
+		installedpkgs = add(installedpkgs, name, version);
 	    }
 	);
 

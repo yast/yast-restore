@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Fri Jan  9 09:56:34 CET 2004 - lslezak@suse.cz
+
+- fixes for the new interpreter
+- use Service:: module
+- version 2.9.1
+
+-------------------------------------------------------------------
 Wed Nov 19 17:34:47 CET 2003 - lslezak@suse.cz
 
 - use UI:: file popup builtins
