@@ -25,6 +25,7 @@ import "Wizard";
 import "Wizard_hw";
 import "Progress";
 import "Restore";
+import "Mode";
 
 include "ui/common_popups.ycp";
 include "ui/common_messages.ycp";
@@ -36,6 +37,8 @@ include "restore/helps.ycp";
 
 global string restorepackagename = "";
 global map restoreselectedfiles = $[];
+
+global list archivecontentscache = nil;
 
 /**
  * Whole configuration of restore
@@ -213,7 +216,10 @@ global define symbol ArchiveSelectionDialog() ``{
 
 //    Restore::ReadArchiveFile(UI::QueryWidget(`id(`filename), `Value));
 
-//   Restore::ReadArchiveFile("/tmp/backup.tar");
+    if (Mode::test != true)
+    {
+	Restore::ReadArchiveFile("/tmp/backup.tar");
+    }
 
 //    y2milestone("Archive contents: %1", Restore::GetArchiveContents());
 
@@ -224,17 +230,34 @@ global define symbol ArchiveSelectionDialog() ``{
 
 global define symbol ArchivePropertyDialog() ``{
 
+    string date = "";
+    string hostname = "";
+    string comment = "";
+
+    if (Mode::test == true)
+    {
+	date = "13.01.2002 14:25";
+	hostname = "linux.local";
+	comment = "Test mode comment";
+    }
+    else
+    {
+	date = Restore::GetArchiveDate();
+	hostname = Restore::GetArchiveHostname();
+	comment = Restore::GetArchiveComment();
+    }
+
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`Left(`HBox(`Label(`id(`flabel), _("Archive file name:")), `HSpacing(2), `Label(`id(`flabel2), "/tmp/backup.tar"))),
+		`Left(`HBox(`Label(`id(`flabel), _("Archive file name:")), `HSpacing(2), `Label(`id(`flabel2), Restore::GetArchiveName()))),
 		`VSpacing(0.5),
-		`Left(`HBox(`Label(`id(`dlabel), _("Date of backup:")), `HSpacing(2), `Label(`id(`dlabel2), "02.05.2002  18:08"))),
+		`Left(`HBox(`Label(`id(`dlabel), _("Date of backup:")), `HSpacing(2), `Label(`id(`dlabel2), date))),
 		`VSpacing(0.5),
-		`Left(`HBox(`Label(`id(`hlabel), _("Backup host name:")), `HSpacing(2), `Label(`id(`hlabel2), "linux.local"))),
+		`Left(`HBox(`Label(`id(`hlabel), _("Backup host name:")), `HSpacing(2), `Label(`id(`hlabel2), hostname))),
 		`VSpacing(1.0),
-		`MultiLineEdit(`id(`description), `opt(`disabled), _("Archive &description:"), "Backup archive created before root partition resize"),
+		`MultiLineEdit(`id(`description), `opt(`disabled), _("Archive &description:"), comment),
 		`VSpacing(1.0),
 		`PushButton(`id(`details), _("&Show archive contents...")),
 		`VSpacing(2)
@@ -478,14 +501,22 @@ global define symbol FileSelectionDialog(string packagename, map files) ``{
 
 global define symbol ArchiveContentsDialog() ``{
 
+    Wizard::ClearContents();
+
+    if (archivecontentscache == nil)
+    {
+	archivecontentscache = CreateTableContent(Restore::GetArchiveContents());
+    }
+
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
 
-		`Table(`id(`table), `header(_("File"), _("Package")), [ `item(`id(1), "/dsf/fsdfsdf", "aaa_base-2.4.1-45"), `item(`id(2), "/qert/ret/erqt", "aaa_base-2.4.1-45"),
+		`Table(`id(`table), `header(_("Package"), _("File")), archivecontentscache
+		/*[ `item(`id(1), "/dsf/fsdfsdf", "aaa_base-2.4.1-45"), `item(`id(2), "/qert/ret/erqt", "aaa_base-2.4.1-45"),
 		    `item(`id(3),  "/adfg/dafg/hg", "yast2-base-2.6.2-32"), `item(`id(4), "/gfh/sg/gsfh/gh", "sysconfig-base-2.6.1-2")
-		]),
+		]*/),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -493,7 +524,7 @@ global define symbol ArchiveContentsDialog() ``{
 
     Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
 
-    Wizard::SetContents(_("Package selection"), contents, "help", true, true);
+    Wizard::SetContents(_("Archive contents"), contents, "help", true, true);
 
     symbol ret = nil;
 
@@ -599,7 +630,7 @@ global define symbol SummaryDialog() ``{
 
     term contents = `VBox(
 	    `VSpacing(0.5),
-	    `RichText("<P>Total restored packages: 34<BR>Total restored files: 228</P><P>Number of installed packages: 3<BR>Number of uninstalled packages: 0</P><P>Restore status: Ok</P>"),
+	    `RichText("<P>Number of installed packages: 3<BR>Number of uninstalled packages: 0</P><P>Total restored packages: 34<BR>Total restored files: 228</P><P>Restore status: Ok</P>"),
 	    `VSpacing(0.5),
 	    `PushButton(`id(`details), _("&Details...")),
 	    `VSpacing(1.0)
@@ -628,6 +659,30 @@ global define symbol SummaryDialog() ``{
     }
 
     Wizard::RestoreNextButton();
+
+    return ret;
+}
+
+
+
+global define list CreateTableContent(map packagesinfo) ``{
+
+    list ret = [];
+    integer num = 0;
+
+    if (packagesinfo != nil)
+    {
+	foreach(string p, map info, packagesinfo, ``{
+		list files = lookup(info, "files", []);
+
+		foreach(string file, files, ``{
+			ret = add(ret, `item(`id(num), p, file));
+			num = num + 1;
+		    }
+		);
+	    }
+	);
+    }
 
     return ret;
 }

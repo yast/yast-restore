@@ -33,6 +33,9 @@
     // installed packages at backup time
     list installedpkgs = [];
 
+    // list of installed packages
+    map actualinstalledpackages = $[];
+
     // informations stored in archive
     string date = "";
     string hostname = "";
@@ -50,7 +53,11 @@
 	return date;
     }
 
-    global define string GetArchivecComment() ``{
+    global define string GetArchiveName() ``{
+	return filename;
+    }
+
+    global define string GetArchiveComment() ``{
 	return comment;
     }
 
@@ -58,8 +65,39 @@
 	return hostname;
     }
 
-    global define string GetArchiveInstalledPackages() ``{
+    global define list GetArchiveInstalledPackages() ``{
 	return installedpkgs;
+    }
+
+/*    global define list GetNotDistributedPackages() ``{
+	return [];
+    }
+*/
+    global define list GetMissingPackages() ``{
+
+//	if ()
+	return [];
+    }
+
+    global define list GetExtraPackages() ``{
+	return [];
+    }
+
+    global define list GetActualInstalledPackages() ``{
+	map info = SCR::Read(.targetpkg.info);
+
+	list ret = [];
+
+	if (info != nil)
+	{
+	    foreach(string name, list data, info, ``{
+		    string version = select(data, 0, "");
+		}
+	    );
+
+	}
+
+	return info;
     }
 
 
@@ -260,9 +298,15 @@
 	archivefiles = splitstring(lookup(result, "stdout", ""), "\n");
 	archivefiles = filter(string f, archivefiles, ``{return f != "" && f != nil;});
 
+	if (!contains(archivefiles, "info/files"))
+	{
+	    // TODO: multi volume - error, cannot get archive contents
+	    y2warning("Archive does not contain 'info/files' file!");
+	}
+
 	y2milestone("archivefiles: %1", archivefiles);
 
-	string infofiles = "info/comment info/hostname info/date info/installed_packages";
+	string infofiles = "info/comment info/hostname info/date info/installed_packages info/files";
 
 	if (tempdir == "")
 	{
@@ -275,6 +319,14 @@
 	date = SCR::Read(.target.string, tempdir + "/info/date");
 	comment = SCR::Read(.target.string, tempdir + "/info/comment");
 	hostname = SCR::Read(.target.string, tempdir + "/info/hostname");
+
+	string archivefs = SCR::Read(.target.string, tempdir + "/info/files");
+
+	if (archivefs != nil)
+	{
+	    archivefiles = splitstring(archivefs, "\n");
+	    archivefiles = filter(string pk, archivefiles, ``{return pk != "" && pk != nil;});
+	}
 
 	string installedpkgs_str = SCR::Read(.target.string, tempdir + "/info/installed_packages");
 

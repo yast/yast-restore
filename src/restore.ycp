@@ -27,7 +27,7 @@
     include "restore/ui.ycp";
 
     /* The main () */
-    y2milestone ("Restore module started");
+    y2milestone ("Restore client started");
     y2milestone ("----------------------------------------");
 
     /**
@@ -49,6 +49,6 @@
     y2debug ("ret == %1", ret);
 
     /* Finish */
-    y2milestone ("Restore module finished");
+    y2milestone ("Restore client finished");
     return ret;
 }
