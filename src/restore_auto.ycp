@@ -143,7 +143,7 @@ else if (func == "Write")
     });
 
     // set selection
-    map selection = lookup(settings, "selection", $[]);
+    map selection = param["selection"]:$[];
 
     foreach(string package, map info, selection, ``{
 	    Restore::SetRestoreSelection(package, info);

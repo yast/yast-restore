@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Mon Mar 10 13:03:54 CET 2003 - lslezak@suse.de
+
+- start portmapper if it isn't runnig (needed at autoinstallation
+  if non-NFS installation source and NFS backup archive is used)
+- copy y2logs to directory /var/log/YaST2.before_restore before
+  restoring files (y2logs are overwritten by archived files)
+- version 2.7.4
+
+-------------------------------------------------------------------
 Mon Mar  3 10:51:42 CET 2003 - lslezak@suse.de
 
 - fixed archive search, restore files to the root

@@ -27,6 +27,8 @@
     import "Mode";
     import "Summary";
     import "Bootloader";
+    import "Runlevel";
+    import "Require";
 
     textdomain "restore";
 
@@ -907,6 +909,13 @@ It was probably not created by the backup module.
 	    }
 	    else
 	    {
+		// y2logs will be probably overwritten - backup them
+		if (package == "")
+		{
+		    integer copy = SCR::Execute(.target.bash, "cp -r /var/log/YaST2 /var/log/YaST2.before_restore");
+		    y2milestone("copy y2logs to /var/log/YaST2.before_restore: ret=%1", copy);
+		}
+
 		// get subarchive name
 		string name = (package == "") ? "NOPACKAGE" : package + "-" + lookup(info, "vers", "");
 		string fileinarchive = "";
@@ -1419,6 +1428,28 @@ Press OK to exit.
 	    string nfs_server = substring(tail, 0, pos);
 	    string nfs_file = substring(tail, pos + 1);
 
+	    // check if portmapper is installed
+	    integer result = SCR::Execute(.target.bash, "/bin/rpm -q portmap");
+	    y2milestone("check result: rpm: %1", result);
+
+	    if (result != 0)
+	    {
+		y2milestone("portmapper package is not installed");
+		Require::DoInstallAndRemove(["portmap"], []);
+	    }
+
+	    // check if portmapper is running
+	    integer portmapper_status = Runlevel::ServiceStatus("portmap");
+	    y2milestone("portmap status: %1", portmapper_status);
+
+	    if (portmapper_status != 0)
+	    {
+		// start portmapper
+		integer started = Runlevel::RunInitScript("portmap", "start");
+		y2milestone("portmap start result: %1", started);
+	    }
+
+
 	    y2milestone("NFS source - server: %1  file: %2", nfs_server, nfs_file);
 
 	    map mountresult = mountNFS(nfs_server, nfs_file);
@@ -1711,11 +1742,20 @@ Press OK to exit.
 	actualinstalledpackages = $[];
     }
 
+    /**
+     * Remove shortcut mark from string
+     * @param scut string with shortcut mark (&)
+     * @return string result
+     */
     define string RemoveShortCut(string scut) ``{
 	return mergestring(splitstring(scut, "&"), "");
     }
 
-
+    /**
+     * Convert boolean value to translated "yes" or "no" string
+     * @param b input value
+     * @return string translated Yes/No string
+     */
     define string yesno(boolean b) ``{
 	string ret = "?";
 
