@@ -560,7 +560,7 @@
     global define void SetRestoreSelection(string pkgname, map selection) ``{
 	if (haskey(archive_info, pkgname) == false)
 	{
-	    y2warning("Package %1 is not in archive, cannot be restored!");
+	    y2warning("Package %1 is not in archive, cannot be restored!", pkgname);
 	}
 	else
 	{

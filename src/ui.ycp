@@ -35,8 +35,7 @@ include "wizard/sequencer.ycp";
 include "restore/helps.ycp";
 
 
-global string restorepackagename = "";
-global map restoreselectedfiles = $[];
+global string restorepackagename = nil;
 
 global list archivecontentscache = nil;
 
@@ -55,7 +54,7 @@ global define any RestoreSequence () ``{
 	    "uninstall"	:   ``( SelectionUninstallDialog() ),
 	    "sw_single"	:   ``( SWsingleDialog() ),
 	    "select"	:   ``( PackageSelectionRestoreDialog() ),
-	    "selectfile": [ ``( FileSelectionDialog(restorepackagename, restoreselectedfiles) ), true ],
+	    "selectfile": [ ``( FileSelectionDialog(restorepackagename) ), true ],
 	    "restore"	: [ ``( RestoreProgressDialog() ), true ],
 	    "SuSEconfig": [ ``( SuSEconfigDialog() ), true ],
 	    "summary"	:   ``( SummaryDialog() ),
@@ -63,6 +62,7 @@ global define any RestoreSequence () ``{
 
     map sequence = $[
 	"ws_start" : "archive",
+//	"ws_start" : "select",
 	"archive" :
 	$[
 	    `options	: "options",
@@ -560,18 +560,41 @@ global define symbol SelectionUninstallDialog() ``{
 }
 
 global define symbol PackageSelectionRestoreDialog() ``{
+    // TODO: read this value from system
+    boolean profi = true;
+
+    // TODO test distribution: in personal version button = `Empty() and help text will be shorter
+    term button = (profi) ? `PushButton(`id(`files), _("S&elect files")) : `Empty();
+
+    string help_profi = "To select files which will be restored from archive press <B>Select files</B> button.";
+
+    list tablecontents = CreateTableContentsRestoreSelection(Restore::GetArchiveInfo(), Restore::GetActualInstalledPackages());
+    integer position = 0;
+
+    // refresh previous selection
+    if (restorepackagename != nil)
+    {
+	foreach(term t, tablecontents, ``{
+		if (restorepackagename == select(t, 3, ""))
+		{
+		    position = select(select(t, 0, `id(0)), 0, 0);
+		}
+	    }
+	);
+    }
 
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`Table(`id(`pkgtable),`opt(`notify), `header(" ", _("Files"), _("Package"), _("Version"), _("Description")), CreateTableContentsRestoreSelection(Restore::GetArchiveInfo(), Restore::GetActualInstalledPackages())
+		`Table(`id(`pkgtable),`opt(`notify), `header(" ", _("Files"), _("Package"), _("Version"), _("Description")), tablecontents
+		//CreateTableContentsRestoreSelection(Restore::GetArchiveInfo(), Restore::GetActualInstalledPackages())
 
 /*		[ `item(`id(1), "X", "all", "aaa_base-2.4.1-45", "Basic package"),
 		    `item(`id(2), "P", "2 of 3", "yast2-base-2.6.2-32", "Yast basic package"), `item(`id(3), "", "", "sysconfig-base-2.6.1-2", "System configuration files")
 		]*/),
 		`VSpacing(0.2),
-		`HBox(`PushButton(`id(`select), _("&Select package")), `PushButton(`id(`deselect), _("&Deselect package")), `PushButton(`id(`files), _("S&elect files"))),
+		`HBox(`PushButton(`id(`select), _("&Select all")), `PushButton(`id(`deselect), _("&Deselect all")), button),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -579,6 +602,13 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
     Wizard::SetContents(_("Packages to restore"),
 	contents, "X = Restore all files from backup, P = Partiall restore of manually selected files", true, true);
+
+    // set currnet item in the table
+    if (size(tablecontents) > 0)
+    {
+	UI::ChangeWidget(`id(`pkgtable), `CurrentItem, position);
+    }
+
 
     // TODO: display warning if some packages are not installed
 
@@ -588,32 +618,65 @@ global define symbol PackageSelectionRestoreDialog() ``{
     {
 	ret = UI::UserInput();
 
+	integer current = 0;
+	string current_value = "";
+	string current_pkgname = "";
+
+	if (size(tablecontents) > 0)
+	{
+	    current = UI::QueryWidget(`id(`pkgtable), `CurrentItem);
+	    current_value = select(UI::QueryWidget(`id(`pkgtable), `Item(current)), 1, " ");
+	    current_pkgname = select(UI::QueryWidget(`id(`pkgtable), `Item(current)), 3, "");
+	}
+
+	restorepackagename = current_pkgname;
+
+	if (current_pkgname == _("<none>"))
+	{
+	    current_pkgname = "";
+	}
+
 	if (ret == `pkgtable)
 	{
-	    integer current = UI::QueryWidget(`id(`pkgtable), `CurrentItem);
-	    string current_value = select(UI::QueryWidget(`id(`pkgtable), `Item(current)), 1, " ");
-	    string current_pkgname = select(UI::QueryWidget(`id(`pkgtable), `Item(current)), 3, "");
-
-	    if (current_pkgname != "")
+	    // toggle restore selection: "X" -> " ", " " -> "X", "P" -> " "
+	    if (current_value == " ")
 	    {
-		if (current_pkgname == _("<none>"))
-		{
-		    current_pkgname = "";
-		}
+		current_value = "X";
+	    }
+	    else
+	    {
+		current_value = " ";
+	    }
 
-		// toggle restore selection: "X" -> " ", " " -> "X", "P" -> " "
-		if (current_value == " ")
-		{
-		    current_value = "X";
-		}
-		else
-		{
-		    current_value = " ";
-		}
+	    string selectionstring = (current_value == "X") ? _("all") : "";
 
-		UI::ChangeWidget(`id(`pkgtable), `Item(current, 0), current_value);
+	    UI::ChangeWidget(`id(`pkgtable), `Item(current, 0), current_value);
+	    UI::ChangeWidget(`id(`pkgtable), `Item(current, 1), selectionstring);
 
-		Restore::SetRestoreSelection(current_pkgname, $["sel_type" : current_value]);
+	    Restore::SetRestoreSelection(current_pkgname, $["sel_type" : current_value]);
+	}
+	else if (ret == `files)
+	{
+	    restorepackagename = current_pkgname;
+	}
+	else if ((ret == `select || ret == `deselect) && size(tablecontents) > 0)
+	{
+	    // set selection type
+	    string sel_type = (ret == `select) ? "X" : " ";
+
+	    // set selection type for all packages
+	    foreach(string p, map info, Restore::GetArchiveInfo(), ``{
+		    Restore::SetRestoreSelection(p, $["sel_type" : sel_type, "sel_file" : []]);
+		}
+	    );
+
+	    // change table contents
+	    UI::ChangeWidget(`id(`pkgtable), `Items, CreateTableContentsRestoreSelection(Restore::GetArchiveInfo(), Restore::GetActualInstalledPackages()));
+
+	    // set previous selection
+	    if (current != nil)
+	    {
+		UI::ChangeWidget(`id(`pkgtable), `CurrentItem, current);
 	    }
 	}
 	else if (ret == `cancel)
@@ -623,7 +686,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
     }
     while (ret != `next && ret != `abort && ret != `back && ret != `files);
 
-    if (ret != `abort)
+    if (ret == `next)
     {
 	map final = Restore::GetArchiveInfo();
 
@@ -632,7 +695,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	    }
 	);
 
-	y2internal("Final restore selection: %1", final);
+	y2debug("Final restore selection: %1", final);
     }
 
     return ret;
@@ -682,16 +745,54 @@ global define symbol RestoreOptionsDialog() ``{
     return ret;
 }
 
+// uses global variable string restorepackagename
+global define symbol FileSelectionDialog(string packagename) ``{
 
-global define symbol FileSelectionDialog(string packagename, map files) ``{
+    // create multiselection widget contents
+
+    map pkginfo = lookup(Restore::GetArchiveInfo(), packagename, $[]);
+
+    string sel_type = lookup(pkginfo, "sel_type", " ");
+    list files = lookup(pkginfo, "files", []);
+    list sel_file = lookup(pkginfo, "sel_file", []);
+
+    list cont = [];
+
+    foreach(string f, files, ``{
+	    boolean selected = false;
+
+	    if (sel_type == "X")
+	    {
+		selected = true;
+	    }
+	    else if (sel_type == " ")
+	    {
+		selected = false;
+	    }
+	    else if (sel_type == "P")
+	    {
+		selected = contains(sel_file, f);
+	    }
+	    else
+	    {
+		y2error("Unknown selection type %1 in package %2", sel_type, packagename);
+	    }
+
+	    cont = add(cont, `item(`id(f), f, selected));
+	}
+    );
+
+    string mlabel = _("&Files to restore");
 
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`MultiSelectionBox(`id(`pkg), _("&Files"),  [ `item(`id(1), "/usr/blah/blah.cfg", true),
+		`ReplacePoint(`id(`rp), `MultiSelectionBox(`id(`mbox), mlabel, cont)),
+
+/*		 [ `item(`id(1), "/usr/blah/blah.cfg", true),
 		    `item(`id(2), "/etc/sysconfig/qwerty", true)
-		]),
+		]*/
 		`VSpacing(1),
 		`HBox(
 		    `PushButton(`id(`all), "&Select all"),
@@ -704,19 +805,56 @@ global define symbol FileSelectionDialog(string packagename, map files) ``{
 
     Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
 
-    Wizard::SetContents(_("File selection - package aaa_base"), contents, "help", true, true);
+    // for translatores: %1 is name of package (e.g. "aaa_base")
+    Wizard::SetContents(sformat(_("File selection - package %1"), packagename), contents, "help", true, true);
 
     symbol ret = nil;
 
     do
     {
 	ret = UI::UserInput();
+
+	if (ret == `all || ret == `none)
+	{
+	    cont = [];
+	    boolean selected = (ret == `all);
+
+	    foreach(string f, files, ``{
+		    cont = add(cont, `item(`id(f), f, selected));
+		}
+	    );
+
+	    UI::ReplaceWidget(`id(`rp), `MultiSelectionBox(`id(`mbox), mlabel, cont));
+	}
+	else if (ret == `cancel)
+	{
+	    ret = `abort;
+	}
     }
     while(ret != `next && ret != `abort && ret != `back);
 
-    if (ret == `cancel)
+    if (ret == `next)
     {
-	ret = `abort;
+	string sel_type_new = "";
+	// TODO save changes
+	list sel = UI::QueryWidget(`id(`mbox), `SelectedItems);
+
+	if (size(sel) == 0)
+	{
+	    sel_type_new = " ";
+	}
+	else if (size(sel) == size(files))
+	{
+	    sel_type_new = "X";
+	    // clear list of selected files to save memory, "X" as sel_type is enough
+	    sel = [];
+	}
+	else
+	{
+	    sel_type_new = "P";
+	}
+
+	Restore::SetRestoreSelection(packagename, $["sel_type" : sel_type_new, "sel_file" : sel]);
     }
 
     Wizard::RestoreNextButton();
@@ -853,13 +991,35 @@ global define symbol SuSEconfigDialog() ``{
 }
 
 
+global define string RemoveTags(string input) ``{
+    string ret = input;
+
+    map tagmapping = $[ "<br>" : "\n", "<BR>" : "\n", "</P>" : "\n", "</p>" : "\n", "<p>" : "", "<P>" : "", "<B>" : "", "<b>" : "", "</B>" : "", "</b>" : "" ];
+
+    foreach(string tag, string repl, tagmapping, ``{
+	    while (issubstring(ret, tag))
+	    {
+		ret = regexpsub(ret, "(.*)" + tag + "(.*)", "\\1" + repl + "\\2");
+	    }
+	}
+    );
+
+    return ret;
+}
+
+
 global define symbol SummaryDialog() ``{
+
+    string basicinfo = "<P>Number of installed packages: 3<BR>Number of uninstalled packages: 0</P><P>Total restored packages: 34<BR>Total restored files: 228</P><P>Restore status: Ok</P>";
+    string extendedinfo = "<P><BR><B>Details:</B></P><P>Lilo return status: Ok</P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>Restored files:</B><BR>/sdfsdf/sdf<BR>/sdf/sdf/sdf<BR></P>";
+
+    string cont = basicinfo;
 
     term contents = `VBox(
 	    `VSpacing(0.5),
-	    `RichText("<P>Number of installed packages: 3<BR>Number of uninstalled packages: 0</P><P>Total restored packages: 34<BR>Total restored files: 228</P><P>Restore status: Ok</P>"),
+	    `RichText(`id(`rt), cont),
 	    `VSpacing(0.5),
-	    `PushButton(`id(`details), _("&Details...")),
+	    `HBox(`CheckBox(`id(`details), `opt(`notify), _("&Show details"), false), `HSpacing(3), `PushButton(`id(`save), _("Save to file..."))),
 	    `VSpacing(1.0)
 	);
 
@@ -875,7 +1035,18 @@ global define symbol SummaryDialog() ``{
 
 	if (ret == `details)
 	{
-	    UI::LongTextPopup(_("Restore details:"), `RichText("<P>Lilo return status: Ok</P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>Restored files:</B><BR>/sdfsdf/sdf<BR>/sdf/sdf/sdf<BR></P>"), 70, 15);
+	    boolean details = UI::QueryWidget(`id(`details), `Value);
+
+	    cont = (details == true) ? basicinfo + extendedinfo : basicinfo;
+
+	    UI::ChangeWidget(`id(`rt), `Value, cont);
+	}
+	else if (ret == `save)
+	{
+	    string savefile = SaveFileAs("/var/log/restore.log");
+
+	    SCR::Write(.target.string, savefile, RemoveTags(cont));
+	    y2milestone("Summary saved to file: %1", savefile);
 	}
     }
     while(ret != `next && ret != `abort && ret != `back);
