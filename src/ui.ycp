@@ -30,9 +30,9 @@ import "Product";
 
 import "Popup";
 import "Label";
+import "Require";
 include "ui/file_popups.ycp";
 include "wizard/sequencer.ycp";
-include "require.ycp";
 
 include "restore/helps.ycp";
 include "restore/summary_dialog.ycp";
@@ -1679,7 +1679,7 @@ global define symbol SWsingleDialog() ``{
 
     if (size(install) > 0 || size(uninstall) > 0)
     {
-	DoInstallAndRemove(install, uninstall);
+	Require::DoInstallAndRemove(install, uninstall);
 
 	Restore::ReadActualInstalledPackages();
     }
