@@ -77,7 +77,7 @@ else if (func == "Write")
     import "Progress";
 
     // Read archive file
-    list volumes = param["archives"]:[];
+    list<string> volumes = param["archives"]:[];
 
     if (size(volumes) == 0)
     {
@@ -153,7 +153,7 @@ else if (func == "Write")
     });
 
     // set selection
-    map selection = param["selection"]:$[];
+    map<string, map> selection = param["selection"]:$[];
 
     foreach(string package, map info, selection, ``{
 	    Restore::SetRestoreSelection(package, info);

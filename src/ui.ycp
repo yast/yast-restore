@@ -48,13 +48,13 @@ integer restoredpackages = 0;
 boolean bloaderstatus = nil;
 boolean susestatus = nil;
 
-map packagestoinstall = $[];
-map packagestouninstall = $[];
+map<string, any> packagestoinstall = $[];
+map<string, any> packagestouninstall = $[];
 // mounted directory
 string mountdir = "";
 
 // map with detected removable devices
-map removabledevices = nil;
+map<string,map> removabledevices = nil;
 
 // last user input, used for dialog skipping
 symbol lastret = nil;
@@ -64,8 +64,8 @@ symbol lastret = nil;
  * @return map Removable devices info
  */
 
-define map DetectRemovable() ``{
-    map ret = $[];
+define map<string, map> DetectRemovable() ``{
+    map<string, map> ret = $[];
 
     // detect floppy devices
     list<map> devices = (Mode::test == false) ? (list<map>) SCR::Read(.probe.floppy) : [$["bus":"Floppy", "class_id":262, "dev_name":"/dev/fd0", "notready":true, "old_unique_key":"xjDN.oZ89vuho4Y3", "resource":$["size":[$["unit":"cinch", "x":350, "y":0], $["unit":"sectors", "x":2880, "y":512]]], "sub_class_id":3, "unique_key":"sPPV.oZ89vuho4Y3"]];
@@ -281,7 +281,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 	    if (Mode::test == false)
 	    {
 		path devpath = regexpmatch(scheme, "^cd[0-9]*") ? .probe.cdrom : .probe.floppy;
-		dev = lookup(select((list<map>) SCR::Read(devpath), tointeger(devindex), ""), "dev_name", "");
+		dev = lookup(select((list<map>) SCR::Read(devpath), tointeger(devindex), $[]), "dev_name", "");
 	    }
 
 	    cd_file = parsed_url["path"]:"";
@@ -743,17 +743,18 @@ define symbol ArchivePropertyDialog() ``{
  * @param packagesinfo Map $[ "packagename" : $[ "files" : ["files in the archive"] ] ]
  * @return list Table content
  */
-define list CreateArchiveContentTree(map packagesinfo) ``{
-    list ret = [];
+define list<term> CreateArchiveContentTree(map<string, map<string, any> > packagesinfo) ``{
+    list<term> ret = [];
     integer num = 0;
 
     if (packagesinfo != nil)
     {
-	foreach(string p, map info, packagesinfo, ``{
-		list files = info["files"]:[];
+	foreach(string p, map<string, any> info, packagesinfo, ``{
+		list<string> files = info["files"]:[];
+		list<term> itemfiles = [];
 		string version = info["vers"]:"";
 
-		files = maplist(string s, files, ``{return `item(s);});
+		itemfiles = maplist(string s, files, ``{return `item(s);});
 
 		if (p == "")
 		{
@@ -761,7 +762,7 @@ define list CreateArchiveContentTree(map packagesinfo) ``{
 		    p = _("-- No package --");
 		}
 
-		ret = add(ret, `item(`id(num), p + "-" + version, files));
+		ret = add(ret, `item(`id(num), p + "-" + version, itemfiles));
 		num = num + 1;
 	    }
 	);
@@ -886,7 +887,7 @@ define symbol RestoreOptionsDialog() ``{
  * @param selected Selected packages (only for autoinstallation, otherwise should be nil)
  * @return list Contents for Table widget
  */
-define list CreateTableContentsWithMismatched(map contents, map selected, boolean defaultval) ``{
+define list CreateTableContentsWithMismatched(map<string, map<string, string> > contents, map selected, boolean defaultval) ``{
     list ret = [];
     integer num = 0;
 
@@ -894,7 +895,7 @@ define list CreateTableContentsWithMismatched(map contents, map selected, boolea
 
     if (contents != nil)
     {
-	foreach(string p, map m, contents, ``{
+	foreach(string p, map<string, string> m, contents, ``{
 
 		string ver = m["ver"]:"";
 		string descr = m["descr"]:"";
@@ -921,10 +922,10 @@ define list CreateTableContentsWithMismatched(map contents, map selected, boolea
  */
 define symbol SelectionInstallDialog() ``{
 
-    map missingpackages = Restore::GetMissingPackages();
+    map<string, map<string, string> > missingpackages = Restore::GetMissingPackages();
 
     // add mismatched packages
-    foreach(string p, map info, Restore::GetMismatchedPackages(), ``{
+    foreach(string p, map<string, string> info, Restore::GetMismatchedPackages(), ``{
 	    missingpackages = add(missingpackages, p, info);
 	}
     );
@@ -1055,7 +1056,7 @@ define symbol SelectionInstallDialog() ``{
  * @param selected Selected packages (only for autoinstallation, otherwise should be nil)
  * @return list Contents for Table widget
  */
-define list CreateTableContents(map contents, map selected, boolean defaultval) ``{
+define list CreateTableContents(map<string, map<string, string> > contents, map selected, boolean defaultval) ``{
     list ret = [];
     integer num = 0;
 
@@ -1063,7 +1064,7 @@ define list CreateTableContents(map contents, map selected, boolean defaultval) 
 
     if (contents != nil)
     {
-	foreach(string p, map m, contents, ``{
+	foreach(string p, map<string, string> m, contents, ``{
 
 		string ver = m["ver"]:"";
 		string descr = m["descr"]:"";
@@ -1089,7 +1090,7 @@ define list CreateTableContents(map contents, map selected, boolean defaultval) 
  */
 define symbol SelectionUninstallDialog() ``{
 
-    map extrapackages = Restore::GetExtraPackages();
+    map<string, map<string, string> > extrapackages = Restore::GetExtraPackages();
 
     // if none extra package is installed return `next (or `back)
     if (size(extrapackages) == 0)
@@ -1232,14 +1233,14 @@ define symbol SWsingleDialog() ``{
  * @param restoreselection Restore settings
  * @return list Table content
  */
-define list CreateTableContentsRestoreSelection(map restoreselection) ``{
-    list ret = [];
+define list<term> CreateTableContentsRestoreSelection(map<string, map<string, any> > restoreselection) ``{
+    list<term> ret = [];
     // id of item in the table
     integer num = 0;
 
     if (restoreselection != nil)
     {
-	foreach(string p, map m, restoreselection, ``{
+	foreach(string p, map<string, any> m, restoreselection, ``{
 
 		string ver = m["vers"]:"";
 		string descr = m["descr"]:"";
@@ -1327,7 +1328,7 @@ define symbol PackageSelectionRestoreDialog() ``{
 
     term button = `PushButton(`id(`files), `opt(`key_F7), _("S&elect files"));
 
-    list tablecontents = CreateTableContentsRestoreSelection(Restore::GetArchiveInfo());
+    list<term> tablecontents = CreateTableContentsRestoreSelection(Restore::GetArchiveInfo());
     integer position = 0;
 
     // refresh previous selection
@@ -1590,9 +1591,9 @@ Try changing the selection or the RPM database restoration status."));
 
     if (ret == `next)
     {
-	map final = Restore::GetArchiveInfo();
+	map<string, map<string, any> >final = Restore::GetArchiveInfo();
 
-	final = filter(string p, map i, final, ``{
+	final = filter(string p, map<string, any> i, final, ``{
 		return (i["sel_type"]:" " != " ");
 	    }
 	);
@@ -1623,7 +1624,7 @@ define symbol FileSelectionDialog(string packagename) ``{
     map pkginfo = lookup(Restore::GetArchiveInfo(), packagename, $[]);
 
     string sel_type = pkginfo["sel_type"]:" ";
-    list files = pkginfo["files"]:[];
+    list<string> files = pkginfo["files"]:[];
     list sel_file = pkginfo["sel_file"]:[];
 
     list cont = [];
@@ -2077,14 +2078,14 @@ define any RestoreAutoSequence() ``{
  * @param packagesinfo Map $[ "packagename" : $[ "files" : ["files in the archive"] ] ]
  * @return list Table content
  */
-define list CreateArchiveContentTable(map packagesinfo) ``{
+define list CreateArchiveContentTable(map<string, map<string, any> > packagesinfo) ``{
     list ret = [];
     integer num = 0;
 
     if (packagesinfo != nil)
     {
-	foreach(string p, map info, packagesinfo, ``{
-		list files = info["files"]:[];
+	foreach(string p, map<string, any> info, packagesinfo, ``{
+		list<string> files = info["files"]:[];
 		string version = info["vers"]:"";
 
 		foreach(string file, files, ``{

@@ -44,7 +44,7 @@
     global boolean completerestoration = false;
 
     // list of volumes in URL-like syntax
-    list inputvolumes = [];
+    list<string> inputvolumes = [];
 
     // contents of archive
     list<string> archivefiles = [];
@@ -55,11 +55,11 @@
     // list of installed packages
     map<string,string> actualinstalledpackages = $[];
 
-    list complete_backup = [];
+    list<string> complete_backup = [];
 
     // restoration archive and selection
     // "vers" : "version", "files" : ["files"], "prefix" : "prefix", "descr" : "description", "sel_type" : "X", "sel_file" : [""]
-    map<string,map> archive_info = $[];
+    map<string,map<string, any> > archive_info = $[];
 
     map<string,map> autoinst_info = $[];
 
@@ -69,7 +69,7 @@
     string comment = "";
 
     // list of files
-    list volumeparts = [];
+    list<string> volumeparts = [];
 
     // temporary directory
     string tempdir = "";
@@ -213,7 +213,7 @@
      * Return missing packages (packages which were installed at backup time, but at restore time they are not installed)
      * @return map Map $[ "packagename" : $[ "ver" : "version", "descr" : "Short description of the package"]], key description is present only if decription exists
      */
-    global define map<string,map<string,string> > GetMissingPackages() ``{
+    global define map<string, map<string, string> > GetMissingPackages() ``{
 	map<string,string> r = $[];
 
 	GetActualInstalledPackages();
@@ -279,8 +279,8 @@
      * Return packages which have different version at backup archive and in system
      * @return map Map $[ "packagename" : $[ "inst": "installed version", "ver" : "version at backup time, "descr" : "Short description of the package"]], key description is present only if decription exists
      */
-    global define map GetMismatchedPackages() ``{
-	map ret = $[];
+    global define map<string, map <string, string> > GetMismatchedPackages() ``{
+	map<string, map <string, string> > ret = $[];
 
 	GetActualInstalledPackages();
 
@@ -308,8 +308,8 @@
      * @return map Map with same keys as map returned by GetArchiveInfo()
      */
 
-    global define map GetSelectedPackages() ``{
-	map ret = $[];
+    global define map<string, map> GetSelectedPackages() ``{
+	map<string, map> ret = $[];
 
 	if (archive_info != nil)
 	{
@@ -723,7 +723,7 @@
 	    {
 		string partname = copy["file"]:"";
 
-		volumeparts = add(volumeparts, partname);
+		volumeparts = add (volumeparts, partname);
 
 		success = true;
 	    }
@@ -734,7 +734,7 @@
 
     /**
      * Change restore selection of package.
-     * @param pkgname Name of package
+     * @param pkgnames Name of package
      * @param selection New restore selection for package, map  $[ "sel_type" : "X", "sel_file" : ["files"] ]
      */
     global define void SetRestoreSelection(string pkgname, map selection) ``{
@@ -751,7 +751,7 @@
 	{
 	    string sel_type = selection["sel_type"]:" ";
 	    list sel_file = [];
-	    map pkginfo = archive_info[pkgname]:$[];
+	    map<string, any> pkginfo = archive_info[pkgname]:$[];
 
 	    if (pkginfo == nil)
 	    {
@@ -838,7 +838,7 @@
 		];
 
 	    // set default selection
-	    archive_info = mapmap(string p, map i, archive_info, ``{
+	    archive_info = mapmap(string p, map<string, any> i, archive_info, ``{
 		    i = add(i, "sel_type", (p == "") ? "X" : ((haskey(actualinstalledpackages, p)) ? "X" : " "));
 
 		    return $[p: i];
@@ -1002,17 +1002,17 @@ It was probably not created by the backup module.
 	SCR::Execute(.target.bash, "/usr/lib/YaST2/bin/restore_parse_pkginfo.pl < " + tempdir + "/info/packages_info > " + tempdir + "/info.ycp");
 
 	y2milestone("Reading package info");
-	archive_info = (map<string,map>) SCR::Read(.target.ycp, tempdir + "/info.ycp");
+	archive_info = (map<string,map<string, any> >) SCR::Read(.target.ycp, tempdir + "/info.ycp");
 	y2milestone("Read %1 packages", size(archive_info));
 
 
 	// read actual installed packages
 	GetActualInstalledPackages();
 
-	map mismatched = GetMismatchedPackages();
+	map<string, map<string, string> > mismatched = GetMismatchedPackages();
 
 	// add package descriptions and default selection
-	archive_info = mapmap(string p, map i, archive_info, ``{
+	archive_info = mapmap(string p, map<string, any> i, archive_info, ``{
 	        // decription of files not owned by any package
 		string descr = (p == "") ? _("Files not owned by any package") : Pkg::PkgSummary(p);
 
@@ -1021,7 +1021,7 @@ It was probably not created by the backup module.
 		    i = $[];
 		}
 
-		map t = add(i, "descr", descr);
+		map<string, any> t = add(i, "descr", descr);
 
 		string sel_type = " ";
 
@@ -1152,7 +1152,7 @@ It was probably not created by the backup module.
 
 	return $[
 	    "archives"		: prepend(inputvolumes, inputname),
-	    "runbootloader"		: runbootloader,
+	    "runbootloader"	: runbootloader,
 	    "runSuSEconfig"	: runSuSEconfig,
 	    "restoreRPMdb"	: restoreRPMdb,
 	    "completerestoration" : completerestoration,
@@ -1164,7 +1164,7 @@ It was probably not created by the backup module.
      * Return restore configuration
      * @return map Map $[ "packagename" : $["vers" : "version", "files" : ["files in the archive"], "prefix" : "installprefix", "descr" : "Short description", "sel_type" : "X", "sel_file" : ["selected files to restore"] ] ], possible values for "sel_type" key are: "X" - restore all files from archive, " " - do not restore this package, "P" - partial restore, restore only selected files at "sel_file" key. Package name "" means files not owned by any package.
      */
-    global define map GetArchiveInfo() ``{
+    global define map<string, map<string, any> > GetArchiveInfo() ``{
 	return archive_info;
     }
 
@@ -1274,11 +1274,11 @@ It was probably not created by the backup module.
 
     global define map Write(block<boolean> abort, symbol progress, string targetdir) ``{
 
-	map restore = archive_info;
+	map<string, map> restore = archive_info;
 	integer total = 0;
 	integer restoredpackages = 0;
-	list restoredfiles = [];
-	list failedfiles = [];
+	list<string> restoredfiles = [];
+	list<string> failedfiles = [];
 	boolean aborted = false;
 
 	if (size(targetdir) == 0 || substring(targetdir, 0, 1) != "/")
@@ -1641,7 +1641,7 @@ Press OK to exit.
 		    }
 
 
-		    restoredfiles = merge(restoredfiles, stdout);
+		    restoredfiles = (list<string>)merge (restoredfiles, stdout);
 
 		    // read failed files
 		    list<string> stderr = splitstring((string) SCR::Read(.target.string, tempdir + "/tar.stderr"), "\n");
@@ -1916,11 +1916,11 @@ Press OK to exit.
 
     global define map<string, any> ProposeRPMdbRestoration() ``{
 
-	map extra = GetExtraPackages();
-	map missing = GetMissingPackages();
-	map mismatched = GetMismatchedPackages();
+	map<string, map> extra = GetExtraPackages();
+	map<string, map> missing = GetMissingPackages();
+	map<string, map<string, string> > mismatched = GetMismatchedPackages();
 
-	map selected = GetSelectedPackages();
+	map<string, map> selected = GetSelectedPackages();
 
 	// proposed DB restoration
 	boolean propose = nil;
@@ -2006,14 +2006,15 @@ Press OK to exit.
 	// or there will be files without RPM entry or both
 	// it is also possible that package versions do not match
 
-	map different_versions = $[];	// package in system => package in RPM in the archive
+	map<string, string> different_versions = $[];	// package in system => package in RPM in the archive
 	list not_in_system = [];	// package is in DB in the archive, but not in the system and it won't be restored
 	list not_in_archiveDB = [];	// not in the archive, but in the system
 
-	foreach(string p, map inf, mismatched, ``{
+	foreach(string p, map<string,string> inf, mismatched, ``{
 		if (selected[p]:nil != nil)
 		{
-                    different_versions[p + "-" + selected["vers"]:""] = p + "-" + inf["inst"]:"";
+//                    different_versions[p + "-" + selected["vers"]:""] = p + "-" + inf["inst"]:"";
+                    different_versions[p] = p + "-" + inf["inst"]:"";
                 }
 	    }
 	);
