@@ -1,0 +1,57 @@
+[Desktop Entry]
+Type=Application
+Categories=Qt;X-SuSE-YaST-System;
+
+X-KDE-ModuleType=Library
+X-KDE-RootOnly=true
+X-KDE-HasReadOnlyMode=true
+X-KDE-Library=yast2
+X-KDE-FactoryName=restore
+
+X-SuSE-YaST-Group=System
+X-SuSE-YaST-Argument=
+X-SuSE-YaST-RootOnly=true
+X-SuSE-YaST-AutoInst=all
+X-SuSE-YaST-Geometry=
+X-SuSE-YaST-SortKey=
+X-SuSE-YaST-AutoinstResource=
+
+Icon=restore
+Exec=/sbin/yast2 restore 
+
+Name=Restore system
+GenericName=Restore files from backup archive
+Name[cs]=Obnova systému
+GenericName[cs]=Obnovit soubory ze záložního archívu
+Name[de]=System wiederherstellen
+GenericName[de]=Dateien aus Backup-Archiv wiederherstellen
+Name[es]=Recuperar sistema
+GenericName[es]=Recuperar ficheros del archivo copia de seguridad
+Name[hu]=Rendszer visszaállítása
+GenericName[hu]=Fájlok visszaállítása az archívumból
+Name[it]=Ripristina sistema
+GenericName[it]=Ripristina file dall'archivio di backup
+Name[ko]=시스템 복구
+GenericName[ko]=백업 아카이브로 부터 파일 복구
+Name[nl]=Restore systeem
+GenericName[nl]=Restore bestanden van backup archief
+Name[pt]=Restaurar sistema
+GenericName[pt]=Restaurar arquivos do arquivo de backup
+Name[sk]=Obnova systému
+GenericName[sk]=Obnova súborov z archívu zálohy
+Name[sv]=Återställ system
+GenericName[sv]=Återställ filer från säkerhetskopia
+Name[el]=Επαναφορά Συστήματος 
+GenericName[el]=Επαναφορά αρχείων από αρχειοθήκη 
+Name[fr]=Restaurer le système
+GenericName[fr]=Restaurer les fichiers à partir de l'archive de sauvegarde
+Name[ja]=システムのリストア
+GenericName[ja]=バックアップ・アーカイブからファイルをリストアする。
+Name[lt]=Atkurti sistemą
+GenericName[lt]=Atkurti bylas iš archyvo
+Name[ru]=Восстановить систему
+GenericName[ru]=Восстановить файлы из архива резервного копирования
+Name[sl]=Obnovi sistem
+GenericName[sl]=Obnovi datoteke iz varnostnega arhiva
+Name[tr]=Sistem geri yükleme
+GenericName[tr]=Dosyaları yedek arşivinden geri yükler
