@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Aug  6 10:09:52 CEST 2003 - lslezak@suse.de
+
+- added help text
+- added .desktop file
+- version 2.8.0
+
+-------------------------------------------------------------------
 Wed Mar 12 13:25:04 CET 2003 - lslezak@suse.de
 
 - fixed extra } at the end of src/restore_auto.ycp file

@@ -252,19 +252,24 @@ It will take some time, depending on the size and number of restored files.
 
     global define string SummaryHelp() ``{
 	return
-// summary dialog help text 1/2
+// summary dialog help text 1/3
 _("<P><B><BIG>Summary</BIG></B><BR>
 This is a summary of the restoration process. To see more details, check 
 <B>Show details</B>. To save the summary to a file, select <B>Save to file</B>.
 </P>
 
 ") +
-// summary dialog help text 2/2
+// summary dialog help text 2/3
 _("<P><B>Note:</B><BR>
 Displaying the detailed summary can take a long time depending on number
 of restored files.
 </P>
-");
+") +
+
+// summary dialog help text 3/3
+_("<P>Some changes made by restore module can be activated only after system
+reboot (e.g. kernel update) - it is recommended to reboot system after
+restoration.</P>");
     }
 
 }
