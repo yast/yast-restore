@@ -90,7 +90,7 @@ global define symbol DisplaySummaryDialog(string text, string detail_text, strin
     }
     else if (button == `ok)
     {
-	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), OkButtonLabel()));
+	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::OKButton()));
     }
     else if (button == `next)
     {
@@ -103,13 +103,13 @@ global define symbol DisplaySummaryDialog(string text, string detail_text, strin
 
     Wizard::SetContents(label, contents, helptext, true, true);
 
-    symbol ret = nil;
+    any ret = nil;
 
     do
     {
 	ret = UI::UserInput();
 
-	boolean details = UI::QueryWidget(`id(`details), `Value);
+	boolean details = (boolean) UI::QueryWidget(`id(`details), `Value);
 
 	if (ret == `details)
 	{
@@ -135,7 +135,7 @@ global define symbol DisplaySummaryDialog(string text, string detail_text, strin
 
     Wizard::RestoreNextButton();
 
-    return ret;
+    return (symbol) ret;
 }
 
 }

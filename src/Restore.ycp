@@ -1195,6 +1195,55 @@ It was probably not created by the backup module.
     }
 
     /**
+     * Activate boot loader configuration if requested.
+     * Uses variable Restore::runbootloader
+     * @return boolean true on success
+     */
+    global define boolean Bootloader() ``{
+	boolean ret = nil;
+
+	// disable Bootloader's progress bar
+	Progress::off();
+
+	if (runbootloader == true && Mode::test == false)
+	{
+	    y2milestone("activating boot loader configuration");
+
+	    // read actual boot loader configuration
+	    ret = Bootloader::Read();
+
+	    if (ret == false)
+	    {
+		y2error("Boot loader read failed");
+	    }
+	    else
+	    {
+		// write configuration - force re-installation of boot loader
+		Bootloader::SetWriteMode( $["save_all" : true] );
+		ret = Bootloader::Write();
+
+		if (ret == false)
+		{
+		    y2error("Boot loader write failed");
+		}
+	    }
+
+	    if (ret == false)
+	    {
+		// error popup message
+		Report::Error(_("Boot loader configuration failed."));
+	    }
+
+	    y2milestone("boot loader activated: %1", ret);
+	}
+
+	// re-enable progress bar
+	Progress::on();
+
+	return ret;
+    }
+
+    /**
      * Restore files from archive
      * @param abort This block is periodically evaluated, if it evaluates to true restoration will be aborted. It should be something like ``{return UI::PollInput () == `abort;} if UI exists or ``{ return false; } if there is no UI (abort will not be possible).
      * @param progress Id of progress bar or nil.
@@ -1453,12 +1502,12 @@ Press OK to exit.
                             y2error("star package wasn't installed - aborting");
 
 			    return $[ "aborted" : true, "restored" : restoredfiles, "failed" :
-				failedfiles, "packages" : restoredpackages, "bootloader" : bootload ];
+				failedfiles, "packages" : restoredpackages, "bootloader" : false ];
                         }
                     }
 
 		    // start subprocess
-		    started = SCR::Execute(.background.run_output, tarcommand);
+		    started = (boolean) SCR::Execute(.background.run_output, tarcommand);
 
 		    while(SCR::Read(.background.isrunning) == true)
 		    {
@@ -1475,10 +1524,10 @@ Press OK to exit.
 		    }
 
 		    // read restored files
-		    list stdout = splitstring(SCR::Read(.target.string, tempdir + "/tar.stdout"), "\n");
+		    list<string> stdout = splitstring((string) SCR::Read(.target.string, tempdir + "/tar.stdout"), "\n");
 
 		    // remove empty lines
-		    stdout = filter(`line, stdout, ``{return size(line) > 0;});
+		    stdout = filter(string line, stdout, ``{return size(line) > 0;});
 
 		    // star has more verbose output - get only file names
 		    if (star)
@@ -1494,10 +1543,10 @@ Press OK to exit.
 		    restoredfiles = merge(restoredfiles, stdout);
 
 		    // read failed files
-		    list stderr = splitstring(SCR::Read(.target.string, tempdir + "/tar.stderr"), "\n");
+		    list<string> stderr = splitstring((string) SCR::Read(.target.string, tempdir + "/tar.stderr"), "\n");
 
 		    // remove empty lines
-		    stderr = filter(`line, stderr, ``{return size(line) > 0;});
+		    stderr = filter(string line, stderr, ``{return size(line) > 0;});
 		    integer packagefailedfiles = 0;
 
 		    if (stderr != [])
@@ -1624,60 +1673,11 @@ Press OK to exit.
 	    );
 
 	    // echo 'q' to tar stdin - if error occurs tar asks for next volume, q means quit
-	    integer exit = SCR::Execute(.target.bash, "echo q | /bin/tar -t -M " + param);
+	    integer exit = (integer) SCR::Execute(.target.bash, "echo q | /bin/tar -t -M " + param);
 	    y2milestone("Test result: %1", exit);
 
 	    ret = (exit == 0);
 	}
-
-	return ret;
-    }
-
-    /**
-     * Activate boot loader configuration if requested.
-     * Uses variable Restore::runbootloader
-     * @return boolean true on success
-     */
-    global define boolean Bootloader() ``{
-	boolean ret = nil;
-
-	// disable Bootloader's progress bar
-	Progress::off();
-
-	if (runbootloader == true && Mode::test == false)
-	{
-	    y2milestone("activating boot loader configuration");
-
-	    // read actual boot loader configuration
-	    ret = Bootloader::Read();
-
-	    if (ret == false)
-	    {
-		y2error("Boot loader read failed");
-	    }
-	    else
-	    {
-		// write configuration - force re-installation of boot loader
-		Bootloader::SetWriteMode( $["save_all" : true] );
-		ret = Bootloader::Write();
-
-		if (ret == false)
-		{
-		    y2error("Boot loader write failed");
-		}
-	    }
-
-	    if (ret == false)
-	    {
-		// error popup message
-		Report::Error(_("Boot loader configuration failed."));
-	    }
-
-	    y2milestone("boot loader activated: %1", ret);
-	}
-
-	// re-enable progress bar
-	Progress::on();
 
 	return ret;
     }
@@ -1815,7 +1815,7 @@ Press OK to exit.
 	// proposed DB restoration
 	boolean propose = nil;
 
-	y2debug("extra: %1, missig: %2", extra, missig);
+	y2debug("extra: %1, missig: %2", extra, missing);
 
 	list selected_list = [];
 	foreach(string p, map in, selected, ``{
@@ -1903,8 +1903,8 @@ Press OK to exit.
 	foreach(string p, map inf, mismatched, ``{
 		if (selected[p]:nil != nil)
 		{
-		    different_versions[p + "-" + selected["vers"]:""] = p + "-" + installed;
-		}
+                    different_versions[p + "-" + selected["vers"]:""] = p + "-" + inf["inst"]:"";
+                }
 	    }
 	);
 
