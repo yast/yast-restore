@@ -64,14 +64,17 @@ _("<P>Note: If you have a multivolume archive, select the first volume.</P>");
 
     global define string ArchiveMultiSelectionHelp() ``{
 	return
+	// multi volume archive selection help text 1/3
 _("<P><B><BIG>Multivolume archive</BIG></B><BR> Backup archive has more that
 one volume.</P>
 ") +
 
+	// multi volume archive selection help text 2/3
 _("<P>In this dialog, enter volumes that belong to the backup archive.
 The dialog will change after you select the last part of the backup archive.</P>
 ") +
 
+	// multi volume archive selection help text 3/3
 _("<P>After the volume is read, the name of the file will be automatically be changed to the
 next volume name. Press <B>Next</B> to
 continue to the next volume.</P>
@@ -159,9 +162,10 @@ _("<P>There is a list with uninstalled packages in the table. These packages
 were installed at backup time, but are now missing.</P>
 ") +
 
+	    // For translators: package installation help (part 2)
 _("<P>To obtain the same system configuration as at the time of backup, select all packages.</P>") +
 
-	    // For translators: package installation help (part 2)
+	    // For translators: package installation help (part 3)
 _("<P>'X' in the first column means the package will be installed.</P>");
     }
 
@@ -175,12 +179,13 @@ _("<P>'X' in the first column means the package will be installed.</P>");
 	return
 	    RestorePackageHelp() +
 
-	    // For translators: package installation help (part 1)
+	    // For translators: package uninstallation help (part 1)
 _("<P>Packages in the table were not installed at the time of backup, but are now.</P>") +
 
+	    // For translators: package uninstallation help (part 2)
 _("<P>To obtain the same system configuration as at backup time, uninstall all packages. To leave a package installed, deselect it.</P>") +
 
-	    // For translators: package installation help (part 2)
+	    // For translators: package uninstallation help (part 3)
 _("<P>'X' in the first column means the package will be uninstalled.</P>");
     }
 
@@ -193,15 +198,18 @@ _("<P>'X' in the first column means the package will be uninstalled.</P>");
 
     global define string RestoreSelectionHelp(boolean personal) ``{
 	return
-	    // For translators: restore selection (part 1)
+	    // For translators: restore selection help 1/4
 _("<P><B><BIG>Selection</BIG></B><BR>
 Select which packages to restore from the backup archive.</P>
 ") +
 
+	    // For translators: restore selection help 2/4
 _("<P>The first column displays the restoration status of the package. It can be 'X' (package will be restored) or empty (package will not be restored).</P>") +
 
+	    // For translators: restore selection help 3/4
 ((personal == false) ? "<P>'P' means that package will be restored only partially. Press <B>Select files</B> button to restore package partially.</P>" : "" ) +
 
+	    // For translators: restore selection help 4/4
 _("<P>The number of selected files that will be restored from the archive is in the second column.</P>");
     }
 
@@ -228,6 +236,7 @@ Select which files to restore.
 
     global define string RestoreProgressHelp() ``{
 	return
+// progress bar help text
 _("<P><B><BIG>Restoring</BIG></B><BR>
 Files are being restored from the backup archive now.
 It will take some time, depending on the size and number of restored files.
@@ -243,6 +252,7 @@ It will take some time, depending on the size and number of restored files.
 
     global define string SummaryHelp() ``{
 	return
+// summary dialog help text
 _("<P><B><BIG>Summary</BIG></B><BR>
 This is a summary of the restoration process. To see more details, check 
 <B>Show details</B>. To save summary to a file, select <B>Save to file</B>.

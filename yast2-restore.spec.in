@@ -1,9 +1,9 @@
 @HEADER-COMMENT@
 
-# neededforbuild  autoconf automake dejagnu expect tcl yast2 yast2-core yast2-core-devel yast2-devtools yast2-testsuite yast2-installation
+# neededforbuild  yast2-devel-packages yast2-installation yast2-bootloader
 
 @HEADER@
-Requires:	yast2 yast2-core base bzip gzip yast2-installation
+Requires:	yast2 yast2-core bzip gzip tar yast2-installation yast2-bootloader
 BuildArchitectures:	noarch
 
 Summary:	YaST2 Restore module

@@ -79,7 +79,10 @@ global define symbol DisplaySummaryDialog(string text, string detail_text, strin
 	    `VSpacing(0.5),
 	    `RichText(`id(`rt), text),
 	    `VSpacing(0.5),
-	    `HBox(`CheckBox(`id(`details), `opt(`notify), _("&Show details"), false), `HSpacing(3), `PushButton(`id(`save), _("Sa&ve to file..."))),
+	    // push button label
+	    `HBox(`CheckBox(`id(`details), `opt(`notify), _("&Show details"), false), `HSpacing(3),
+		// push button label
+		`PushButton(`id(`save), _("Sa&ve to file..."))),
 	    `VSpacing(1.0)
 	);
 

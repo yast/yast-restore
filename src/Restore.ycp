@@ -27,6 +27,8 @@
     import "Mode";
     import "Packages";
 
+    include "lilo/io.ycp";
+
     textdomain "restore";
 
     // local file name (can be on mounted file system)
@@ -68,7 +70,7 @@
     /**
      * Run lilo after files are restored
      */
-    global boolean runlilo = true;
+    global boolean runbootloader = true;
 
     /**
      * Run SuSEconfig after files are restored
@@ -342,7 +344,7 @@
      */
 
     global define void Set(map settings) ``{
-	runlilo = lookup(settings, "runlilo", true);
+	runbootloader = lookup(settings, "runbootloader", true);
 	runSuSEconfig = lookup(settings, "runSuSEconfig", true);
 	restoreRPMdb = lookup(settings, "restoreRPMdb", false);
     }
@@ -365,7 +367,7 @@
 
 	return $[
 	    "archives"		: prepend(inputvolumes, inputname),
-	    "runlilo"		: runlilo,
+	    "runbootloader"		: runbootloader,
 	    "runSuSEconfig"	: runSuSEconfig,
 	    "restoreRPMdb"	: restoreRPMdb,
 	    "selection"		: selection
@@ -430,6 +432,7 @@
 
 	if (lookup(mresult, "success", false) == false)
 	{
+	    // error message
 	    Report::Error(_("Cannot mount file system."));
 	    return false;
 	}
@@ -437,6 +440,8 @@
 	filename = lookup(mresult, "file", "");
 	mountpoint = lookup(mresult, "mpoint", "");
 
+	y2milestone("filename: %1", filename);
+	y2milestone("mountpoint: %1", mountpoint);
 
 	// get archive contents
 	map result = SCR::Execute(.target.bash_output, "/bin/tar -t -f " + filename);
@@ -455,6 +460,7 @@
 	    }
 	    else
 	    {
+		// error message
 		Report::Error(_("Cannot read archive file.
 It is not a tar archive or it is broken.
 "));
@@ -481,7 +487,7 @@ It is not a tar archive or it is broken.
 		}
 		else
 		{
-		    // copy failed
+		    // error message: copy failed
 		    Report::Error(_("Cannot copy archive file
 to temporary directory.
 "));
@@ -499,6 +505,7 @@ to temporary directory.
 	    // archive doesn't contain files from backup - file is not backup archive or not first volume of multi volume archive
 	    y2error("Archive does not contain 'info/files' or 'info/packages_info' or 'info/installed_packages' file!");
 
+	    // error message
 	    Report::Error(_("Archive does not contain required files.
 It was probably not created by the backup module.
 "));
@@ -615,6 +622,7 @@ It was probably not created by the backup module.
 
 	// add package descriptions and default selection
 	archive_info = mapmap(string p, map i, archive_info, ``{
+	        // decription of files not owned by any package
 		string descr = (p == "") ? _("Files not owned by any package") : select(SCR::Read(.package.shortDesc, p), 0, "");
 		map t = add(i, "descr", descr);
 
@@ -806,7 +814,10 @@ It was probably not created by the backup module.
 	{
 	    string package = select(packages, i, "nonexistingpackage");
 	    map info = lookup(restore, package, $[]);
-	    string label = (package == "") ? _("Restoring files not owned by any package...") : sformat(_("Restoring package %1..."), package);
+	    // progress bar label
+	    string label = (package == "") ? _("Restoring files not owned by any package...") :
+		// progress bar label - %1 is package name
+		sformat(_("Restoring package %1..."), package);
 	    string sel_type = lookup(info, "sel_type", "");
 
 	    if (progress != nil)
@@ -998,9 +1009,9 @@ It was probably not created by the backup module.
 	    }
 	);
 
-	map liloret = Lilo();
+	boolean bootload = Bootloader();
 
-	return $[ "aborted" : aborted, "restored" : restoredfiles, "failed" : failedfiles, "packages" : restoredpackages, "lilo" : liloret ];
+	return $[ "aborted" : aborted, "restored" : restoredfiles, "failed" : failedfiles, "packages" : restoredpackages, "bootloader" : bootload ];
     }
 
     /**
@@ -1160,33 +1171,42 @@ It was probably not created by the backup module.
 
 
     /**
-     * Start lilo if requested.
-     * @return map Map $[ "lilo" : boolean (true if success), "stderr" : "stderr output"  ] or $[ "lilo" : nil ] if lilo was not started
+     * Activate bootloader configuration if requested.
+     * @return boolean true on success
      */
-    global define map Lilo() ``{
-	if (runlilo == true && Mode::test == false)
+    global define boolean Bootloader() ``{
+	boolean ret = nil;
+
+	if (runbootloader == true && Mode::test == false)
 	{
-	    // start lilo
-	    map ret  = SCR::Execute(.target.bash_output, "/sbin/lilo");
-
-	    integer exitval = lookup(ret, "exit", -1);
-	    string stderr = lookup(ret, "stderr", "");
-
-	    if (exitval != 0)
+	    if (boot() == "grub")
 	    {
-		Report::Error(_("Lilo utility failed.
+		y2milestone("starting grub configuration");
+		ret = (DoGrub() == 0);
+
+		if (ret == false)
+		{
+		    // error message - grub bootloader failed
+		    Report::Error(_("Grub configuration failed.
+Boot loader was not updated."));
+		}
+	    }
+	    else
+	    {
+		y2milestone("starting lilo configuration");
+		ret = (DoLilo() == 0);
+
+		if (ret == false)
+		{
+		    // error message
+		    Report::Error(_("Lilo utility failed.
 Boot configuration was not updated.
 "));
-		y2error("lilo error: %1", stderr);
+		}
 	    }
+	}
 
-	    return $[ "lilo" : (exitval == 0), "stderr" : stderr ];
-	}
-	else
-	{
-	    // lilo was not used
-	    return $[ "lilo" : nil ];
-	}
+	return ret;
     }
 
     /**
@@ -1226,9 +1246,12 @@ Boot configuration was not updated.
 	    }
 	    else
 	    {
-		mpoint = lookup(mountresult, "mpoint", "");
+		mpoint = lookup(mountresult, "mountpoint", "");
 		file = mpoint + "/" + lookup(mountresult, "file", "");
 		success = true;
+
+		y2milestone("mpoint: %1", mpoint);
+		y2milestone("file: %1", file);
 	    }
 	}
 	else if (substring(input, 0, size(devprefix)) == devprefix)
@@ -1362,6 +1385,7 @@ Boot configuration was not updated.
 
 	    y2milestone("dir: %1", dir);
 	    y2milestone("file: %1", f);
+	    y2milestone("mpoint: %1", mpoint);
 
 	    boolean result = SCR::Execute(.target.mount, [server + ":" + dir, mpoint], "-t nfs");
 

@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Mon Aug  5 13:47:47 CEST 2002 - lslezak@suse.cz
+
+- added help texts for translators
+- fixed NFS source bug
+- grub bootloader support
+- use (old) package manager
+- fixed #neededforbuild and Requires - yast2-devel-packages, tar
+- version 2.6.4
+
+-------------------------------------------------------------------
 Mon Jul 22 16:25:11 CEST 2002 - jsrain@suse.cz
 
 - merged proofread texts

@@ -31,6 +31,7 @@ include "ui/common_popups.ycp";
 include "ui/common_messages.ycp";
 include "ui/file_popups.ycp";
 include "wizard/sequencer.ycp";
+include "require.ycp";
 
 include "restore/helps.ycp";
 include "restore/summary_dialog.ycp";
@@ -422,11 +423,10 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
     else
     {
 	// set default values
-	// TODO: remove this, use initialized values
-	file_name = "/tmp/backup-new4/01_bk.tar";
-	nfs_server = "dhcp28";
-	nfs_file = "/local/backup.tar";
-	cd_file = "/bk.tar";
+	file_name = "";
+	nfs_server = "";
+	nfs_file = "";
+	cd_file = "";
     }
 
     // unmount previous file system
@@ -1322,7 +1322,7 @@ global define symbol RestoreOptionsDialog() ``{
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`Left(`CheckBox(`id(`lilo), _("Run &lilo after restoration"), Restore::runlilo)),
+		`Left(`CheckBox(`id(`lilo), _("Activate &bootloader configuration after restoration"), Restore::runbootloader)),
 		`VSpacing(0.2),
 		`Left(`CheckBox(`id(`susecfg), _("Run &SuSEconfig after restoration"), Restore::runSuSEconfig)),
 		`VSpacing(0.2),
@@ -1350,7 +1350,7 @@ global define symbol RestoreOptionsDialog() ``{
     }
     else
     {
-	Restore::runlilo = UI::QueryWidget(`id(`lilo), `Value);
+	Restore::runbootloader = UI::QueryWidget(`id(`lilo), `Value);
 	Restore::runSuSEconfig = UI::QueryWidget(`id(`susecfg), `Value);
 	Restore::restoreRPMdb = UI::QueryWidget(`id(`rpmdb), `Value);
     }
@@ -1583,31 +1583,28 @@ global define symbol RestoreProgressDialog() ``{
  * @return symbol UI::UserInput() result
  */
 global define symbol SWsingleDialog() ``{
+    list install = [];
+    list uninstall = [];
 
-    // TODO:  WFM::CallModule("sw_single", ["beginner"]);
-    // TODO: if not in autoinstall mode reinstall all packages which will be restored
-
-    term contents = `Label(_("DO NOT TRANSLATE.  Forgotten placeholder for actual package installation."));
-
-    Wizard::SetContents("", contents, "", true, true);
-
-    symbol ret = nil;
-
-    do
+    if (lastret == `back)
     {
-	ret = UI::UserInput();
-    }
-    while(ret != `next && ret != `abort && ret != `back);
-
-    if (ret == `cancel)
-    {
-	ret = `abort;
+	return `back;
     }
 
-    lastret = ret;
-    return ret;
+    foreach(`k, `v, install, ``{install = add(install, k);});
+    foreach(`k, `v, uninstall, ``{uninstall = add(uninstall, k);});
 
-    //TODO after package (un)install refresh actual installed packages (do Restore::ReadActualInstalledPackages())
+    y2milestone("install: %1", install);
+    y2milestone("uninstall: %1", uninstall);
+
+    if (size(install) > 0 || size(uninstall) > 0)
+    {
+	DoInstallAndRemove(install, uninstall);
+
+	Restore::ReadActualInstalledPackages();
+    }
+
+    return lastret;
 }
 
 /**
@@ -1670,7 +1667,7 @@ global define symbol SummaryDialog() ``{
     // set SuSEconfig result string
     string SuSEinfo = StatusToString(susestatus);
 
-    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Lilo return status: ") + lilostr + "</P><P>" + _("SuSEconfig status: ") + SuSEinfo + " </P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>" + _("Restored files:") + "</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
+    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Bootloader configuration: ") + lilostr + "</P><P>" + _("SuSEconfig status: ") + SuSEinfo + " </P><P><B>" + _("Restored files:") + "</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
 
     return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, SummaryHelp(), _("Summary of restoration"), `finish);
 }
