@@ -38,22 +38,22 @@ include "wizard/sequencer.ycp";
 global define string RemoveTags(string input) ``{
     string ret = input;
 
-    map tagmapping = $[ "br" : "\n", "/p" : "\n", "p" : "", "b" : "", "/b" : "",
-	"em" : "", "/em" : "", "i" : "", "/i" : "", "tt" : "", "/tt" : "",
-	"/big" : "", "big" : "", "code" : "/code", "strong" : "", "/strong" : "", "pre" : "", "/pre" : "",
-	 "large" : "", "/large" : "", "hr" : "", "h1" : "", "/h1" : "", "h2" : "", "/h2" : "",
-	 "h3" : "", "/h3" : ""
+    map tagmapping = $[ "BR" : "\n", "/P" : "\n", "P" : "", "B" : "", "/B" : "",
+	"EM" : "", "/EM" : "", "I" : "", "/I" : "", "TT" : "", "/TT" : "",
+	"/BIG" : "", "BIG" : "", "CODE" : "/CODE", "STRONG" : "", "/STRONG" : "", "PRE" : "", "/PRE" : "",
+	 "LARGE" : "", "/LARGE" : "", "HR" : "", "H1" : "", "/H1" : "", "H2" : "", "/H2" : "",
+	 "H3" : "", "/H3" : ""
     ];
 
     foreach(string t, string repl, tagmapping, ``{
-	    tag = "<" + t + ">";
+	    string tag = "<" + t + ">";
 
-	    while (issubstring(ret, tolower(tag)))
+	    while (issubstring(ret, tag))
 	    {
 		ret = regexpsub(ret, "(.*)" + tag + "(.*)", "\\1" + repl + "\\2");
 	    }
 
-	    while (issubstring(ret, toupper(tag)))
+	    while (issubstring(ret, tolower(tag)))
 	    {
 		ret = regexpsub(ret, "(.*)" + tag + "(.*)", "\\1" + repl + "\\2");
 	    }

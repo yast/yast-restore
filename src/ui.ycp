@@ -865,11 +865,37 @@ global define symbol ArchiveContentsDialog() ``{
 
 global define symbol RestoreProgressDialog() ``{
 
+    map restore = Restore::GetArchiveInfo();
+    integer total = 0;
+
+    // filter out unselected packages and compute total restored files
+    restore = filter(string p, map info, restore, ``{
+	    string sel_type = lookup(info, "sel_type", " ");
+
+	    if (sel_type == "X")
+	    {
+		total = total + size(lookup(info, "files", []));
+		return true;
+	    }
+	    else if (sel_type == "P")
+	    {
+		total = total + size(lookup(info, "sel_file", []));
+		return true;
+	    }
+	    else
+	    {
+		return false;
+	    }
+	}
+    );
+
+    y2milestone("%1 files will be restored from archive", total);
+
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`ProgressBar(`id(`pb), _("Restoring package aaa_base ..."), 42, 17),
+		`ProgressBar(`id(`progress), " ", total, 0),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -877,18 +903,31 @@ global define symbol RestoreProgressDialog() ``{
 
     Wizard::SetContents(_("Restoring files"), contents, "help", true, true);
 
+
+    foreach(string package, map info, restore, ``{
+	    // TODO: unpack subarchive
+
+	    string label = (package == "") ? _("Restoring files not owned by any package ...") : sformat(_("Restoring package %1 ..."), package);
+
+	    UI::ChangeWidget(`id(`progress), `Label, label);
+	    sleep(2000);
+
+	    // TODO: unpack files from subarchive
+	}
+    );
+
     symbol ret = nil;
 
     do
     {
 	ret = UI::UserInput();
-    }
-    while(ret != `next && ret != `abort && ret != `back);
 
-    if (ret == `cancel)
-    {
-	ret = `abort;
+	if (ret == `cancel)
+	{
+	    ret = `abort;
+	}
     }
+    while (ret != `next && ret != `abort && ret != `back);
 
     return ret;
 }

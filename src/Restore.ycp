@@ -386,6 +386,10 @@
     }
 
     global define boolean ReadArchiveFile(string archivefile) ``{
+	if (tempdir == "")
+	{
+	    tempdir = SCR::Read(.target.tmpdir);
+	}
 
 	if (Mode::test == true)
 	{
@@ -400,7 +404,7 @@
 	    comment = "Some comments";
 	    hostname = "linux.local";
 
-	    installedpkgs = $["netcfg" : "2002.3.20-0", "lprng" : "3.8.5-49", "kdebase3" : "3.0-19", "gnome-applets" : "1.4.0.5-98"];
+	    installedpkgs = $["netcfg" : "2002.3.20-0", "lprng" : "3.8.5-49", "kdebase3" : "3.0-19", "gnome-applets" : "1.4.0.5-98", "mozilla" : "0.9.8-54"];
 	    actualinstalledpackages = $["ggv" : "1.1.93-167", "netcfg" : "2002.3.20-0", "lprng" : "3.8.5-49", "kdebase3" : "3.0-19", "aterm" : "0.4.0"];
 
 	    archive_info = $["" : $["descr" : "Files not owned by any package", "files":["/.qt/", "/dev/dvd", "/dev/cdrom"], "sel_type" : "X" ],
@@ -447,11 +451,6 @@
 	y2milestone("archivefiles: %1", archivefiles);
 
 	string infofiles = "info/comment info/hostname info/date info/installed_packages info/files info/packages_info";
-
-	if (tempdir == "")
-	{
-	    tempdir = SCR::Read(.target.tmpdir);
-	}
 
 	// unpack info files
 	result = SCR::Execute(.target.bash_output, "/bin/tar -C " + tempdir + " -x -f " + filename + " " + infofiles);
