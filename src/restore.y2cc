@@ -35,6 +35,6 @@ SortKey =
 Textdomain = restore 
 
 ; autoinstallation is supported
-Autoinst = all
+Autoinst = write
 
 ; vim:syntax=dosini
