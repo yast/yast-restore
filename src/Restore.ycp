@@ -455,7 +455,9 @@
 	    }
 	    else
 	    {
-		Report::Error(_("Cannot read archive file.\nIt is not tar archive or it is broken."));
+		Report::Error(_("Cannot read archive file.
+It is not a tar archive or it is broken.
+"));
 		return false;
 	    }
 
@@ -480,7 +482,9 @@
 		else
 		{
 		    // copy failed
-		    Report::Error(_("Cannot copy archive file\nto temporary directory"));
+		    Report::Error(_("Cannot copy archive file
+to temporary directory.
+"));
 		    return false;
 		}
 	    }
@@ -495,7 +499,9 @@
 	    // archive doesn't contain files from backup - file is not backup archive or not first volume of multi volume archive
 	    y2error("Archive does not contain 'info/files' or 'info/packages_info' or 'info/installed_packages' file!");
 
-	    Report::Error(_("Archive does not contain required files.\nIt was probably not created by Backup module."));
+	    Report::Error(_("Archive does not contain required files.
+It was probably not created by the backup module.
+"));
 	    return false;
 	}
 
@@ -800,7 +806,7 @@
 	{
 	    string package = select(packages, i, "nonexistingpackage");
 	    map info = lookup(restore, package, $[]);
-	    string label = (package == "") ? _("Restoring files not owned by any package ...") : sformat(_("Restoring package %1 ..."), package);
+	    string label = (package == "") ? _("Restoring files not owned by any package...") : sformat(_("Restoring package %1..."), package);
 	    string sel_type = lookup(info, "sel_type", "");
 
 	    if (progress != nil)
@@ -1168,7 +1174,9 @@
 
 	    if (exitval != 0)
 	    {
-		Report::Error(_("Lilo utility failed,\nboot configuration was not updated."));
+		Report::Error(_("Lilo utility failed.
+Boot configuration was not updated.
+"));
 		y2error("lilo error: %1", stderr);
 	    }
 

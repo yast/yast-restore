@@ -433,7 +433,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
     Restore::Umount();
 
     term contents = `VBox(
-		`Frame((multivolume == false ? _("Backup archive") : _("Multi volume archive")),
+		`Frame((multivolume == false ? _("Backup archive") : _("Multivolume archive")),
 			`HBox(
 			    `RadioButtonGroup(`id(`source), `opt(`notify),
 				`VBox(
@@ -479,7 +479,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 	);
 
     string help = (multivolume == false) ? _("Help") : _("Multivolume help");
-    string title = (multivolume == false) ? _("Archive selection") : _("Multi volume archive selection");
+    string title = (multivolume == false) ? _("Archive selection") : _("Multivolume archive selection");
 
     Wizard::SetContents(title, contents, (multivolume == true ? ArchiveMultiSelectionHelp() : ArchiveSelectionHelp()), true, true);
 
@@ -546,7 +546,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 		    if (substring(file, 0, size(mountpnt)) != mountpnt)
 		    {
 			// selected file is out of mounted file system
-			UI::ErrorPopup(_("Selected file is out of mounted filesystem"));
+			UI::ErrorPopup(_("The selected file is not on the mounted device."));
 		    }
 		    else
 		    {
@@ -560,7 +560,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 	    }
 	    else
 	    {
-		UI::ErrorPopup(_("Can not mount file system"));
+		UI::ErrorPopup(_("Cannot mount file system."));
 	    }
 	}
 	else if (ret == `next)
@@ -618,7 +618,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 
 	    if (readresult == false)
 	    {
-		UI::ErrorPopup(sformat(_("Can not read backup archive file '%1'!"), input));
+		UI::ErrorPopup(sformat(_("Cannot read backup archive file '%1'."), input));
 		Restore::Umount();
 		ret = `dummy;
 	    }
@@ -676,7 +676,9 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 			if (testall == false)
 			{
 			    y2error("Test Restore::TestAllVolumes() failed");
-			    UI::ErrorPopup(_("Test of all volumes failed.\nProbably some archive file is corrupted."));
+			    UI::ErrorPopup(_("Test of all volumes failed.
+An archive file is probably corrupted.
+"));
 
 			    ret = `back;
 			}
@@ -849,7 +851,7 @@ global define symbol SelectionInstallDialog() ``{
     );
 
     list missing = CreateTableContentsWithMismatched(missingpackages, packagestoinstall, true);
-    string widgetlabel = _("&Packages which will be installed");
+    string widgetlabel = _("&Packages to install");
     term header = `header(" ", _("Package"), _("Version"), _("Installed version"), _("Description"));
 
     term contents = `HBox(
@@ -867,7 +869,7 @@ global define symbol SelectionInstallDialog() ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::SetContents(_("Package restoration - installation"), contents, InstallPackageHelp(), true, true);
+    Wizard::SetContents(_("Package restoration -- installation"), contents, InstallPackageHelp(), true, true);
 
     symbol ret = nil;
 
@@ -968,7 +970,7 @@ global define symbol SelectionUninstallDialog() ``{
     map extrapackages = Restore::GetExtraPackages();
     list extra = CreateTableContents(extrapackages, packagestouninstall, true);
 
-    string widgetlabel = _("&Packages which will be uninstalled");
+    string widgetlabel = _("&Packages to uninstall");
 
     term header = `header(" ", _("Package"), _("Version"), _("Description"));
 
@@ -987,7 +989,7 @@ global define symbol SelectionUninstallDialog() ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::SetContents(_("Package restoration - uninstallation"), contents, UninstallPackageHelp(), true, true);
+    Wizard::SetContents(_("Package restoration -- uninstallation"), contents, UninstallPackageHelp(), true, true);
 
     symbol ret = nil;
 
@@ -1076,7 +1078,9 @@ global define boolean InstallQuestion(string package, string version) ``{
 
     if (package != "" && !haskey(Restore::GetActualInstalledPackages(), package) && !haskey(packagestoinstall, package))
     {
-	ret = UI::AnyQuestionPopup("", sformat(_("Package '%1' is not installed in your system.\nDo you want to install it?"), package + "-" + version), YesButtonLabel(), NoButtonLabel(), `focus_yes);
+	ret = UI::AnyQuestionPopup("", sformat(_("Package '%1' is not installed in your system.
+Install it?
+"), package + "-" + version), YesButtonLabel(), NoButtonLabel(), `focus_yes);
 
 	if (ret == true)
 	{
@@ -1127,11 +1131,11 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	    `HSpacing(2)
 	);
 
-    string helptext = _("X = Restore all files from backup, P = Partiall restore of manually selected files");
+    string helptext = _("X = Restore all files from backup, P = Partial restore of manually selected files");
 
     if (!personal)
     {
-	helptext = helptext + _("<P><BR>To select files which will be restored from archive press <B>Select files</B> button.</P>");
+	helptext = helptext + _("<P><BR>To select files to restore from the archive, press <B>Select files</B>.</P>");
     }
 
     Wizard::SetContents(_("Packages to restore"), contents, RestoreSelectionHelp(personal), true, true);
@@ -1228,7 +1232,9 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
 		if (missing != $[] && Mode::config == false)
 		{
-		    string question = _("Some packages are not installed.\nDo you want to select them for restoration?");
+		    string question = _("Some packages are not installed.
+Select them for restoration?
+");
 		    selmissing = UI::AnyQuestionPopup("", question, YesButtonLabel(), NoButtonLabel(), `focus_no);
 		}
 
@@ -1238,7 +1244,10 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
 		if (mismatched != $[] && Mode::config == false)
 		{
-		    string question = _("Some installed packages have different\nversion than is in backup archive.\nDo you want to select them for restoration?");
+		    string question = _("Some installed packages have a different
+version than in the backup archive.
+Select them for restoration?
+");
 		    selmismatch = UI::AnyQuestionPopup("", question, YesButtonLabel(), NoButtonLabel(), `focus_no);
 		}
 
@@ -1412,7 +1421,7 @@ global define symbol FileSelectionDialog(string packagename) ``{
     Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
 
     // for translatores: %1 is name of package (e.g. "aaa_base")
-    Wizard::SetContents(sformat(_("File selection - package %1"), packagename), contents, FileSelectionHelp(), true, true);
+    Wizard::SetContents(sformat(_("File selection -- package %1"), packagename), contents, FileSelectionHelp(), true, true);
 
     symbol ret = nil;
 
@@ -1484,7 +1493,7 @@ global define symbol ArchiveContentsDialog() ``{
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`Tree(`id(`tree), _("Archive &content:"), CreateArchiveContentTree(Restore::GetArchiveInfo())),
+		`Tree(`id(`tree), _("Archive &contents:"), CreateArchiveContentTree(Restore::GetArchiveInfo())),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -1492,7 +1501,7 @@ global define symbol ArchiveContentsDialog() ``{
 
     Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
 
-    Wizard::SetContents(_("Archive content"), contents, ArchiveContentHelp(), true, true);
+    Wizard::SetContents(_("Archive contents"), contents, ArchiveContentHelp(), true, true);
 
     symbol ret = nil;
 
@@ -1540,7 +1549,7 @@ global define symbol RestoreProgressDialog() ``{
 
 	if (ret == `abort || ret == `cancel)
 	{
-	    abort = UI::AnyQuestionPopup(_("Abort confirmation"), _("Do you really want to abort restore?"), YesButtonLabel(), NoButtonLabel(), `focus_no);
+	    abort = UI::AnyQuestionPopup(_("Abort confirmation"), _("Really abort restore?"), YesButtonLabel(), NoButtonLabel(), `focus_no);
 	}
 
 	return abort;
@@ -1578,7 +1587,7 @@ global define symbol SWsingleDialog() ``{
     // TODO:  WFM::CallModule("sw_single", ["beginner"]);
     // TODO: if not in autoinstall mode reinstall all packages which will be restored
 
-    term contents = `Label(_("Here will be sw_single dialog displayed and (un)installed packages."));
+    term contents = `Label(_("DO NOT TRANSLATE.  Forgotten placeholder for actual package installation."));
 
     Wizard::SetContents("", contents, "", true, true);
 

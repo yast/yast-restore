@@ -86,7 +86,8 @@
 	    // read failed, offer manual selection
 	    input = volume;
 
-	    if (UI::YesNoPopup((index == 0 ? _("Archive file cannot be read.") : _("Archive volume cannot be read.")) + _("\nDo you want to select it manually?")) == true)
+	    if (UI::YesNoPopup((index == 0 ? _("Archive file cannot be read.") : _("Archive volume cannot be read.")) + _("\nSelect it manually?
+")) == true)
 	    {
 		if (index == 0)
 		{
