@@ -2019,6 +2019,7 @@ define any RestoreAutoSequence() ``{
 	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
 	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
 	    "select"	:   ``( PackageSelectionRestoreDialog() ),
+	    "atexit"	:   ``( AtExit() ),
 	    "selectfile": [ ``( FileSelectionDialog(restorepackagename) ), true ],
 	];
 
