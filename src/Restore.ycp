@@ -31,7 +31,7 @@
     list archivefiles = [];
 
     // installed packages at backup time
-    list installedpkgs = [];
+    map installedpkgs = $[];
 
     // list of installed packages
     map actualinstalledpackages = $[];
@@ -73,31 +73,81 @@
 	return [];
     }
 */
-    global define list GetMissingPackages() ``{
+    global define map GetMissingPackages() ``{
+	map ret = $[];
 
-//	if ()
-	return [];
+	if (actualinstalledpackages == $[])
+	{
+	    actualinstalledpackages = GetActualInstalledPackages();
+	}
+
+	ret = filter(string p, string v, installedpkgs, ``{
+		return (haskey(actualinstalledpackages, p) != true);
+	    }
+	);
+
+	return ret;
     }
 
-    global define list GetExtraPackages() ``{
-	return [];
+    global define map GetExtraPackages() ``{
+	map ret = $[];
+
+	if (actualinstalledpackages == $[])
+	{
+	    actualinstalledpackages = GetActualInstalledPackages();
+	}
+
+	ret = filter(string p, string v, actualinstalledpackages, ``{
+		return (haskey(installedpkgs, p) != true);
+	    }
+	);
+
+	return ret;
     }
 
-    global define list GetActualInstalledPackages() ``{
+    // package name: [actual, at backup time]
+    global define map GetMismatchedPackages() ``{
+	map ret = $[];
+
+	if (actualinstalledpackages == $[])
+	{
+	    actualinstalledpackages = GetActualInstalledPackages();
+	}
+
+	foreach(string p, string v, actualinstalledpackages, ``{
+		if (haskey(installedpkgs, p) == true)
+		{
+		    string installedversion = lookup(installedpkgs, p, "");
+
+		    if (installedversion != v)
+		    {
+			ret = add(ret, p, [v, installedversion]);
+		    }
+		}
+	    }
+	);
+
+	return ret;
+    }
+
+    global define map GetActualInstalledPackages() ``{
+	// read info about installed packages
 	map info = SCR::Read(.targetpkg.info);
 
-	list ret = [];
+	map ret = $[];
 
 	if (info != nil)
 	{
 	    foreach(string name, list data, info, ``{
 		    string version = select(data, 0, "");
+
+		    ret = add(ret, name, version);
 		}
 	    );
 
 	}
 
-	return info;
+	return ret;
     }
 
 
@@ -320,6 +370,7 @@
 	comment = SCR::Read(.target.string, tempdir + "/info/comment");
 	hostname = SCR::Read(.target.string, tempdir + "/info/hostname");
 
+	// read archive contents file
 	string archivefs = SCR::Read(.target.string, tempdir + "/info/files");
 
 	if (archivefs != nil)
@@ -328,13 +379,29 @@
 	    archivefiles = filter(string pk, archivefiles, ``{return pk != "" && pk != nil;});
 	}
 
+	// read installed packages
 	string installedpkgs_str = SCR::Read(.target.string, tempdir + "/info/installed_packages");
 
-	installedpkgs = splitstring(installedpkgs_str, "\n");
-	installedpkgs = filter(string pk, installedpkgs, ``{return pk != "" && pk != nil;});
+	// convert string to list
+	list installedpkgs_list = splitstring(installedpkgs_str, "\n");
+	installedpkgs_list = filter(string pk, installedpkgs_list, ``{return pk != "" && pk != nil;});
+
+	// convert list to map (key - package name, value - package version)
+	installedpkgs = listmap(string fullname, installedpkgs_list, ``{
+		string version = regexpsub(fullname, ".*-(.*-.*)", "\\1");
+		string name = substring(fullname, 0, size(fullname) - size(version) - 1);
+
+		return [name, version];
+	    }
+	);
 
 	y2milestone("values from archive: date=%1, comment=%2, hostname=%3", date, comment, hostname);
+
+/*	y2milestone("installed packages at backup time: %1", installedpkgs);
+	y2milestone("actual installed packages: %1", GetActualInstalledPackages());*/
+
 	y2debug("installed packages at backup time: %1", installedpkgs);
+	y2debug("actual installed packages: %1", GetActualInstalledPackages());
 
 	return true;
     }

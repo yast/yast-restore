@@ -212,16 +212,11 @@ global define symbol ArchiveSelectionDialog() ``{
 	ret = `abort;
     }
 
-    // TODO: install read archive contents
-
-//    Restore::ReadArchiveFile(UI::QueryWidget(`id(`filename), `Value));
-
-    if (Mode::test != true)
+    if (ret == `next && Mode::test != true)
     {
+	Wizard::SetContents("", `Label(_("Reading archive contents...")), _("Please wait"), false, false);
 	Restore::ReadArchiveFile("/tmp/backup.tar");
     }
-
-//    y2milestone("Archive contents: %1", Restore::GetArchiveContents());
 
     return ret;
 }
@@ -230,28 +225,45 @@ global define symbol ArchiveSelectionDialog() ``{
 
 global define symbol ArchivePropertyDialog() ``{
 
+    // TODO: install read archive contents
+
+//    Restore::ReadArchiveFile(UI::QueryWidget(`id(`filename), `Value));
+
+    if (Mode::test != true)
+    {
+	y2milestone("missing packages %1: ", Restore::GetMissingPackages());
+	y2milestone("extra packages %1: ", Restore::GetExtraPackages());
+	y2milestone("mismatched packages %1: ", Restore::GetMismatchedPackages());
+    }
+
+//    y2milestone("Archive contents: %1", Restore::GetArchiveContents());
+
+
     string date = "";
     string hostname = "";
     string comment = "";
+    string archname = "";
 
     if (Mode::test == true)
     {
 	date = "13.01.2002 14:25";
 	hostname = "linux.local";
 	comment = "Test mode comment";
+	archname = "/tmp/testarchive.tar";
     }
     else
     {
 	date = Restore::GetArchiveDate();
 	hostname = Restore::GetArchiveHostname();
 	comment = Restore::GetArchiveComment();
+	archname = Restore::GetArchiveName();
     }
 
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`Left(`HBox(`Label(`id(`flabel), _("Archive file name:")), `HSpacing(2), `Label(`id(`flabel2), Restore::GetArchiveName()))),
+		`Left(`HBox(`Label(`id(`flabel), _("Archive file name:")), `HSpacing(2), `Label(`id(`flabel2), archname))),
 		`VSpacing(0.5),
 		`Left(`HBox(`Label(`id(`dlabel), _("Date of backup:")), `HSpacing(2), `Label(`id(`dlabel2), date))),
 		`VSpacing(0.5),
@@ -285,18 +297,42 @@ global define symbol ArchivePropertyDialog() ``{
     return ret;
 }
 
+global define list CreateMultiselectionContents(map contents, boolean defaultval) ``{
+    list ret = [];
+    integer num = 0;
+
+    if (contents != nil)
+    {
+	foreach(string p, string v, contents, ``{
+		ret = add(ret, `item(p + "-" + v, defaultval));
+	    }
+	);
+    }
+
+    return ret;
+}
+
 
 global define symbol SelectionInstallDialog() ``{
 
     // LATER: if all packages are installed return `next (or `back)
 
+    list missing = [];
+
+    if (Mode::test == true)
+    {
+	missing = [ `item(`id(1), "aaa_base-2.4.1-45", true), `item(`id(2), "yast2-base-2.6.2-32", true), `item(`id(3), "sysconfig-base-2.6.1-2", true) ];
+    }
+    else
+    {
+	missing = CreateMultiselectionContents(Restore::GetMissingPackages(), true);
+    }
+
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`MultiSelectionBox(`id(`pkg), _("&Packages which will be installed"),  [ `item(`id(1), "aaa_base-2.4.1-45", true),
-		    `item(`id(2), "yast2-base-2.6.2-32", true), `item(`id(3), "sysconfig-base-2.6.1-2", true)
-		]),
+		`MultiSelectionBox(`id(`pkg), _("&Packages which will be installed"), missing),
 		`VSpacing(1),
 		`HBox(
 		    `PushButton(`id(`all), "&Select all"),
@@ -320,8 +356,17 @@ global define symbol SelectionInstallDialog() ``{
     do
     {
 	ret = UI::UserInput();
+
+	if (ret == `all)
+	{
+	    UI::ChangeWidget(`id(`pkg), Values, CreateMultiselectionContents(Restore::GetMissingPackages(), true));
+	}
+	else if (ret == `none)
+	{
+	    UI::ChangeWidget(`id(`pkg), Values, CreateMultiselectionContents(Restore::GetMissingPackages(), false));
+	}
     }
-    while(ret != `next && ret != `abort && ret != `back);
+    while (ret != `next && ret != `abort && ret != `back);
 
     if (ret == `cancel)
     {
@@ -341,13 +386,23 @@ global define symbol SelectionUninstallDialog() ``{
 
     // LATER: if no extra package is installed return `next (or `back)
 
+    list extra = [];
+
+    if (Mode::test == true)
+    {
+	extra = [ `item(`id(1), "abcd-2.4.1-45", true), `item(`id(2), "tools-4.2-3", true) ];
+    }
+    else
+    {
+	extra = CreateMultiselectionContents(Restore::GetExtraPackages(), true);
+    }
+
+
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`MultiSelectionBox(`id(`pkg), _("&Packages which will be uninstalled"),  [ `item(`id(1), "abcd-2.4.1-45", true),
-		    `item(`id(2), "tools-4.2-3", true)
-		]),
+		`MultiSelectionBox(`id(`pkg), _("&Packages which will be uninstalled"), extra),
 		`VSpacing(1),
 		`HBox(
 		    `PushButton(`id(`all), "&Select all"),
@@ -366,7 +421,7 @@ global define symbol SelectionUninstallDialog() ``{
     {
 	ret = UI::UserInput();
     }
-    while(ret != `next && ret != `abort && ret != `back);
+    while (ret != `next && ret != `abort && ret != `back);
 
     if (ret == `cancel)
     {
