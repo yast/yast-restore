@@ -1625,8 +1625,7 @@ global define symbol SuSEconfigDialog() ``{
  * @return string Status
  */
 
-global define string StatusToString(boolean status) ``
-{
+global define string StatusToString(boolean status) ``{
     string ret = "<I>" + _("Not started") + "</I>";
 
     if (status == true)

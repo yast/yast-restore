@@ -1,14 +1,12 @@
 #
-# Makefile.am for y2m_restore/src
+# Makefile.am for restore/src
 #
 # $Id$
 #
 
-modulesdir = $(YAST2DIR)/modules
-clientsdir = $(YAST2DIR)/clients
-yncludedir = $(YAST2DIR)/include/restore
+yncludedir = @yncludedir@/restore
 
-clients_DATA =			\
+client_DATA =			\
 	restore.ycp		\
 	restore_write.ycp	\
 	restore_auto.ycp
@@ -22,7 +20,7 @@ ynclude_DATA =			\
 config_DATA =			\
 	restore.y2cc
 
-modules_DATA =			\
+module_DATA =			\
 	Restore.ycp
 
-EXTRA_DIST = $(clients_DATA) $(ynclude_DATA) $(config_DATA) $(modules_DATA)
+EXTRA_DIST = $(client_DATA) $(ynclude_DATA) $(config_DATA) $(module_DATA)

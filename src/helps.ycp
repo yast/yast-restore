@@ -33,16 +33,24 @@ _("<P><B><BIG>Restore module</BIG></B><BR> Restore module can restore your syste
 from backup archive.</P>") +
 
 	    // For translators: archive selection dialog help, (part 2)
-_("<P><B>Archive selection</B><BR>Archive can be read from:</P>
-<P><B>Local file</B><BR>Archive is already available in the system, it is on mounted file system.</P>
-<P><B>Network</B><BR>Backup archive can be read from network using NFS.</P>
-<P><B>Removable device</B><BR>Archive is on removable device or
+_("<P><B>Archive selection</B><BR>Archive can be read from:</P>") +
+
+	    // For translators: archive selection dialog help, (part 3)
+_("<P><B>Local file</B><BR>Archive is already available in the system, it is on mounted file system.</P>") +
+
+	    // For translators: archive selection dialog help, (part 4)
+_("<P><B>Network</B><BR>Backup archive can be read from network using NFS.</P>") +
+
+	    // For translators: archive selection dialog help, (part 5)
+_("<P><B>Removable device</B><BR>Archive is on removable device or
 on unmounted file system. Device can be selected from list or you can enter device file name
-(e.g. /dev/hdc) if device is not in the list.</P>
-<P>If you press <B>Select file</B> button device will be mounted
+(e.g. /dev/hdc) if device is not in the list.</P>") +
+
+	    // For translators: archive selection dialog help, (part 6)
+_("<P>If you press <B>Select file</B> button device will be mounted
 and you can select file from dialog.</P>") +
 
-	// For translators: archive selection dialog help (part 3)
+	    // For translators: archive selection dialog help (part 7)
 _("<P>Note: If you have multi volume archive then select first volume.</P>");
     }
 
