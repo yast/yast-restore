@@ -1,4 +1,19 @@
 -------------------------------------------------------------------
+Mon May 24 15:29:00 CEST 2004 - lslezak@suse.cz
+
+- ignore gpg-pubkey packages - they are not real RPMs
+  and cannot be reinstalled (#40324)
+- version 2.9.12
+
+-------------------------------------------------------------------
+Wed May 12 14:19:26 CEST 2004 - lslezak@suse.cz
+
+- fixed star archive detection (#40325), ignore warnings in
+  star output
+- don't read backup archive in autoyast config mode (#40190)
+- version 2.9.11
+
+-------------------------------------------------------------------
 Fri Apr  2 16:20:08 CEST 2004 - uml6@suse.cz
 
 - changed license to GPL

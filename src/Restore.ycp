@@ -181,6 +181,7 @@
 
 	// read info about installed packages
 	list<string> info = Pkg::GetPackages(`installed, false);
+	y2debug("ReadActualInstalledPackages: %1", sort(info));
 
 	// process version info
 	map<string,string> ret = $[];
@@ -224,6 +225,9 @@
 	    }
 	);
 
+	y2debug("actualinstalledpackages: %1", actualinstalledpackages);
+	y2debug("GetMissingPackages r: %1", r);
+
 	// add descriptions
 	map<string, map<string,string> > ret = mapmap(string pkg, string version, r, ``{
 		string descr = (Mode::test == false) ? Pkg::PkgSummary(pkg) : "";
@@ -238,6 +242,14 @@
 		}
 	    }
 	);
+
+        // ignore gpg-pubkey packages - they are not real RPMs
+	ret = filter(string pkg, map<string,string> inf, ret, ``{
+		return (pkg != "gpg-pubkey");
+	    }
+	);
+
+	y2debug("GetMissingPackages ret: %1", ret);
 
 	return ret;
     }
@@ -1021,6 +1033,11 @@ It was probably not created by the backup module.
 		    i = $[];
 		}
 
+		if (descr == nil)
+		{
+		    descr = "";
+		}
+
 		map<string, any> t = add(i, "descr", descr);
 
 		string sel_type = " ";
@@ -1076,18 +1093,12 @@ It was probably not created by the backup module.
 	runbootloader = settings["runbootloader"]:true;
 	runSuSEconfig = settings["runSuSEconfig"]:true;
 	restoreRPMdb = settings["restoreRPMdb"]:false;
-	completerestoration = settings["completerestoration"]:false;
+	completerestoration = settings["completerestoration"]:true;
 
 	list<string> archiveslist = settings["archives"]:[];
+	inputname = archiveslist[0]:"";
 	// read archives
-	if (size(archiveslist) > 0)
-	{
-	    foreach(string a, archiveslist, ``{
-		    Restore::Read(a);
-		}
-	    );
-	}
-	else
+	if (size(archiveslist) == 0)
 	{
 	    // set unconfigured state
 	    inputname = "";
@@ -1512,12 +1523,20 @@ It was probably not created by the backup module.
 		    {
 			compress = "-j";
 		    }
-		    else if (regexpmatch(fileinarchive, ".*\\.star\\{\\.bz2|\\.gz|\\}$") == true)
+		    else if (
+			regexpmatch(fileinarchive, ".*\\.star$") ||
+			regexpmatch(fileinarchive, ".*\\.star\\.gz$") ||
+			regexpmatch(fileinarchive, ".*\\.star\\.bz2$")
+			== true)
 		    {
 			// star can autodetect used compression
 			compress = "";
 			star = true;
 		    }
+
+		    y2debug("compress: %1", compress);
+		    y2debug("star: %1", star);
+		    y2debug("fileinarchive: %1", fileinarchive);
 
 		    string RPMdb = (restoreRPMdb) ? "" : (star ? "-not pat=var/lib/rpm" : "--exclude var/lib/rpm");
 
@@ -1633,15 +1652,27 @@ Press OK to exit.
 		    // star has more verbose output - get only file names
 		    if (star && stdout != nil)
 		    {
-			stdout = maplist(string line, stdout,
+			list<string> filteredstdout = [];
+			foreach(string line, stdout,
 			    ``{
-				return regexpsub(line, "x (.*) .* bytes, .* tape blocks", "\\1");
+				string new = regexpsub(line, "x (.*) .* bytes, .* tape blocks", "\\1");
+
+				if (new != nil)
+				{
+				    filteredstdout = add(filteredstdout, new);
+				}
 			    }
 			);
+
+			stdout = filteredstdout;
 		    }
 
+		    y2debug("stdout: %1", stdout);
 
-		    restoredfiles = (list<string>)merge (restoredfiles, stdout);
+		    if (stdout != nil)
+		    {
+			restoredfiles = (list<string>)merge (restoredfiles, stdout);
+		    }
 
 		    // read failed files
 		    list<string> stderr = splitstring((string) SCR::Read(.target.string, tempdir + "/tar.stderr"), "\n");
@@ -1665,8 +1696,7 @@ Press OK to exit.
 
 				// ignore final star summary
 				if (file != nil && !regexpmatch(line, "star: .* blocks \\+ .* bytes \\(total of .* bytes = .*k\\)\\.")
-				    && !regexpmatch(line, "star: WARNING: Archive is compressed")
-				    && !regexpmatch(line, "star: WARNING: skipping leading '/' on filenames.")
+				    && !regexpmatch(line, "star: WARNING: .*")
 				)
 				{
 				    failedfiles = add(failedfiles, file);
