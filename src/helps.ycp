@@ -268,7 +268,7 @@ of restored files.
 
 // summary dialog help text 3/3
 _("<P>Some changes made by the restore module can be activated only after system
-reboot (e.g., kernel update). It is recommended to reboot system after
+reboot (e.g., kernel update). It is recommended to reboot the system after
 restoration.</P>
 ");
     }

@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Mon Mar  1 15:00:49 CET 2004 - lslezak@suse.cz
+
+- more strict data types
+- merged proofread texts
+- removed Product::
+- version 2.9.4
+
+-------------------------------------------------------------------
 Wed Feb 18 16:19:02 CET 2004 - lslezak@suse.cz
 
 - reading of the archive in autoyast config mode

@@ -47,21 +47,21 @@
     list inputvolumes = [];
 
     // contents of archive
-    list archivefiles = [];
+    list<string> archivefiles = [];
 
     // installed packages at backup time
-    map installedpkgs = $[];
+    map<string,string> installedpkgs = $[];
 
     // list of installed packages
-    map actualinstalledpackages = $[];
+    map<string,string> actualinstalledpackages = $[];
 
     list complete_backup = [];
 
     // restoration archive and selection
     // "vers" : "version", "files" : ["files"], "prefix" : "prefix", "descr" : "description", "sel_type" : "X", "sel_file" : [""]
-    map archive_info = $[];
+    map<string,map> archive_info = $[];
 
-    map autoinst_info = $[];
+    map<string,map> autoinst_info = $[];
 
     // information stored in archive
     string date = "";
@@ -152,7 +152,7 @@
      * Return map with packages installed at backup time (form is $["package name" : "version"]).
      * @return map Installed packages at backup time
      */
-    global define map GetArchiveInstalledPackages() ``{
+    global define map<string,string> GetArchiveInstalledPackages() ``{
 	return installedpkgs;
     }
 
@@ -169,7 +169,7 @@
      * Read installed packages.
      * @return map Map $[ "packagename" : "version" ]
      */
-    global define map ReadActualInstalledPackages() ``{
+    global define map<string,string> ReadActualInstalledPackages() ``{
 	// do not read installed packages in autoyast config mode
 	if (Mode::config == true)
 	{
@@ -183,10 +183,10 @@
 	list<string> info = Pkg::GetPackages(`installed, false);
 
 	// process version info
-	map ret = $[];
+	map<string,string> ret = $[];
 
 	foreach(string pkg, info, ``{
-		list all = splitstring(pkg, " ");
+		list<string> all = splitstring(pkg, " ");
 
 		ret = add(ret, all[0]:"unknown", all[1]:"" + "-" + all[2]:"");
 	    }
@@ -199,7 +199,7 @@
      * Return installed packages. Result is cached in Restore module, so only first use takes long time
      * @return map Map $[ "packagename" : "version" ]
      */
-    global define map GetActualInstalledPackages() ``{
+    global define map<string,string> GetActualInstalledPackages() ``{
 	if (actualinstalledpackages == $[] || actualinstalledpackages == nil)
 	{
 	    actualinstalledpackages = ReadActualInstalledPackages();
@@ -213,19 +213,19 @@
      * Return missing packages (packages which were installed at backup time, but at restore time they are not installed)
      * @return map Map $[ "packagename" : $[ "ver" : "version", "descr" : "Short description of the package"]], key description is present only if decription exists
      */
-    global define map GetMissingPackages() ``{
-	map ret = $[];
+    global define map<string,map<string,string> > GetMissingPackages() ``{
+	map<string,string> r = $[];
 
 	GetActualInstalledPackages();
 
 	// filter actual installed packages out
-	ret = filter(string p, string v, installedpkgs, ``{
+	r = filter(string p, string v, installedpkgs, ``{
 		return (haskey(actualinstalledpackages, p) != true);
 	    }
 	);
 
 	// add descriptions
-	ret = mapmap(string pkg, string version, ret, ``{
+	map<string, map<string,string> > ret = mapmap(string pkg, string version, r, ``{
 		string descr = (Mode::test == false) ? Pkg::PkgSummary(pkg) : "";
 
 		if (descr == nil)
@@ -246,19 +246,19 @@
      * Return extra packages (packages which are installed at restore time, but at restore time they are installed)
      * @return map Map $[ "packagename" : $[ "ver" : "version", "descr" : "Short description of the package"]], key description is present only if decription exists
      */
-    global define map GetExtraPackages() ``{
-	map ret = $[];
+    global define map<string,map<string,string> > GetExtraPackages() ``{
+	map<string,string> r = $[];
 
 	GetActualInstalledPackages();
 
 	// filter actual installed packages out
-	ret = filter(string p, string v, actualinstalledpackages, ``{
+	r = filter(string p, string v, actualinstalledpackages, ``{
 		return (haskey(installedpkgs, p) != true);
 	    }
 	);
 
 	// add descriptions
-	ret = mapmap(string pkg, string version, ret, ``{
+	map<string,map<string,string> > ret = mapmap(string pkg, string version, r, ``{
 		string descr = (Mode::test == false) ? Pkg::PkgSummary(pkg) : "";
 
 		if (descr == nil)
@@ -780,7 +780,7 @@
      * @param settings Restoration selection
      */
 
-    global define void SetSelectionProperty(map settings) ``{
+    global define void SetSelectionProperty(map<string,map> settings) ``{
 	// set selection for this archive and display archive propertyt
 	foreach(string package, map info, settings, ``{
 		y2debug("setting selection: package:%1, selection:%2)", package, info);
@@ -1002,7 +1002,7 @@ It was probably not created by the backup module.
 	SCR::Execute(.target.bash, "/usr/lib/YaST2/bin/restore_parse_pkginfo.pl < " + tempdir + "/info/packages_info > " + tempdir + "/info.ycp");
 
 	y2milestone("Reading package info");
-	archive_info = (map) SCR::Read(.target.ycp, tempdir + "/info.ycp");
+	archive_info = (map<string,map>) SCR::Read(.target.ycp, tempdir + "/info.ycp");
 	y2milestone("Read %1 packages", size(archive_info));
 
 
@@ -1078,7 +1078,7 @@ It was probably not created by the backup module.
 	restoreRPMdb = settings["restoreRPMdb"]:false;
 	completerestoration = settings["completerestoration"]:false;
 
-	list archiveslist = settings["archives"]:[];
+	list<string> archiveslist = settings["archives"]:[];
 	// read archives
 	if (size(archiveslist) > 0)
 	{
@@ -1284,7 +1284,7 @@ It was probably not created by the backup module.
 	if (size(targetdir) == 0 || substring(targetdir, 0, 1) != "/")
 	{
 	    // error message
-	    Report::Error(sformat(_("Invalid target directory (%1)"), targetdir));
+	    Report::Error(sformat(_("Invalid target directory (%1)."), targetdir));
 	    return $[ "aborted" : aborted, "restored" : restoredfiles, "failed" : failedfiles, "packages" : restoredpackages, "bootloader" : false ];
 	}
 
@@ -1293,7 +1293,7 @@ It was probably not created by the backup module.
 	if (out != 0)
 	{
 	    // error message
-	    Report::Error(sformat(_("Cannot create target directory %1"), targetdir));
+	    Report::Error(sformat(_("Cannot create target directory %1."), targetdir));
 	}
 
 	// filter out unselected packages and compute total restored files
@@ -1383,7 +1383,7 @@ It was probably not created by the backup module.
 		{
 		    // may be some files are already selected
 		    // check status of each file
-		    list<string> already_selected = archive_info["sel_file"]:[];
+		    list<string> already_selected = archive_info["","sel_file"]:[];
 
 		    foreach(string rpm_file, RPM, ``{
 			   if (!contains(already_selected, rpm_file))

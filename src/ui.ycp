@@ -26,7 +26,6 @@ import "Wizard_hw";
 import "Progress";
 import "Restore";
 import "Mode";
-import "Product";
 import "URL";
 
 import "Popup";
@@ -157,7 +156,7 @@ define string ProposeNextVolume(string volume) ``{
  * @return list Combo box content
  */
 
-define list CreateDeviceList(map dev, string sel) ``{
+define list CreateDeviceList(map<string,map> dev, string sel) ``{
     list ret = [];
 
     // add selected device list if it's missing in map
@@ -201,7 +200,7 @@ define void ShadowButtons(symbol type) ``{
  * @return string Device name in URL-like syntax
  */
 
-define string ComboToDevice(string selected, map dev) ``{
+define string ComboToDevice(string selected, map<string,map> dev) ``{
     string ret = "";
 
     foreach(string d, map info, dev, ``{
@@ -400,7 +399,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 
 	if (ret == `selectfile)
 	{
-	    string file = UI::AskForExistingFile("/", "*.tar", _("Select archive file"));
+	    string file = UI::AskForExistingFile("/", "*.tar", _("Select Archive File"));
 
 	    if (file != nil && file != "")
 	    {
@@ -432,7 +431,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 	    if (mount["success"]:false == true)
 	    {
 		string mountpnt = mount["mpoint"]:"/";
-		string file = UI::AskForExistingFile(mountpnt + "/", "*.tar", _("Select archive file"));
+		string file = UI::AskForExistingFile(mountpnt + "/", "*.tar", _("Select Archive File"));
 
 		if (file != nil && file != "")
 		{
@@ -473,7 +472,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 		if (fname == "")
 		{
 		    // error message - file name is missing
-		    Popup::Error(_("Enter valid file name."));
+		    Popup::Error(_("Enter a valid file name."));
 		    input = "";
 		}
 		else
@@ -489,7 +488,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 		if (server == "" || file == "")
 		{
 		    // error message - file or server name is missing
-		    Popup::Error(_("Enter valid server and file name."));
+		    Popup::Error(_("Enter a valid server and file name."));
 		    input = "";
 		}
 		else
@@ -508,7 +507,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 		if (device == "" || fname == "")
 		{
 		    // error message - file or device name is missing
-		    Popup::Error(_("Enter valid device and file name."));
+		    Popup::Error(_("Enter a valid device and file name."));
 		    input = "";
 		}
 		else
@@ -528,7 +527,11 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 		if (Mode::config)
 		{
 		    // popup question
-		    boolean answer = Popup::YesNo(_("Detailed configuration requires reading of the archive.\nIf archive is not read full restoration will be configured.\n\nDo you want to read selected archive?"));
+		    boolean answer = Popup::YesNo(_("Detailed configuration requires reading the archive.
+If an archive is not read, full restoration will be configured.
+
+Read the selected archive?
+"));
 
 		    configure = answer;
 		    Restore::completerestoration = !answer;
@@ -830,7 +833,7 @@ define symbol RestoreOptionsDialog() ``{
 		`Left(`CheckBox(`id(`susecfg), _("Run &SuSEconfig after restoration"), Restore::runSuSEconfig)),
 		`VSpacing(1),
 		// check box label - restore option
-		`Left(`TextEntry(`id(`target), _("Target directory"), Restore::targetDirectory)),
+		`Left(`TextEntry(`id(`target), _("Target Directory"), Restore::targetDirectory)),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -853,7 +856,7 @@ define symbol RestoreOptionsDialog() ``{
 	if (size(target_dir) == 0 || substring(target_dir, 0, 1) != "/")
 	{
 	    // error message - entered directory is empty or doesn't start with / character
-	    Popup::Error(_("Target directory is invalid or path is not absolute."));
+	    Popup::Error(_("The target directory is invalid or the path is not absolute."));
 
 	    ret = nil;
 	}
@@ -1322,12 +1325,7 @@ Install it?
  */
 define symbol PackageSelectionRestoreDialog() ``{
 
-    // read product info
-    boolean personal = Product::personal;
-
-    // in personal version is button = `Empty() and help text will be shorter
-    // push button label
-    term button = (!personal) ? `PushButton(`id(`files), `opt(`key_F7), _("S&elect files")) : `Empty();
+    term button = `PushButton(`id(`files), `opt(`key_F7), _("S&elect files"));
 
     list tablecontents = CreateTableContentsRestoreSelection(Restore::GetArchiveInfo());
     integer position = 0;
@@ -1378,14 +1376,11 @@ define symbol PackageSelectionRestoreDialog() ``{
     // description of symbols in the table 1/2
     string helptext = _("X = Restore all files from backup, P = Partial restore of manually selected files");
 
-    if (!personal)
-    {
-	// description of symbols in the table 2/2
-	helptext = helptext + _("<P><BR>To select files to restore from the archive, press <B>Select files</B>.</P>");
-    }
+    // description of symbols in the table 2/2
+    helptext = helptext + _("<P><BR>To select files to restore from the archive, press <B>Select files</B>.</P>");
 
     // dialog header
-    Wizard::SetContents(_("Packages to restore"), contents, RestoreSelectionHelp(personal), true, true);
+    Wizard::SetContents(_("Packages to restore"), contents, RestoreSelectionHelp(false), true, true);
 
     if (Mode::config == true)
     {
@@ -1580,7 +1575,7 @@ Select them for restoration?
 		    // RPMoption is nil
 		    Popup::Warning(_("There is a conflict between selected
 packages and the RPM database restoration option.
-Try to change selection or RPM database restoration status."));
+Try changing the selection or the RPM database restoration status."));
 		}
 
 		Restore::restoreRPMdb = selectedRPM;

@@ -36,7 +36,7 @@ include "wizard/sequencer.ycp";
 define string RemoveTags(string input) ``{
     string ret = input;
 
-    map tagmapping = $[ "BR" : "\n", "/P" : "\n", "P" : "", "B" : "", "/B" : "",
+    map<string,string> tagmapping = $[ "BR" : "\n", "/P" : "\n", "P" : "", "B" : "", "/B" : "",
 	"EM" : "", "/EM" : "", "I" : "", "/I" : "", "TT" : "", "/TT" : "",
 	"/BIG" : "", "BIG" : "", "CODE" : "/CODE", "STRONG" : "", "/STRONG" : "", "PRE" : "", "/PRE" : "",
 	 "LARGE" : "", "/LARGE" : "", "HR" : "", "H1" : "", "/H1" : "", "H2" : "", "/H2" : "",
@@ -117,7 +117,7 @@ define symbol DisplaySummaryDialog(string text, string detail_text, string helpt
 	}
 	else if (ret == `save)
 	{
-	    string savefile = UI::AskForSaveFileName("/", "*", _("Save summary to file"));
+	    string savefile = UI::AskForSaveFileName("/", "*", _("Save Summary to File"));
 
 	    if (savefile != "" && savefile != nil)
 	    {
