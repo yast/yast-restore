@@ -905,104 +905,150 @@ global define symbol RestoreProgressDialog() ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::SetContents(_("Restoring files"), contents, "help", true, true);
+    Wizard::SetContents(_("Restoring files"), contents, "help", false, false);
 
     string tmp = SCR::Read(.target.tmpdir);
+
+    // contents of backup archive
     list arch_cont = Restore::GetArchiveFiles();
 
+    // get list of all packages to restore
+    list packages = [];
     foreach(string package, map info, restore, ``{
-	    string label = (package == "") ? _("Restoring files not owned by any package ...") : sformat(_("Restoring package %1 ..."), package);
-	    UI::ChangeWidget(`id(`progress), `Label, label);
-
-	    string sel_type = lookup(info, "sel_type", "");
-
-	    if (Mode::test == true)
-	    {
-		integer numf = (sel_type == "P") ? size(lookup(info, "sel_file", [])) : size(lookup(info, "files", []));
-
-		while (numf > 0)
-		{
-		    restored = restored + 1;
-		    UI::ChangeWidget(`id(`progress), `Value, restored);
-		    sleep(300);
-		    numf = numf - 1;
-		}
-	    }
-	    else
-	    {
-		// get subarchive name
-		string name = (package == "") ? "NOPACKAGE" : package + "-" + lookup(info, "vers", "");
-		string fileinarchive = "";
-
-		foreach(string f, arch_cont, ``{
-			if (regexpmatch(f, "^" + name + "-........-.\\.tar.*") == true)
-			{
-			    y2milestone("package %1 is in archive file %2", package, f);
-			    fileinarchive = f;
-			}
-		    }
-		);
-
-		if (fileinarchive == "")
-		{
-		    y2error("Can't find subarchive for package %1", package);
-		}
-		else
-		{
-		    // unpack subarchive
-		    SCR::Execute(.target.bash, "export LC_ALL=C; /bin/tar -C " + targetdir + " -x -f " + Restore::GetArchiveName() + " " + fileinarchive);
-
-		    // set compression parameter
-		    string compress = "";
-		    if (regexpmatch(fileinarchive, ".*\.tar\.gz$") == true)
-		    {
-			compress = "-z";
-		    }
-		    else if (regexpmatch(fileinarchive, ".*\.tar\.bz2$") == true)
-		    {
-			compress = "-j";
-		    }
-
-		    string RPMdb = (Restore::restoreRPMdb) ? "" : "--exclude var/lib/rpm";
-
-		    // files to unpack, "" means all files
-		    string unpackfiles = "";
-
-		    // select files to unpack
-		    if (sel_type == "P")
-		    {
-			// strip leading '/'
-			foreach(string f, lookup(info, "sel_file", []), ``{
-				if (size(f) > 1 && substring(f, 0, 1) == "/")
-				{
-				    unpackfiles = unpackfiles + " " + substring(f, 1);
-				}
-			    }
-			);
-		    }
-
-		    // unpack files (or whole) subarchive
-		    SCR::Execute(.target.bash, "export LC_ALL=C; /bin/tar -C " + "/tmp/restore" + " " + compress + " -x -f " + tmp + "/" + fileinarchive + " " + RPMdb + " " + unpackfiles);
-		}
-	    }
+	    packages = add(packages, package);
 	}
     );
 
-    symbol ret = nil;
+    integer i = 0;
+    symbol ret = `next;
 
-    do
+    while (i < size(packages))
     {
-	ret = UI::UserInput();
+	string package = select(packages, i, "nonexistingpackage");
+	map info = lookup(restore, package, $[]);
+	string label = (package == "") ? _("Restoring files not owned by any package ...") : sformat(_("Restoring package %1 ..."), package);
+	string sel_type = lookup(info, "sel_type", "");
 
-	if (ret == `cancel)
+	UI::ChangeWidget(`id(`progress), `Label, label);
+
+	if (Mode::test == true)
 	{
-	    ret = `abort;
+	    // "unpacking" in test mode
+	    integer numf = (sel_type == "P") ? size(lookup(info, "sel_file", [])) : size(lookup(info, "files", []));
+
+	    while (numf > 0)
+	    {
+		restored = restored + 1;
+		UI::ChangeWidget(`id(`progress), `Value, restored);
+		sleep(300);
+		numf = numf - 1;
+	    }
 	}
+	else
+	{
+	    // get subarchive name
+	    string name = (package == "") ? "NOPACKAGE" : package + "-" + lookup(info, "vers", "");
+	    string fileinarchive = "";
+
+	    foreach(string f, arch_cont, ``{
+		    if (regexpmatch(f, "^" + name + "-........-.\\.tar.*") == true)
+		    {
+			y2milestone("package %1 is in archive file %2", package, f);
+			fileinarchive = f;
+		    }
+		}
+	    );
+
+	    if (fileinarchive == "")
+	    {
+		y2error("Can't find subarchive for package %1", package);
+	    }
+	    else
+	    {
+		// unpack subarchive
+		SCR::Execute(.target.bash, "export LC_ALL=C; /bin/tar -C " + tmp + " -x -f " + Restore::GetArchiveName() + " " + fileinarchive);
+
+		// set compression parameter
+		string compress = "";
+		if (regexpmatch(fileinarchive, ".*\.tar\.gz$") == true)
+		{
+		    compress = "-z";
+		}
+		else if (regexpmatch(fileinarchive, ".*\.tar\.bz2$") == true)
+		{
+		    compress = "-j";
+		}
+
+		string RPMdb = (Restore::restoreRPMdb) ? "" : "--exclude var/lib/rpm";
+
+		// files to unpack, "" means all files
+		string unpackfiles = "";
+
+		// select files to unpack
+		if (sel_type == "P")
+		{
+		    // strip leading '/'
+		    foreach(string f, lookup(info, "sel_file", []), ``{
+			    if (size(f) > 1 && substring(f, 0, 1) == "/")
+			    {
+				unpackfiles = unpackfiles + " " + substring(f, 1);
+			    }
+			}
+		    );
+		}
+
+		// start subprocess
+		SCR::Execute(.background.run, "export LC_ALL=C; /bin/tar -C " + targetdir + " " + compress + " -x -v -f " + tmp + "/" + fileinarchive + " " + RPMdb + " " + unpackfiles + " 2> " + tmp + "/tar.stderr");
+
+		while(SCR::Read(.background.output_open) || (SCR::Read(.background.newlines) > 0))
+		{
+		    restored = restored + SCR::Read(.background.newlines);
+
+		    // reset new lines counter
+		    SCR::Read(.background.newout);
+
+		    // update progressbar
+		    UI::ChangeWidget(`id(`progress), `Value, restored);
+
+		    while (SCR::Read(.background.newlines) == 0 && SCR::Read(.background.output_open))
+		    {
+			sleep(100);	// small delay
+
+			ret = UI::PollInput();
+
+			if (ret == `cancel)
+			{
+			    ret = `abort;
+			}
+
+			// check if abort button was pressed
+			if (ret == `abort && UI::AnyQuestionPopup(_("Abort confirmation"), _("Do you really want to abort restore?"), YesButtonLabel(), NoButtonLabel(), `focus_no))
+			{
+			    SCR::Execute(.background.kill, nil);	// kill subprocess
+			    break;
+			}
+		    }
+
+		    if (ret == `abort)
+		    {
+			break;
+		    }
+
+		}
+
+		if (ret == `abort)
+		{
+		    break;
+		}
+	    }
+	}
+
+	i = i + 1;
     }
-    while (ret != `next && ret != `abort && ret != `back);
 
     return ret;
 }
+
 
 global define symbol SWsingleDialog() ``{
 
