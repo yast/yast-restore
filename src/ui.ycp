@@ -34,7 +34,7 @@ include "wizard/sequencer.ycp";
 
 include "restore/helps.ycp";
 include "restore/summary_dialog.ycp";
-
+include "ui/common_messages.ycp";
 
 global string restorepackagename = nil;
 
@@ -68,7 +68,6 @@ global define any RestoreSequence () ``{
 
     map sequence = $[
 	"ws_start" : "archive",
-//	"ws_start" : "select",
 	"archive" :
 	$[
 	    `options	: "options",
@@ -202,31 +201,37 @@ global define symbol ArchiveSelectionDialog() ``{
     {
 	ret = UI::UserInput();
 
+	// get filename
+	string fname = (Mode::test != true) ? UI::QueryWidget(`id(`filename), `Value) : "/tmp/testmodearchivename.tar";
+
 	if (ret == `file)
 	{
 	    string file = PopupFile("/tmp/backup.tar");
-
-	    /* TODO: check file name */
-
 	    UI::ChangeWidget(`id(`filename), `Value, file);
 	}
-    }
-    while(ret != `next && ret != `abort && ret != `back && ret != `options);
+	else if (ret == `next && fname != Restore::GetArchiveName())
+	{
+	    UI::OpenDialog(`Label(_("Reading archive contents...")));
+	    boolean readresult = Restore::ReadArchiveFile(fname);
+	    UI::CloseDialog();
 
-    if (ret == `cancel)
-    {
-	ret = `abort;
+	    if (readresult == false)
+	    {
+		UI::ErrorPopup(sformat(_("File '%1' is not backup archive or archive is corrupted!"), fname));
+		ret = `dummy;
+	    }
+	    else
+	    {
+		restoredfiles = [];
+		failedfiles = [];
+	    }
+	}
+	else if (ret == `cancel)
+	{
+	    ret = `abort;
+	}
     }
-
-    string fname = (Mode::test != true) ? UI::QueryWidget(`id(`filename), `Value) : "/tmp/testmodearchivename.tar";
-
-    if (ret == `next && fname != Restore::GetArchiveName())
-    {
-	Wizard::SetContents("", `Label(_("Reading archive contents...")), _("Please wait"), false, false);
-	Restore::ReadArchiveFile(fname);
-	restoredfiles = [];
-	failedfiles = [];
-    }
+    while (ret != `next && ret != `abort && ret != `back && ret != `options);
 
     return ret;
 }
@@ -528,7 +533,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
     // TODO: read this value from system
     boolean profi = true;
 
-    // TODO test distribution: in personal version button = `Empty() and help text will be shorter
+    // in personal version is button = `Empty() and help text will be shorter
     term button = (profi) ? `PushButton(`id(`files), _("S&elect files")) : `Empty();
 
     string help_profi = "To select files which will be restored from archive press <B>Select files</B> button.";
@@ -570,8 +575,6 @@ global define symbol PackageSelectionRestoreDialog() ``{
     }
 
 
-    // TODO: display warning if some packages are not installed
-
     symbol ret = nil;
 
     do
@@ -605,7 +608,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 		// TODO check versions
 		if (current_pkgname != "" && haskey(Restore::GetActualInstalledPackages(), current_pkgname) == false)
 		{
-		    current_value = (UI::YesNoPopup(sformat(_("Package '%1' is not installed in your system.\nDo you really want to restore its files?"), current_pkgname)) == true) ? "X" : " " ;
+		    current_value = (UI::AnyQuestionPopup("", sformat(_("Package '%1' is not installed in your system.\nDo you really want to restore its files?"), current_pkgname), YesButtonLabel(), NoButtonLabel(), `focus_no) == true)  ? "X" : " " ;
 		}
 		else
 		{
@@ -630,7 +633,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	    // TODO check versions
 	    if (current_value == " " && current_pkgname != "" && haskey(Restore::GetActualInstalledPackages(), current_pkgname) == false)
 	    {
-		if (UI::YesNoPopup(sformat(_("Package '%1' is not installed in your system.\nDo you really want to restore its files?"), current_pkgname)) != true)
+		if (UI::AnyQuestionPopup("", sformat(_("Package '%1' is not installed in your system.\nDo you really want to restore its files?"), current_pkgname), YesButtonLabel(), NoButtonLabel(), `focus_no) != true)
 		{
 		    ret = `dummy;
 		}
@@ -643,13 +646,53 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	    // set selection type
 	    string sel_type = (ret == `select) ? "X" : " ";
 
-	    // TODO check whether some packages are missing, ask if they should be selected too
+	    if (sel_type == "X")
+	    {
+		// check whether some packages are missing, ask if they should be selected too
+		map missing = Restore::GetMissingPackages();
+		boolean selmissing = false;
 
-	    // set selection type for all packages
-	    foreach(string p, map info, Restore::GetArchiveInfo(), ``{
-		    Restore::SetRestoreSelection(p, $["sel_type" : sel_type, "sel_file" : []]);
+		if (missing != $[])
+		{
+		    string question = _("Some packages are not installed.\nDo you want to select them for restoration?");
+		    selmissing = UI::AnyQuestionPopup("", question, YesButtonLabel(), NoButtonLabel(), `focus_no);
 		}
-	    );
+
+		// ask about mismatched packages
+		map mismatched = Restore::GetMismatchedPackages();
+		boolean selmismatch = false;
+
+		if (mismatched != $[])
+		{
+		    string question = _("Some installed packages have different\nversion than is in backup archive.\nDo you want to select them for restoration?");
+		    selmismatch = UI::AnyQuestionPopup("", question, YesButtonLabel(), NoButtonLabel(), `focus_no);
+		}
+
+		// set selection type for packages
+		foreach(string p, map info, Restore::GetArchiveInfo(), ``{
+			string sel = sel_type;
+
+			if (selmissing == false && haskey(missing, p) == true)
+			{
+			    sel = " ";
+			}
+			else if (selmismatch == false && haskey(mismatched, p) == true)
+			{
+			    sel = " ";
+			}
+
+			Restore::SetRestoreSelection(p, $["sel_type" : sel, "sel_file" : []]);
+		    }
+		);
+	    }
+	    else
+	    {
+		// set selection type for all packages
+		foreach(string p, map info, Restore::GetArchiveInfo(), ``{
+			Restore::SetRestoreSelection(p, $["sel_type" : sel_type, "sel_file" : []]);
+		    }
+		);
+	    }
 
 	    // change table contents
 	    UI::ChangeWidget(`id(`pkgtable), `Items, CreateTableContentsRestoreSelection(Restore::GetArchiveInfo(), Restore::GetActualInstalledPackages()));
@@ -692,7 +735,7 @@ global define symbol RestoreOptionsDialog() ``{
 		`VSpacing(0.2),
 		`Left(`CheckBox(`id(`susecfg), _("Run &SuSEconfig after restoration"), Restore::runSuSEconfig)),
 		`VSpacing(0.2),
-		`Left(`CheckBox(`id(`rpmdb), _("Rewrite RPM &database"), Restore::restoreRPMdb)),
+		`Left(`CheckBox(`id(`rpmdb), _("Restore RPM &database (if present in archive)"), Restore::restoreRPMdb)),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -1106,8 +1149,7 @@ global define symbol RestoreProgressDialog() ``{
 
 global define symbol SWsingleDialog() ``{
 
-/*    y2milestone("sw_single result: %1", CallModule("sw_single", ["beginner"]));
-    CallModule("inst_suseconfig", []);*/
+    // TODO:  CallModule("sw_single", ["beginner"]);
 
     term contents = `Label(_("Here will be sw_single dialog displayed and (un)installed packages."));
 
@@ -1128,13 +1170,13 @@ global define symbol SWsingleDialog() ``{
 
     return ret;
 
-    //TODO after package (un)install refresh actual installed packages in Restore::
-
-//    return `next;
+    //TODO after package (un)install refresh actual installed packages (do Restore::ReadActualInstalledPackages())
 }
 
 
 global define symbol SuSEconfigDialog() ``{
+
+    // TODO: CallModule("inst_suseconfig", []);
 
     term contents = `Label(_("Here will be SuSEconfig started (optionally)."));
 
@@ -1166,7 +1208,7 @@ global define symbol SummaryDialog() ``{
 	 basicinfo = basicinfo + "<P><B>Failed files</B><BR>" + mergestring(failedfiles, "<BR>") + "</P>";
     }
 
-    string extendedinfo = "<P><BR><B>Details:</B></P><P>Lilo return status: Ok</P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>Restored files:</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
+    string extendedinfo = "<P><BR><B>Details:</B></P><P>Lilo return status: <I>Not started</I></P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>Restored files:</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
 
     return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, "help", _("Summary of restoration"), `finish);
 }

@@ -19,8 +19,9 @@
  */
 
 {
-    // Set the name of the module
+    // This is "Restore" module
     module "Restore";
+
     import "Progress";
     import "Report";
     import "Mode";
@@ -53,32 +54,67 @@
 
     string tempdir = "";
 
-    // restore options:
+    /**
+     * Run lilo after files are restored
+     */
     global boolean runlilo = true;
+
+    /**
+     * Run SuSEconfig after files are restored
+     */
     global boolean runSuSEconfig = true;
+
+    /**
+     * Rewrite RPM db - unapack /var/lib/rpm/* files from backup
+     */
     global boolean restoreRPMdb = false;
 
+
+    /**
+     * Selected archive has more parts
+     * @return boolen True if archive have more than one part.
+     */
     global define boolean IsMultiArchive() ``{
 	return multiarchive;
     }
 
+    /**
+     * Return date when backup archive was created. Date is stored in archive in file info/date.
+     * @return string Date
+     */
     global define string GetArchiveDate() ``{
 	return date;
     }
 
+    /**
+     * Return name of backup archive
+     * @return string File name
+     */
     global define string GetArchiveName() ``{
 	return filename;
     }
 
+    /**
+     * Return user comment stored in archive. Comment is stored in file info/comment.
+     * @return string Archive comment
+     */
     global define string GetArchiveComment() ``{
 	return comment;
     }
 
+    /**
+     * Return host name of machine on which backup archive was created. Host name is stored in archive in file info/hostname.
+     * @return string Host name
+     */
     global define string GetArchiveHostname() ``{
 	return hostname;
     }
 
-    global define list GetArchiveInstalledPackages() ``{
+    /**
+     * Return map with packages installed at backup time (form is $["package name" : "version"]).
+     * @return map Intalled packages at backup time
+     */
+    global define map GetArchiveInstalledPackages() ``{
 	return installedpkgs;
     }
 
@@ -86,10 +122,6 @@
 	return archivefiles;
     }
 
-/*    global define list GetNotDistributedPackages() ``{
-	return [];
-    }
-*/
     global define map GetMissingPackages() ``{
 	map ret = $[];
 
@@ -212,151 +244,6 @@
 
 
     /**
-     * Read all restore settings from the SCR
-     * @param abort A block that can be called by Read to find
-     *	      out whether abort is requested. Returns true if abort
-     *	      was pressed.
-     * @return boolean True on success
-     */
-    global define boolean Read (block abort) ``{
-	boolean read_aborted = false;
-
-	// TODO FIXME Assign the true texts intead of these
-	string caption = _("Initializing restore configuration");
-	// TODO FIXME Set the right number of stages
-	integer no_of_steps = 4;
-
-	// TODO FIXME Names of real stages
-	// We do not set help text here, because it was set outside
-	Progress::New ( caption, " ", no_of_steps,
-		       [ _("Read the database"),
-			 _("Read the previous settings"),
-			 _("Detect the devices") ],
-		       [ _("Reading the database..."),
-			 _("Reading the previous settings..."),
-			 _("Detecting the devices..."),
-			 _("Finished") ],
-		       "" );
-
-	// TODO FIXME: your code here (fill the above mentioned variables)...
-
-	// read database
-	Progress::NextStage ();
-	read_aborted = eval (abort);
-	if (read_aborted)
-	{
-	    return !read_aborted;
-	}
-	sleep (500);	// TODO FIXME remove all sleep()
-	if (false)	// TODO FIXME read db1 here e.g. if (!SCR::Read (.path.db1))
-	{
-	    Report::Error (_("Can not read the database1!"));
-	}
-
-	// read another database
-	Progress::NextStep ();
-	read_aborted = eval (abort);
-	if (read_aborted)
-	{
-	    return !read_aborted;
-	}
-	sleep (500);
-	if (false)	// TODO FIXME read db2 here e.g. if (!SCR::Read(.path.db2))
-	{
-	    Report::Error (_("Can not read the database2"));
-	}
-
-	// read current settings
-	Progress::NextStage ();
-	read_aborted = eval (abort);
-	if (read_aborted)
-	{
-	    return !read_aborted;
-	}
-	sleep (500);
-	if (false)	// TODO FIXME read settings here e.g. if (!SCR::Read(.path.settings))
-	{
-	    Report::Error (_("Can not read current settings!"));
-	}
-
-	// detect devices
-	Progress::NextStage ();
-	read_aborted = eval (abort);
-	if (read_aborted)
-	{
-	    return !read_aborted;
-	}
-	sleep (500);
-	if (false)	// TODO FIXME detect devices here e.g. if (SCR::Read(.probe.device) == nil)
-	{
-	    Report::Warning (_("Can not detect device"));
-	}
-
-	// increase the progress to "finish"
-	Progress::NextStage ();
-
-	return !read_aborted;
-    }
-
-    /**
-     * Update the SCR according to restore settings
-     * @param abort A block that can be called by Write to find
-     *	      out whether abort is requested. Returns true if abort
-     *	      was pressed.
-     * @return boolean True on success
-     */
-    global define boolean Write (block abort) ``{
-	boolean write_aborted = false;
-	// TODO FIXME Assign the true texts intead of these
-	string caption = _("Saving restore configuration");
-	// TODO FIXME And set the right number of stages
-	integer no_of_steps = 2;
-
-	// TODO FIXME Names of real stages
-	// We do not set help text here, because it was set outside
-	Progress::New ( caption, " ", no_of_steps,
-		       [ _("Write the settings"),
-			 _("Run SuSEconfig") ],
-		       [ _("Writing the settings..."),
-			 _("Running SuSEconfig..."),
-			 _("Finished") ],
-		       "" );
-
-	// TODO FIXME: your code here (store the above mentioned variables)...
-
-	// write settings
-	Progress::NextStage ();
-	write_aborted = eval (abort);
-	if (write_aborted)
-	{
-	    return !write_aborted;
-	}
-	sleep (500);
-	if (false)	// TODO FIXME write setting here e.g. if (!SCR::Write(.path.settings, settings))
-	{
-	    Report::Error (_("Can not write settings!"));
-	}
-
-	// run SuSEconfig
-	Progress::NextStage ();
-	write_aborted = eval (abort);
-	if (write_aborted)
-	{
-	    return !write_aborted;
-	}
-	sleep (500);
-	if (false)	// TODO FIXME run SuSE config e.g. if (SCR::Execute(.target.bash, "/sbin/SuSEconfig") != 0)
-	{
-	    Report::Error (_("SuSEconfig script failed!"));
-	}
-
-	// increase the progress to "finish"
-	Progress::NextStage ();
-
-	return !write_aborted;
-    }
-
-    /**
      * Get all restore settings from the first parameter
      * (For use by autoinstallation.)
      * @param settings The YCP structure to be imported.
@@ -379,15 +266,6 @@
 	return $[];
     }
 
-    /**
-     * Build a textual summary that can be used e.g. in inst_hw_config () or
-     * something similar.
-     * @return string Summary of the configuration.
-     */
-    global define string Summary () ``{
-	// TODO FIXME: your code here...
-	return _("Summary of the configuration...");
-    }
 
     global define boolean ReadArchiveFile(string archivefile) ``{
 	if (tempdir == "")
@@ -446,10 +324,11 @@
 	archivefiles = splitstring(lookup(result, "stdout", ""), "\n");
 	archivefiles = filter(string f, archivefiles, ``{return f != "" && f != nil;});
 
-	if (!contains(archivefiles, "info/files"))
+	if (!(contains(archivefiles, "info/files") && contains(archivefiles, "info/packages_info") && contains(archivefiles, "info/installed_packages")))
 	{
-	    // TODO: multi volume - error, cannot get archive contents
-	    y2warning("Archive does not contain 'info/files' file!");
+	    // archive doesn't contain files from backup - file is not backup archive or not first volume of multi volume archive
+	    y2error("Archive does not contain 'info/files' or 'info/packages_info' or 'info/installed_packages' file!");
+	    return false;
 	}
 
 	y2milestone("archivefiles: %1", archivefiles);
@@ -557,6 +436,8 @@
 	    actualinstalledpackages = ReadActualInstalledPackages();
 	}
 
+	map mismatched = GetMismatchedPackages();
+
 	// add package descriptions and default selection
 	archive_info = mapmap(string p, map i, archive_info, ``{
 		string descr = (p == "") ? _("Files not owned by any package") : select(SCR::Read(.package.shortDesc, p), 0, "");
@@ -572,7 +453,7 @@
 		}
 		else
 		{
-		    sel_type = (haskey(actualinstalledpackages, p)) ? "X" : " ";
+		    sel_type = (haskey(actualinstalledpackages, p) && !haskey(mismatched, p)) ? "X" : " ";
 		}
 
 		t = add(t, "sel_type", sel_type);
