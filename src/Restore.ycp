@@ -295,25 +295,25 @@
      * @return map Map $[ "packagename" : "version" ]
      */
     global define map ReadActualInstalledPackages() ``{
+	// do not read installed packages in autoyast config mode
 	if (Mode::config == true)
 	{
 	    return $[];
 	}
 
+	// init packager (TODO: later should be removed...)
+	Pkg::TargetInit("/", false);
+
 	// read info about installed packages
-	map info = SCR::Read(.targetpkg.info);	// TODO FIXME: use Pkg:: instead!
+	list info = Pkg::GetPackages(`installed, false);
 
-	map ret = $[];
+	// process version info
+	map ret = listmap(string pkg, info, ``{
+		list all = splitstring(pkg, " ");
 
-	if (info != nil)
-	{
-	    foreach(string name, list data, info, ``{
-		    string version = select(data, 0, "");
-
-		    ret = add(ret, name, version);
-		}
-	    );
-	}
+		return [all[0]:"unknown", all[1]:"" + "-" + all[2]:""];
+	    }
+	);
 
 	return ret;
     }

@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon Aug 26 17:41:57 CEST 2002 - lslezak@suse.cz
+
+- use Pkg::GetPackages to get list of installed packages
+- version 2.6.9
+
+-------------------------------------------------------------------
 Fri Aug 23 14:55:27 CEST 2002 - lslezak@suse.cz
 
 - better autoyast configuration (fixed behaviour, added summary)
