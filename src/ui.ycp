@@ -1614,8 +1614,7 @@ global define symbol RestoreProgressDialog() ``{
     Wizard::SetContents(_("Restoring files"), contents, RestoreProgressHelp(), false, false);
 
     // start restoration
-    // FIXME: unpack to root
-    map result = Restore::Write(callback, progressbar, "/tmp/restore");
+    map result = Restore::Write(callback, progressbar, "/");
 
     // set values from restoration
     ret = (lookup(result, "aborted", false)) ? `abort : `next;

@@ -1,4 +1,14 @@
 -------------------------------------------------------------------
+Mon Mar  3 10:51:42 CET 2003 - lslezak@suse.de
+
+- fixed archive search, restore files to the root
+  directory (#24470)
+- fixed star archiver installation
+- boot loader reinstallation fix (force installation even if
+  configuration is unchanged)
+- version 2.7.3
+
+-------------------------------------------------------------------
 Mon Feb 24 17:18:50 CET 2003 - lslezak@suse.de
 
 - autoinstallation client bugfix
