@@ -160,6 +160,48 @@
 
 
     /**
+     * Read installed packages.
+     * @return map Map $[ "packagename" : "version" ]
+     */
+    global define map ReadActualInstalledPackages() ``{
+	// do not read installed packages in autoyast config mode
+	if (Mode::config == true)
+	{
+	    return $[];
+	}
+
+	// init packager (TODO: later should be removed...)
+	Pkg::TargetInit("/", false);
+
+	// read info about installed packages
+	list info = Pkg::GetPackages(`installed, false);
+
+	// process version info
+	map ret = listmap(string pkg, info, ``{
+		list all = splitstring(pkg, " ");
+
+		return [all[0]:"unknown", all[1]:"" + "-" + all[2]:""];
+	    }
+	);
+
+	return ret;
+    }
+
+    /**
+     * Return installed packages. Result is cached in Restore module, so only first use takes long time
+     * @return map Map $[ "packagename" : "version" ]
+     */
+    global define map GetActualInstalledPackages() ``{
+	if (actualinstalledpackages == $[] || actualinstalledpackages == nil)
+	{
+	    actualinstalledpackages = ReadActualInstalledPackages();
+	}
+
+	return actualinstalledpackages;
+    }
+
+
+    /**
      * Return missing packages (packages which were installed at backup time, but at restore time they are not installed)
      * @return map Map $[ "packagename" : $[ "ver" : "version", "descr" : "Short description of the package"]], key description is present only if decription exists
      */
@@ -180,11 +222,11 @@
 
 		if (descr == nil)
 		{
-		    return [pkg, $["ver" : version]];
+		    return $[pkg: $["ver" : version]];
 		}
 		else
 		{
-		    return [pkg, $["ver" : version, "descr" : descr ]];
+		    return $[pkg: $["ver" : version, "descr" : descr ]];
 		}
 	    }
 	);
@@ -213,11 +255,11 @@
 
 		if (descr == nil)
 		{
-		    return [pkg, $["ver" : version]];
+		    return $[pkg: $["ver" : version]];
 		}
 		else
 		{
-		    return [pkg, $["ver" : version, "descr" : descr ]];
+		    return $[pkg: $["ver" : version, "descr" : descr ]];
 		}
 	    }
 	);
@@ -283,48 +325,6 @@
     }
 
     /**
-     * Return installed packages. Result is cached in Restore module, so only first use takes long time
-     * @return map Map $[ "packagename" : "version" ]
-     */
-    global define map GetActualInstalledPackages() ``{
-	if (actualinstalledpackages == $[] || actualinstalledpackages == nil)
-	{
-	    actualinstalledpackages = ReadActualInstalledPackages();
-	}
-
-	return actualinstalledpackages;
-    }
-
-
-    /**
-     * Read installed packages.
-     * @return map Map $[ "packagename" : "version" ]
-     */
-    global define map ReadActualInstalledPackages() ``{
-	// do not read installed packages in autoyast config mode
-	if (Mode::config == true)
-	{
-	    return $[];
-	}
-
-	// init packager (TODO: later should be removed...)
-	Pkg::TargetInit("/", false);
-
-	// read info about installed packages
-	list info = Pkg::GetPackages(`installed, false);
-
-	// process version info
-	map ret = listmap(string pkg, info, ``{
-		list all = splitstring(pkg, " ");
-
-		return [all[0]:"unknown", all[1]:"" + "-" + all[2]:""];
-	    }
-	);
-
-	return ret;
-    }
-
-    /**
      * Clear cache of installed packages. Next use of GetActualInstalledPackages() function will reread installed packages.
      */
      global define void ClearInstalledPackagesCache()
@@ -333,20 +333,434 @@
      }
 
     /**
-     * Get all restore settings - for use by autoinstallation
-     * @param settings The YCP structure to be imported
-     * @return boolean True on success
+     * Umount mounted file system.
      */
 
-    global define boolean Import(map settings) ``{
-	if (settings == nil)
+    global define void Umount() ``{
+	if (mountpoint != "" && mountpoint != nil)
 	{
-	    return false;
+	    y2milestone("Umount called - unmounting %1", mountpoint);
+	    SCR::Execute(.target.umount, mountpoint);
+	    mountpoint = "";
+	}
+    }
+
+    /**
+     * Access to file on NFS server
+     * @param server Name or IP adress of NFS server
+     * @param file File on the server
+     * @return map $[ "mounted" : boolena (true on success), "mountpoint" : string (mount point) , "file" : string (file name), "server_dir" : string (directory on the server) ]
+     */
+
+    define map mountNFS(string server, string file) ``{
+	integer pos = findlastof(file, "/");
+
+	if (pos != nil)
+	{
+	    string dir = substring(file, 0, pos);
+	    string f = substring(file, pos + 1);
+
+	    string tmpdir = (string) SCR::Read(.target.tmpdir);
+	    string mpoint = tmpdir + "/nfs";
+
+	    if (dir == "" || dir == nil)
+	    {
+		dir = "/";
+	    }
+
+	    // create mount point directory
+	    SCR::Execute(.target.mkdir, mpoint);
+
+	    y2milestone("dir: %1", dir);
+	    y2milestone("file: %1", f);
+	    y2milestone("mpoint: %1", mpoint);
+
+	    boolean result = (boolean) SCR::Execute(.target.mount, [server + ":" + dir, mpoint], "-t nfs -o ro");
+
+	    return $[ "mounted" : result, "mountpoint" : mpoint , "file" : f, "server_dir" : dir ];
 	}
 
-	Set(settings);
+	return $[ "mounted" : false ];
+    }
 
-	return true;
+
+    /**
+     * Access to file on CD
+     * @param cdindex Index of CD drive (in list SCR::Read(.probe.cdrom))
+     * @return map $[ "mounted" : boolena (true on success), "mpoint" : string (mount point) ]
+     */
+
+    define map mountCD(integer cdindex) ``{
+	list drives = (list) SCR::Read(.probe.cdrom);
+
+	if (cdindex == nil || cdindex > size(drives) - 1)
+	{
+	    return $[ "mounted" : false ];
+	}
+
+	string cddevice = drives[cdindex, "dev_name"]:"/dev/cdrom";
+	string tmpdir = (string) SCR::Read(.target.tmpdir);
+	string mpoint = tmpdir + "/cd";
+
+	// create mount point directory
+	SCR::Execute(.target.mkdir, mpoint);
+
+	boolean result = (boolean) SCR::Execute(.target.mount, [cddevice, mpoint] );
+
+	return $[ "mounted" : result, "mpoint" : mpoint ];
+    }
+
+
+    /**
+     * Access to file on floppy
+     * @param fdindex Index of floppy drive (in list SCR::Read(.probe.floppy))
+     * @return map $[ "mounted" : boolena (true on success), "mpoint" : string (mount point) ]
+     */
+
+    define map mountFloppy(integer fdindex) ``{
+	list drives = (list) SCR::Read(.probe.floppy);
+
+	if (fdindex == nil || fdindex > size(drives) - 1)
+	{
+	    return $[ "mounted" : false ];
+	}
+
+	string fddevice = drives[fdindex, "dev_name"]:"/dev/fd0";
+	string tmpdir = (string) SCR::Read(.target.tmpdir);
+	string mpoint = tmpdir + "/fd";
+
+	// create mount point directory
+	SCR::Execute(.target.mkdir, mpoint);
+
+	boolean result = (boolean) SCR::Execute(.target.mount, [fddevice, mpoint] );
+
+	return $[ "mounted" : result, "mpoint" : mpoint ];
+    }
+
+
+    /**
+     * Mount device
+     * @param device Device file name (e.g. /dev/cdrom, /dev/sda...)
+     * @return map Map $[ "mounted" : boolean (true on success), "mpoint" : string (mount point where device was mounted) ];
+     */
+
+    define map mountDevice(string device) ``{
+	if (device == nil || device == "")
+	{
+	    return $[ "mounted" : false ];
+	}
+
+	string tmpdir = (string) SCR::Read(.target.tmpdir);
+	string mpoint = tmpdir + "/mount";
+
+	// create mount point directory
+	SCR::Execute(.target.mkdir, mpoint);
+
+	// mount read-only
+	boolean result = (boolean) SCR::Execute(.target.mount, [device, mpoint], "-o ro" );
+
+	return $[ "mounted" : result, "mpoint" : mpoint ];
+    }
+
+    /**
+     * Mount input source
+     * @param input File in URl-like syntax
+     * @return map Map $[ "success" : boolean (true on success), "mpoint" : string (mount point), "file" : string (file name on the local system) ];
+     */
+
+    global define map MountInput(string input) ``{
+
+	y2milestone("MountInput(%1)", input);
+
+	boolean success = false;
+	string mpoint = "";
+	string file = "";
+
+	//parse 'input'
+	string nfsprefix = "nfs://";
+	string fileprefix = "file://";
+	string devprefix = "dev://";
+	string cdprefix = "cd";		// cd prefix can be "cd://" (equivalent to "cd0://"), "cd1://", "cd2://", ... number of CD identification
+	string fdprefix = "fd";
+
+	if (substring(input, 0, size(nfsprefix)) == nfsprefix)
+	{
+	    string tail = substring(input, size(nfsprefix));
+	    integer pos = findfirstof(tail, ":");
+
+	    string nfs_server = substring(tail, 0, pos);
+	    string nfs_file = substring(tail, pos + 1);
+
+	    // check if portmapper is installed
+	    integer result = (integer) SCR::Execute(.target.bash, "/bin/rpm -q portmap");
+	    y2milestone("check result: rpm: %1", result);
+
+	    if (result != 0)
+	    {
+		y2milestone("portmapper package is not installed");
+		Require::DoInstallAndRemove(["portmap"], []);
+	    }
+
+	    // check if portmapper is running
+	    integer portmapper_status = Runlevel::ServiceStatus("portmap");
+	    y2milestone("portmap status: %1", portmapper_status);
+
+	    if (portmapper_status != 0)
+	    {
+		// start portmapper
+		integer started = Runlevel::RunInitScript("portmap", "start");
+		y2milestone("portmap start result: %1", started);
+	    }
+
+
+	    y2milestone("NFS source - server: %1  file: %2", nfs_server, nfs_file);
+
+	    map mountresult = mountNFS(nfs_server, nfs_file);
+
+	    if (lookup(mountresult, "mounted", false) == false)
+	    {
+		y2error("Cannot read source '%1' - NFS mount failed", input);
+	    }
+	    else
+	    {
+		mpoint = lookup(mountresult, "mountpoint", "");
+		file = mpoint + "/" + lookup(mountresult, "file", "");
+		success = true;
+
+		y2milestone("mpoint: %1", mpoint);
+		y2milestone("file: %1", file);
+	    }
+	}
+	else if (substring(input, 0, size(devprefix)) == devprefix)
+	{
+	    string tail = substring(input, size(devprefix));
+	    integer pos = findfirstof(tail, ":");
+
+	    string device = substring(tail, 0, pos);
+	    string devfile = substring(tail, pos + 1);
+
+	    y2milestone("Device source - device: %1  file: %2", device, devfile);
+
+	    map mountresult = mountDevice(device);
+
+	    if (lookup(mountresult, "mounted", false) == false)
+	    {
+		y2error("Cannot read source '%1' - device mount failed", input);
+	    }
+	    else
+	    {
+		mpoint = lookup(mountresult, "mpoint", "");
+		file = mpoint + "/" + devfile;
+		success = true;
+	    }
+	}
+	else if (substring(input, 0, size(fileprefix)) == fileprefix)
+	{
+	    file = substring(input, size(fileprefix));
+	    y2milestone("FILE source: %1", file);
+
+	    success = true;
+	}
+	else if (substring(input, 0, size(cdprefix)) == cdprefix)
+	{
+	    // get CD drive index
+	    string cdindex = regexpsub(input, "cd0*([0-9]*)://(.*)", "\\1");
+	    string cdfile = regexpsub(input, "cd([0-9]*)://(.*)", "\\2");
+
+	    if (cdindex == nil || cdindex == "")
+	    {
+		cdindex = "0";
+	    }
+
+	    if (cdfile == nil)
+	    {
+		cdfile = "";
+	    }
+
+	    y2milestone("CD source - drive: %1  file: %2", cdindex, cdfile);
+
+	    // mount CD
+	    map mountresult = mountCD(tointeger(cdindex));
+
+	    if (lookup(mountresult, "mounted", false) == false)
+	    {
+		y2error("Cannot read source '%1' - mount failed", input);
+	    }
+	    else
+	    {
+		mpoint = lookup(mountresult, "mpoint", "");
+		file = mpoint + "/" + cdfile;
+		success = true;
+	    }
+	}
+	else if (substring(input, 0, size(fdprefix)) == fdprefix)
+	{
+	    // get floppy index
+	    string fdindex = regexpsub(input, "fd0*([0-9]*)://(.*)", "\\1");
+	    string fdfile = regexpsub(input, "fd([0-9]*)://(.*)", "\\2");
+
+	    if (fdindex == nil || fdindex == "")
+	    {
+		fdindex = "0";
+	    }
+
+	    if (fdfile == nil)
+	    {
+		fdfile = "";
+	    }
+
+	    y2milestone("Floppy source - drive: %1  file: %2", fdindex, fdfile);
+
+	    // mount floppy
+	    map mountresult = mountFloppy(tointeger(fdindex));
+
+	    if (lookup(mountresult, "mounted", false) == false)
+	    {
+		y2error("Cannot read source '%1' - mount failed", input);
+	    }
+	    else
+	    {
+		mpoint = lookup(mountresult, "mpoint", "");
+		file = mpoint + "/" + fdfile;
+		success = true;
+	    }
+	}
+	else
+	{
+	    y2error("Unknown prefix in input: %1", input);
+	}
+
+	return $[ "success" : success, "mpoint" : mpoint, "file" : file ];
+    }
+
+
+    /**
+     * Check if volume number in archive is equal to expected volume number
+     * @param filename Volume file name
+     * @param num Number of volume
+     * @return map Map $[ "success" : boolean (true on success), "lastvolume" : boolean (true if archive is last volume) ]
+     */
+
+    define map CheckVolume(string filename, integer num) ``{
+	boolean success = false;
+	boolean lastvolume = true;
+
+	// test if archive is multi volume - use -v parameter to get file descriptions
+	map detailresult = (map) SCR::Execute(.target.bash_output, "/bin/tar -v -t -f " + filename);
+
+	list<string> stdout = splitstring(detailresult["stdout"]:"", "\n");
+	string firstline = stdout[0]:"";
+
+	y2debug("Test: First line: %1", firstline);
+
+	// check if first line is volume label number num
+	if (regexpmatch(firstline, sformat("V--------- .* YaST2 backup: Volume %1--.*--", num)) == true)
+	{
+	    success = true;
+	}
+
+	return $[ "success" : success, "lastvolume" : (detailresult["exit"]:-1 == 0) ];
+    }
+
+
+    /**
+     * Copy volume to the local temporary directory
+     * @param filename Source file
+     * @param num Number of volume
+     * @return map Map $[ "success" : boolean (true on success), "file" : string (file name in the temporary directory) ]
+     */
+
+    define map CopyVolume(string filename, integer num) ``{
+	boolean success = false;
+	string tmpfile = tempdir + "/" + sformat("%1", num) + ".tar";
+
+	// copy multi volume part to temp directory
+	integer exit = (integer) SCR::Execute(.target.bash, "/bin/cp " + filename + " " + tmpfile);
+
+	if (exit == 0)
+	{
+	    success = true;
+	}
+	else
+	{
+	    y2error("Copy failed");
+	}
+
+	return $[ "success" : success, "file" : tmpfile ];
+    }
+
+
+    /**
+     * Add next volume - check volume, copy volume to the temp. dir.
+     * @param file File name of volume
+     * @return map Map $[ "success" : boolean (true on success), "lastvolume" : boolean (true if archive is last volume) ]
+     */
+
+    define map AddVolume(string file) ``{
+
+	integer vol = size(volumeparts) + 1;
+	boolean success = false;
+
+	// check if file is next volume
+	map check = CheckVolume(file, vol);
+
+	y2debug("CheckVolume(%1, %2): %3", file, vol, check);
+
+	if (lookup(check, "success", false) == true)
+	{
+
+	    // copy file to temporary directory
+	    map copy = CopyVolume(file, vol);
+	    y2debug("CopyVolume(%1, %2): %3", file, vol, copy);
+
+	    if (lookup(copy, "success", false) == true)
+	    {
+		string partname = lookup(copy, "file", "");
+
+		volumeparts = add(volumeparts, partname);
+
+		success = true;
+	    }
+	}
+
+	return $[ "success" : success, "lastvolume" : lookup(check, "lastvolume", true) ];
+    }
+
+    /**
+     * Change restore selection of package.
+     * @param pkgname Name of package
+     * @param selection New restore selection for package, map  $[ "sel_type" : "X", "sel_file" : ["files"] ]
+     */
+    global define void SetRestoreSelection(string pkgname, map selection) ``{
+	if (pkgname == nopackage_id)
+	{
+	    pkgname = "";
+	}
+
+	if (haskey(archive_info, pkgname) == false)
+	{
+	    y2warning("Package %1 is not in archive, cannot be restored!", pkgname);
+	}
+	else
+	{
+	    string sel_type = lookup(selection, "sel_type", " ");
+	    list sel_file = [];
+	    map pkginfo = lookup(archive_info, pkgname, $[]);
+
+	    if (sel_type == "P")
+	    {
+		sel_file = lookup(selection, "sel_file", []);
+	    }
+	    else if (sel_type != "X" && sel_type != " ")
+	    {
+		y2warning("Unknown selection type '%1' for package '%2'", sel_type, pkgname);
+	    }
+
+	    pkginfo = add(pkginfo, "sel_type", sel_type);
+	    pkginfo = add(pkginfo, "sel_file", sel_file);
+
+	    archive_info = add(archive_info, pkgname, pkginfo);
+	}
     }
 
 
@@ -373,80 +787,6 @@
 
 
     /**
-     * Set settings
-     * @param settings Map with settings: start lilo, run SuSEconfig, restore RPM db
-     */
-
-    global define void Set(map settings) ``{
-	y2milestone("Using settings: %1", settings);
-	runbootloader = lookup(settings, "runbootloader", true);
-	runSuSEconfig = lookup(settings, "runSuSEconfig", true);
-	restoreRPMdb = lookup(settings, "restoreRPMdb", false);
-
-	list archiveslist = settings["archives"]:[];
-	// read archives
-	if (size(archiveslist) > 0)
-	{
-	    foreach(string a, archiveslist, ``{
-		    Restore::Read(a);
-		}
-	    );
-	}
-	else
-	{
-	    // set unconfigured state
-	    inputname = "";
-	    archive_info = $[];
-	}
-
-	// set restore selection
-	SetSelectionProperty(settings["selection"]:$[]);
-
-	// store settings - file selection will be refreshed after archive selection
-	// autoinstall config mode
-	autoinst_info = settings["selection"]:$[];
-	y2debug("setting autoinst_info: %1", autoinst_info);
-
-	y2warning("archive_info: %1", archive_info);
-    }
-
-    /**
-     * Dump the restore settings to a single map - for use by autoinstallation.
-     * @return map Dumped settings (later acceptable by Import ())
-     */
-    global define map Export() ``{
-
-	map selection = $[];
-
-	if (inputname == "")
-	{
-	    // unconfigured
-	    return $[];
-	}
-
-	foreach(string package, map info, archive_info, ``{
-		string sel_type = lookup(info, "sel_type", " ");
-		list sel_file = lookup(info, "sel_file", []);
-
-		if (package == "")
-		{
-		    package = nopackage_id;
-		}
-
-		selection = add(selection, package, $[ "sel_type" : sel_type, "sel_file" : sel_file ]);
-	    }
-	);
-
-	return $[
-	    "archives"		: prepend(inputvolumes, inputname),
-	    "runbootloader"		: runbootloader,
-	    "runSuSEconfig"	: runSuSEconfig,
-	    "restoreRPMdb"	: restoreRPMdb,
-	    "selection"		: selection
-	];
-    }
-
-    /**
      * Read contents of archive
      * @param input File name of backup archive. File on NFS server is 'nfs://server:/dir/file.tar', local file: 'file:///dir/file.tar' (prefix is file://, directory is /dir)
      * @return boolean True if archive was succesfully read, otherwise false (file does not exist, not tar archive, broken archive, archive not created by Backup module, ...)
@@ -458,7 +798,7 @@
 
 	if (tempdir == "")
 	{
-	    tempdir = SCR::Read(.target.tmpdir);
+	    tempdir = (string) SCR::Read(.target.tmpdir);
 	}
 
 	inputname = input;
@@ -490,7 +830,7 @@
 	    archive_info = mapmap(string p, map i, archive_info, ``{
 		    i = add(i, "sel_type", (p == "") ? "X" : ((haskey(actualinstalledpackages, p)) ? "X" : " "));
 
-		    return [p, i];
+		    return $[p: i];
 		}
 	    );
 
@@ -509,26 +849,26 @@
 	    return false;
 	}
 
-	filename = lookup(mresult, "file", "");
-	mountpoint = lookup(mresult, "mpoint", "");
+	filename = mresult["file"]:"";
+	mountpoint = mresult["mpoint"]:"";
 
 	y2milestone("filename: %1", filename);
 	y2milestone("mountpoint: %1", mountpoint);
 
 	// get archive contents
-	map result = SCR::Execute(.target.bash_output, "/bin/tar -t -f " + filename);
+	map result = (map) SCR::Execute(.target.bash_output, "/bin/tar -t -f " + filename);
 
 	// check tar exit value
-	if (lookup(result, "exit", -1) != 0)
+	if (result["exit"]:-1 != 0)
 	{
 	    // tar failed, check whether file is first volume of multivolume archive
 	    volumeparts = [];
 	    map addresult = AddVolume(filename);
 
-	    if (lookup(addresult, "success", false) == true)
+	    if (addresult["success"]:false == true)
 	    {
 		// read archive info from local copy (should be faster)
-		filename = select(volumeparts, 0, "");
+		filename = volumeparts[0]: "";
 	    }
 	    else
 	    {
@@ -594,23 +934,23 @@ It was probably not created by the backup module.
 	infofiles = infofiles + (compressed_packages_info ? "info/packages_info.gz" : "info/packages_info");
 
 	// unpack info files
-	result = SCR::Execute(.target.bash_output, "/bin/tar -C " + tempdir + " -x -f " + filename + " " + infofiles);
+	result = (map) SCR::Execute(.target.bash_output, "/bin/tar -C " + tempdir + " -x -f " + filename + " " + infofiles);
 
-	date = SCR::Read(.target.string, tempdir + "/info/date");
-	comment = SCR::Read(.target.string, tempdir + "/info/comment");
-	hostname = SCR::Read(.target.string, tempdir + "/info/hostname");
+	date = (string) SCR::Read(.target.string, tempdir + "/info/date");
+	comment = (string) SCR::Read(.target.string, tempdir + "/info/comment");
+	hostname = (string) SCR::Read(.target.string, tempdir + "/info/hostname");
 
-	y2debug("File content: %1", SCR::Read(.target.string, tempdir + "/info/complete_backup"));
+	y2debug("File content: %1", (string) SCR::Read(.target.string, tempdir + "/info/complete_backup"));
 
 	string complete_backup_str = (SCR::Read(.target.size, tempdir + "/info/complete_backup") > 0) ?
-	    SCR::Read(.target.string, tempdir + "/info/complete_backup")
+	    (string) SCR::Read(.target.string, tempdir + "/info/complete_backup")
 	    : "";
 
 	complete_backup = splitstring(complete_backup_str, "\n");
 	y2milestone("Complete backup: %1", complete_backup);
 
 	// read archive contents file
-	string archivefs = SCR::Read(.target.string, tempdir + "/info/files");
+	string archivefs = (string) SCR::Read(.target.string, tempdir + "/info/files");
 
 	if (archivefs != nil)
 	{
@@ -621,10 +961,10 @@ It was probably not created by the backup module.
 	y2debug("final archivefiles: %1", archivefiles);
 
 	// read installed packages
-	string installedpkgs_str = SCR::Read(.target.string, tempdir + "/info/installed_packages");
+	string installedpkgs_str = (string) SCR::Read(.target.string, tempdir + "/info/installed_packages");
 
 	// convert string to list
-	list installedpkgs_list = splitstring(installedpkgs_str, "\n");
+	list<string> installedpkgs_list = splitstring(installedpkgs_str, "\n");
 	installedpkgs_list = filter(string pk, installedpkgs_list, ``{return pk != "" && pk != nil;});
 
 	// convert list to map (key - package name, value - package version)
@@ -649,7 +989,7 @@ It was probably not created by the backup module.
 	SCR::Execute(.target.bash, "/usr/lib/YaST2/bin/restore_parse_pkginfo.pl < " + tempdir + "/info/packages_info > " + tempdir + "/info.ycp");
 
 	y2milestone("Reading package info");
-	archive_info = SCR::Read(.target.ycp, tempdir + "/info.ycp");
+	archive_info = (map) SCR::Read(.target.ycp, tempdir + "/info.ycp");
 	y2milestone("Read %1 packages", size(archive_info));
 
 
@@ -687,7 +1027,7 @@ It was probably not created by the backup module.
 
 		t = add(t, "sel_type", sel_type);
 
-		return [p, t];
+		return $[p: t];
 	    }
 	);
 
@@ -708,50 +1048,104 @@ It was probably not created by the backup module.
 
 
     /**
+     * Set settings
+     * @param settings Map with settings: start lilo, run SuSEconfig, restore RPM db
+     */
+
+    global define void Set(map settings) ``{
+	y2milestone("Using settings: %1", settings);
+	runbootloader = lookup(settings, "runbootloader", true);
+	runSuSEconfig = lookup(settings, "runSuSEconfig", true);
+	restoreRPMdb = lookup(settings, "restoreRPMdb", false);
+
+	list archiveslist = settings["archives"]:[];
+	// read archives
+	if (size(archiveslist) > 0)
+	{
+	    foreach(string a, archiveslist, ``{
+		    Restore::Read(a);
+		}
+	    );
+	}
+	else
+	{
+	    // set unconfigured state
+	    inputname = "";
+	    archive_info = $[];
+	}
+
+	// set restore selection
+	SetSelectionProperty(settings["selection"]:$[]);
+
+	// store settings - file selection will be refreshed after archive selection
+	// autoinstall config mode
+	autoinst_info = settings["selection"]:$[];
+	y2debug("setting autoinst_info: %1", autoinst_info);
+
+	y2warning("archive_info: %1", archive_info);
+    }
+
+    /**
+     * Get all restore settings - for use by autoinstallation
+     * @param settings The YCP structure to be imported
+     * @return boolean True on success
+     */
+
+    global define boolean Import(map settings) ``{
+	if (settings == nil)
+	{
+	    return false;
+	}
+
+	Set(settings);
+
+	return true;
+    }
+
+
+    /**
+     * Dump the restore settings to a single map - for use by autoinstallation.
+     * @return map Dumped settings (later acceptable by Import ())
+     */
+    global define map Export() ``{
+
+	map selection = $[];
+
+	if (inputname == "")
+	{
+	    // unconfigured
+	    return $[];
+	}
+
+	foreach(string package, map info, archive_info, ``{
+		string sel_type = lookup(info, "sel_type", " ");
+		list sel_file = lookup(info, "sel_file", []);
+
+		if (package == "")
+		{
+		    package = nopackage_id;
+		}
+
+		selection = add(selection, package, $[ "sel_type" : sel_type, "sel_file" : sel_file ]);
+	    }
+	);
+
+	return $[
+	    "archives"		: prepend(inputvolumes, inputname),
+	    "runbootloader"		: runbootloader,
+	    "runSuSEconfig"	: runSuSEconfig,
+	    "restoreRPMdb"	: restoreRPMdb,
+	    "selection"		: selection
+	];
+    }
+
+    /**
      * Return restore configuration
      * @return map Map $[ "packagename" : $["vers" : "version", "files" : ["files in the archive"], "prefix" : "installprefix", "descr" : "Short description", "sel_type" : "X", "sel_file" : ["selected files to restore"] ] ], possible values for "sel_type" key are: "X" - restore all files from archive, " " - do not restore this package, "P" - partial restore, restore only selected files at "sel_file" key. Package name "" means files not owned by any package.
      */
     global define map GetArchiveInfo() ``{
 	return archive_info;
     }
-
-    /**
-     * Change restore selection of package.
-     * @param pkgname Name of package
-     * @param selection New restore selection for package, map  $[ "sel_type" : "X", "sel_file" : ["files"] ]
-     */
-    global define void SetRestoreSelection(string pkgname, map selection) ``{
-	if (pkgname == nopackage_id)
-	{
-	    pkgname = "";
-	}
-
-	if (haskey(archive_info, pkgname) == false)
-	{
-	    y2warning("Package %1 is not in archive, cannot be restored!", pkgname);
-	}
-	else
-	{
-	    string sel_type = lookup(selection, "sel_type", " ");
-	    list sel_file = [];
-	    map pkginfo = lookup(archive_info, pkgname, $[]);
-
-	    if (sel_type == "P")
-	    {
-		sel_file = lookup(selection, "sel_file", []);
-	    }
-	    else if (sel_type != "X" && sel_type != " ")
-	    {
-		y2warning("Unknown selection type '%1' for package '%2'", sel_type, pkgname);
-	    }
-
-	    pkginfo = add(pkginfo, "sel_type", sel_type);
-	    pkginfo = add(pkginfo, "sel_file", sel_file);
-
-	    archive_info = add(archive_info, pkgname, pkginfo);
-	}
-    }
-
 
     /**
      * Return number of packages which will be restored from archive
@@ -808,7 +1202,7 @@ It was probably not created by the backup module.
      * @return map Map $[ "aborted" : boolean, "restored" : [ "restored file" ], "failed" : [ "failed file" ] ]
      */
 
-    global define map Write(block abort, symbol progress, string targetdir) ``{
+    global define map Write(block<boolean> abort, symbol progress, string targetdir) ``{
 
 	map restore = archive_info;
 	integer total = 0;
@@ -841,7 +1235,7 @@ It was probably not created by the backup module.
 	y2milestone("%1 files will be restored from archive", total);
 
 	// get list of all packages to restore (while cycle is used, because foreach cannot be stopped)
-	list packages = [];
+	list<string> packages = [];
 	foreach(string package, map info, restore, ``{
 		packages = add(packages, package);
 	    }
@@ -857,7 +1251,7 @@ It was probably not created by the backup module.
 	    if (SCR::Read(.target.size, rpm_backup_script) > 0)
 	    {
 		y2milestone("Startting RPM backup script (%1)", rpm_backup_script);
-		integer result = SCR::Execute(.target.bash, rpm_backup_script);
+		integer result = (integer) SCR::Execute(.target.bash, rpm_backup_script);
 		y2milestone("RPM backup exit value: %1", result);
 	    }
 	    else
@@ -868,8 +1262,8 @@ It was probably not created by the backup module.
 
 	while (i < size(packages))
 	{
-	    string package = select(packages, i, "nonexistingpackage");
-	    map info = lookup(restore, package, $[]);
+	    string package = packages[i]:"nonexistingpackage";
+	    map info = restore[package]:$[];
 	    // progress bar label
 	    string label = (package == "") ? _("Restoring files not owned by any package...") :
 		// progress bar label - %1 is package name
@@ -893,7 +1287,7 @@ It was probably not created by the backup module.
 		// y2logs will be probably overwritten - backup them
 		if (package == "")
 		{
-		    integer copy = SCR::Execute(.target.bash, "cp -r /var/log/YaST2 /var/log/YaST2.before_restore");
+		    integer copy = (integer) SCR::Execute(.target.bash, "cp -r /var/log/YaST2 /var/log/YaST2.before_restore");
 		    y2milestone("copy y2logs to /var/log/YaST2.before_restore: ret=%1", copy);
 		}
 
@@ -931,15 +1325,15 @@ It was probably not created by the backup module.
 			string command = "export LC_ALL=C; echo q | /bin/tar -C " + tempdir + " -x -M " + param + fileinarchive + " 2> /dev/null";
 			y2debug("Running command: %1", command);
 
-			started = SCR::Execute(.background.run, command);
+			started = (boolean) SCR::Execute(.background.run, command);
 		    }
 		    else
 		    {
-			started  = SCR::Execute(.background.run, "export LC_ALL=C; /bin/tar -C " + tempdir + " -x -f " + filename + " " + fileinarchive);
+			started  = (boolean) SCR::Execute(.background.run, "export LC_ALL=C; /bin/tar -C " + tempdir + " -x -f " + filename + " " + fileinarchive);
 		    }
 
 		    // abort test cycle
-		    while(SCR::Read(.background.isrunning))
+		    while((boolean) SCR::Read(.background.isrunning))
 		    {
 			sleep(100);
 
@@ -1213,71 +1607,6 @@ Press OK to exit.
 
 
     /**
-     * Add next volume - check volume, copy volume to the temp. dir.
-     * @param file File name of volume
-     * @return map Map $[ "success" : boolean (true on success), "lastvolume" : boolean (true if archive is last volume) ]
-     */
-
-    define map AddVolume(string file) ``{
-
-	integer vol = size(volumeparts) + 1;
-	boolean success = false;
-
-	// check if file is next volume
-	map check = CheckVolume(file, vol);
-
-	y2debug("CheckVolume(%1, %2): %3", file, vol, check);
-
-	if (lookup(check, "success", false) == true)
-	{
-
-	    // copy file to temporary directory
-	    map copy = CopyVolume(file, vol);
-	    y2debug("CopyVolume(%1, %2): %3", file, vol, copy);
-
-	    if (lookup(copy, "success", false) == true)
-	    {
-		string partname = lookup(copy, "file", "");
-
-		volumeparts = add(volumeparts, partname);
-
-		success = true;
-	    }
-	}
-
-	return $[ "success" : success, "lastvolume" : lookup(check, "lastvolume", true) ];
-    }
-
-    /**
-     * Check if volume number in archive is equal to expected volume number
-     * @param filename Volume file name
-     * @param num Number of volume
-     * @return map Map $[ "success" : boolean (true on success), "lastvolume" : boolean (true if archive is last volume) ]
-     */
-
-    define map CheckVolume(string filename, integer num) ``{
-	boolean success = false;
-	boolean lastvolume = true;
-
-	// test if archive is multi volume - use -v parameter to get file descriptions
-	map detailresult = SCR::Execute(.target.bash_output, "/bin/tar -v -t -f " + filename);
-
-	list stdout = splitstring(lookup(detailresult, "stdout", ""), "\n");
-	string firstline = select(stdout, 0, "");
-
-	y2debug("Test: First line: %1", firstline);
-
-	// check if first line is volume label number num
-	if (regexpmatch(firstline, sformat("V--------- .* YaST2 backup: Volume %1--.*--", num)) == true)
-	{
-	    success = true;
-	}
-
-	return $[ "success" : success, "lastvolume" : (lookup(detailresult, "exit", "") == 0) ];
-    }
-
-
-    /**
      * Test all volumes together
      * @return boolean True: all volumes are OK, false: an error occured
      */
@@ -1303,33 +1632,6 @@ Press OK to exit.
 
 	return ret;
     }
-
-    /**
-     * Copy volume to the local temporary directory
-     * @param filename Source file
-     * @param num Number of volume
-     * @return map Map $[ "success" : boolean (true on success), "file" : string (file name in the temporary directory) ]
-     */
-
-    define map CopyVolume(string filename, integer num) ``{
-	boolean success = false;
-	string tmpfile = tempdir + "/" + sformat("%1", num) + ".tar";
-
-	// copy multi volume part to temp directory
-	integer exit = SCR::Execute(.target.bash, "/bin/cp " + filename + " " + tmpfile);
-
-	if (exit == 0)
-	{
-	    success = true;
-	}
-	else
-	{
-	    y2error("Copy failed");
-	}
-
-	return $[ "success" : success, "file" : tmpfile ];
-    }
-
 
     /**
      * Activate boot loader configuration if requested.
@@ -1378,308 +1680,6 @@ Press OK to exit.
 	Progress::on();
 
 	return ret;
-    }
-
-    /**
-     * Mount input source
-     * @param input File in URl-like syntax
-     * @return map Map $[ "success" : boolean (true on success), "mpoint" : string (mount point), "file" : string (file name on the local system) ];
-     */
-
-    global define map MountInput(string input) ``{
-
-	y2milestone("MountInput(%1)", input);
-
-	boolean success = false;
-	string mpoint = "";
-	string file = "";
-
-	//parse 'input'
-	string nfsprefix = "nfs://";
-	string fileprefix = "file://";
-	string devprefix = "dev://";
-	string cdprefix = "cd";		// cd prefix can be "cd://" (equivalent to "cd0://"), "cd1://", "cd2://", ... number of CD identification
-	string fdprefix = "fd";
-
-	if (substring(input, 0, size(nfsprefix)) == nfsprefix)
-	{
-	    string tail = substring(input, size(nfsprefix));
-	    integer pos = findfirstof(tail, ":");
-
-	    string nfs_server = substring(tail, 0, pos);
-	    string nfs_file = substring(tail, pos + 1);
-
-	    // check if portmapper is installed
-	    integer result = SCR::Execute(.target.bash, "/bin/rpm -q portmap");
-	    y2milestone("check result: rpm: %1", result);
-
-	    if (result != 0)
-	    {
-		y2milestone("portmapper package is not installed");
-		Require::DoInstallAndRemove(["portmap"], []);
-	    }
-
-	    // check if portmapper is running
-	    integer portmapper_status = Runlevel::ServiceStatus("portmap");
-	    y2milestone("portmap status: %1", portmapper_status);
-
-	    if (portmapper_status != 0)
-	    {
-		// start portmapper
-		integer started = Runlevel::RunInitScript("portmap", "start");
-		y2milestone("portmap start result: %1", started);
-	    }
-
-
-	    y2milestone("NFS source - server: %1  file: %2", nfs_server, nfs_file);
-
-	    map mountresult = mountNFS(nfs_server, nfs_file);
-
-	    if (lookup(mountresult, "mounted", false) == false)
-	    {
-		y2error("Cannot read source '%1' - NFS mount failed", input);
-	    }
-	    else
-	    {
-		mpoint = lookup(mountresult, "mountpoint", "");
-		file = mpoint + "/" + lookup(mountresult, "file", "");
-		success = true;
-
-		y2milestone("mpoint: %1", mpoint);
-		y2milestone("file: %1", file);
-	    }
-	}
-	else if (substring(input, 0, size(devprefix)) == devprefix)
-	{
-	    string tail = substring(input, size(devprefix));
-	    integer pos = findfirstof(tail, ":");
-
-	    string device = substring(tail, 0, pos);
-	    string devfile = substring(tail, pos + 1);
-
-	    y2milestone("Device source - device: %1  file: %2", device, devfile);
-
-	    map mountresult = mountDevice(device);
-
-	    if (lookup(mountresult, "mounted", false) == false)
-	    {
-		y2error("Cannot read source '%1' - device mount failed", input);
-	    }
-	    else
-	    {
-		mpoint = lookup(mountresult, "mpoint", "");
-		file = mpoint + "/" + devfile;
-		success = true;
-	    }
-	}
-	else if (substring(input, 0, size(fileprefix)) == fileprefix)
-	{
-	    file = substring(input, size(fileprefix));
-	    y2milestone("FILE source: %1", file);
-
-	    success = true;
-	}
-	else if (substring(input, 0, size(cdprefix)) == cdprefix)
-	{
-	    // get CD drive index
-	    string cdindex = regexpsub(input, "cd0*([0-9]*)://(.*)", "\\1");
-	    string cdfile = regexpsub(input, "cd([0-9]*)://(.*)", "\\2");
-
-	    if (cdindex == nil || cdindex == "")
-	    {
-		cdindex = "0";
-	    }
-
-	    if (cdfile == nil)
-	    {
-		cdfile = "";
-	    }
-
-	    y2milestone("CD source - drive: %1  file: %2", cdindex, cdfile);
-
-	    // mount CD
-	    map mountresult = mountCD(tointeger(cdindex));
-
-	    if (lookup(mountresult, "mounted", false) == false)
-	    {
-		y2error("Cannot read source '%1' - mount failed", input);
-	    }
-	    else
-	    {
-		mpoint = lookup(mountresult, "mpoint", "");
-		file = mpoint + "/" + cdfile;
-		success = true;
-	    }
-	}
-	else if (substring(input, 0, size(fdprefix)) == fdprefix)
-	{
-	    // get floppy index
-	    string fdindex = regexpsub(input, "fd0*([0-9]*)://(.*)", "\\1");
-	    string fdfile = regexpsub(input, "fd([0-9]*)://(.*)", "\\2");
-
-	    if (fdindex == nil || fdindex == "")
-	    {
-		fdindex = "0";
-	    }
-
-	    if (fdfile == nil)
-	    {
-		fdfile = "";
-	    }
-
-	    y2milestone("Floppy source - drive: %1  file: %2", fdindex, fdfile);
-
-	    // mount floppy
-	    map mountresult = mountFloppy(tointeger(fdindex));
-
-	    if (lookup(mountresult, "mounted", false) == false)
-	    {
-		y2error("Cannot read source '%1' - mount failed", input);
-	    }
-	    else
-	    {
-		mpoint = lookup(mountresult, "mpoint", "");
-		file = mpoint + "/" + fdfile;
-		success = true;
-	    }
-	}
-	else
-	{
-	    y2error("Unknown prefix in input: %1", input);
-	}
-
-	return $[ "success" : success, "mpoint" : mpoint, "file" : file ];
-    }
-
-
-    /**
-     * Access to file on NFS server
-     * @param server Name or IP adress of NFS server
-     * @param file File on the server
-     * @return map $[ "mounted" : boolena (true on success), "mountpoint" : string (mount point) , "file" : string (file name), "server_dir" : string (directory on the server) ]
-     */
-
-    define map mountNFS(string server, string file) ``{
-	integer pos = findlastof(file, "/");
-
-	if (pos != nil)
-	{
-	    string dir = substring(file, 0, pos);
-	    string f = substring(file, pos + 1);
-
-	    string tmpdir = SCR::Read(.target.tmpdir);
-	    string mpoint = tmpdir + "/nfs";
-
-	    if (dir == "" || dir == nil)
-	    {
-		dir = "/";
-	    }
-
-	    // create mount point directory
-	    SCR::Execute(.target.mkdir, mpoint);
-
-	    y2milestone("dir: %1", dir);
-	    y2milestone("file: %1", f);
-	    y2milestone("mpoint: %1", mpoint);
-
-	    boolean result = SCR::Execute(.target.mount, [server + ":" + dir, mpoint], "-t nfs -o ro");
-
-	    return $[ "mounted" : result, "mountpoint" : mpoint , "file" : f, "server_dir" : dir ];
-	}
-
-	return $[ "mounted" : false ];
-    }
-
-
-    /**
-     * Access to file on CD
-     * @param cdindex Index of CD drive (in list SCR::Read(.probe.cdrom))
-     * @return map $[ "mounted" : boolena (true on success), "mpoint" : string (mount point) ]
-     */
-
-    define map mountCD(integer cdindex) ``{
-	list drives = SCR::Read(.probe.cdrom);
-
-	if (cdindex == nil || cdindex > size(drives) - 1)
-	{
-	    return $[ "mounted" : false ];
-	}
-
-	string cddevice = lookup(select(drives, cdindex, $[]), "dev_name", "/dev/cdrom");
-	string tmpdir = SCR::Read(.target.tmpdir);
-	string mpoint = tmpdir + "/cd";
-
-	// create mount point directory
-	SCR::Execute(.target.mkdir, mpoint);
-
-	boolean result = SCR::Execute(.target.mount, [cddevice, mpoint] );
-
-	return $[ "mounted" : result, "mpoint" : mpoint ];
-    }
-
-
-    /**
-     * Access to file on floppy
-     * @param fdindex Index of floppy drive (in list SCR::Read(.probe.floppy))
-     * @return map $[ "mounted" : boolena (true on success), "mpoint" : string (mount point) ]
-     */
-
-    define map mountFloppy(integer fdindex) ``{
-	list drives = SCR::Read(.probe.floppy);
-
-	if (fdindex == nil || fdindex > size(drives) - 1)
-	{
-	    return $[ "mounted" : false ];
-	}
-
-	string fddevice = lookup(select(drives, fdindex, $[]), "dev_name", "/dev/fd0");
-	string tmpdir = SCR::Read(.target.tmpdir);
-	string mpoint = tmpdir + "/fd";
-
-	// create mount point directory
-	SCR::Execute(.target.mkdir, mpoint);
-
-	boolean result = SCR::Execute(.target.mount, [fddevice, mpoint] );
-
-	return $[ "mounted" : result, "mpoint" : mpoint ];
-    }
-
-
-    /**
-     * Mount device
-     * @param device Device file name (e.g. /dev/cdrom, /dev/sda...)
-     * @return map Map $[ "mounted" : boolean (true on success), "mpoint" : string (mount point where device was mounted) ];
-     */
-
-    define map mountDevice(string device) ``{
-	if (device == nil || device == "")
-	{
-	    return $[ "mounted" : false ];
-	}
-
-	string tmpdir = SCR::Read(.target.tmpdir);
-	string mpoint = tmpdir + "/mount";
-
-	// create mount point directory
-	SCR::Execute(.target.mkdir, mpoint);
-
-	// mount read-only
-	boolean result = SCR::Execute(.target.mount, [device, mpoint], "-o ro" );
-
-	return $[ "mounted" : result, "mpoint" : mpoint ];
-    }
-
-    /**
-     * Umount mounted file system.
-     */
-
-    global define void Umount() ``{
-	if (mountpoint != "" && mountpoint != nil)
-	{
-	    y2milestone("Umount called - unmounting %1", mountpoint);
-	    SCR::Execute(.target.umount, mountpoint);
-	    mountpoint = "";
-	}
     }
 
     /**

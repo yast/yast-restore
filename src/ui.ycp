@@ -31,7 +31,7 @@ import "Product";
 import "Popup";
 import "Label";
 import "Require";
-include "ui/file_popups.ycp";
+//include "ui/file_popups.ycp";
 include "wizard/sequencer.ycp";
 
 include "restore/helps.ycp";
@@ -62,188 +62,6 @@ global map removabledevices = nil;
 
 // last user input, used for dialog skipping
 global symbol lastret = nil;
-
-/**
- * Whole restoration
- * @return any Returned value from WizardSequencer() call
- */
-global define any RestoreSequence () ``{
-    map aliases =
-	$[
-	    "archive"	:   ``( ArchiveSelectionDialog(false, false) ),
-	    "property"	:   ``( ArchivePropertyDialog() ),
-	    "marchive"	: [ ``( ArchiveSelectionDialog(true, true) ), true ],
-	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
-	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
-	    "install"	:   ``( SelectionInstallDialog() ),
-	    "uninstall"	:   ``( SelectionUninstallDialog() ),
-	    "sw_single"	:   ``( SWsingleDialog() ),
-	    "select"	:   ``( PackageSelectionRestoreDialog() ),
-	    "selectfile": [ ``( FileSelectionDialog(restorepackagename) ), true ],
-	    "restore"	: [ ``( RestoreProgressDialog() ), true ],
-	    "SuSEconfig": [ ``( SuSEconfigDialog() ), true ],
-	    "atexit"	:   ``( AtExit() ),
-	    "summary"	:   ``( SummaryDialog() ),
-	];
-
-    map sequence = $[
-	"ws_start" :  "archive",
-	"archive" :
-	$[
-	    `next	: "property",
-	    `abort	: "atexit"
-	],
-	"marchive" :
-	$[
-	    `next	: "install",
-	    `abort	: "atexit"
-	],
-	"property" :
-	$[
-	    `details	: "contents",
-	    `options	: "options",
-	    `multi	: "marchive",
-	    `next	: "install",
-	    `abort	: "atexit"
-	],
-	"contents" :
-	$[
-	    `next	: "property",
-	    `abort	: "atexit"
-	],
-	"options" :
-	$[
-	    `next	: "property",
-	    `abort	: "atexit"
-	],
-	"install" :
-	$[
-	    `next	: "uninstall",
-	    `abort	: "atexit"
-	],
-	"uninstall" :
-	$[
-	    `next	: "sw_single",
-	    `abort	: "atexit"
-	],
-	"sw_single" :
-	$[
-	    `next	: "select",
-	    `abort	: "atexit"
-	],
-	"select" :
-	$[
-	    `files	: "selectfile",
-	    `abort	: "atexit",
-	    `next	: "restore"
-	],
-	"restore" :
-	$[
-	    `next	: "SuSEconfig",
-	    `abort	: "atexit"
-	],
-	"SuSEconfig" :
-	$[
-	    `next	: "summary",
-	    `abort	: "atexit"
-	],
-	"selectfile" :
-	$[
-	    `next	: "select",
-	    `abort	: "atexit"
-	],
-	"summary" :
-	$[
-	    `abort	: "atexit",
-	    `next	: "atexit"
-	],
-	"atexit" :
-	$[
-	    `next	: `next
-	]
-    ];
-
-    Wizard::CreateDialog ();
-
-    any ret = WizardSequencer (aliases, sequence);
-
-    UI::CloseDialog ();
-    return ret;
-}
-
-
-
-/**
- * Restoration without reading and writing.
- * For use with autoinstallation.
- * @return any Returned value from WizardSequencer() call
- */
-global define any RestoreAutoSequence() ``{
-
-    map aliases =
-	$[
-	    "archive"	:   ``( ArchiveSelectionDialog(false, false) ),
-	    "property"	:   ``( ArchivePropertyDialog() ),
-	    "marchive"	: [ ``( ArchiveSelectionDialog(true, true) ), true ],
-	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
-	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
-	    "select"	:   ``( PackageSelectionRestoreDialog() ),
-	    "selectfile": [ ``( FileSelectionDialog(restorepackagename) ), true ],
-	];
-
-    map sequence = $[
-	"ws_start" : "archive",
-	"archive" :
-	$[
-	    `next	: "property",
-	    `abort	: `abort
-	],
-	"marchive" :
-	$[
-	    `next	: "select",
-	    `abort	: `abort
-	],
-	"property" :
-	$[
-	    `details	: "contents",
-	    `options	: "options",
-	    `multi	: "marchive",
-	    `next	: "select",
-	    `abort	: `abort
-	],
-	"contents" :
-	$[
-	    `next	: "property",
-	    `abort	: `abort
-	],
-	"options" :
-	$[
-	    `next	: "property",
-	    `abort	: `abort
-	],
-	"select" :
-	$[
-	    `files	: "selectfile",
-	    `abort	: `abort,
-	    `next	: `next
-	],
-	"selectfile" :
-	$[
-	    `next	: "select",
-	    `abort	: `abort
-	]
-    ];
-
-    Wizard::CreateDialog ();
-
-    input = Restore::inputname;
-
-    any ret = WizardSequencer (aliases, sequence);
-
-    UI::CloseDialog ();
-    return ret;
-}
-
 
 /**
  * Backup archive is selected in this dialog.
@@ -738,6 +556,188 @@ global define symbol ArchivePropertyDialog() ``{
     lastret = ret;
     return ret;
 }
+
+/**
+ * Whole restoration
+ * @return any Returned value from WizardSequencer() call
+ */
+global define any RestoreSequence () ``{
+    map aliases =
+	$[
+	    "archive"	:   ``( ArchiveSelectionDialog(false, false) ),
+	    "property"	:   ``( ArchivePropertyDialog() ),
+	    "marchive"	: [ ``( ArchiveSelectionDialog(true, true) ), true ],
+	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
+	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
+	    "install"	:   ``( SelectionInstallDialog() ),
+	    "uninstall"	:   ``( SelectionUninstallDialog() ),
+	    "sw_single"	:   ``( SWsingleDialog() ),
+	    "select"	:   ``( PackageSelectionRestoreDialog() ),
+	    "selectfile": [ ``( FileSelectionDialog(restorepackagename) ), true ],
+	    "restore"	: [ ``( RestoreProgressDialog() ), true ],
+	    "SuSEconfig": [ ``( SuSEconfigDialog() ), true ],
+	    "atexit"	:   ``( AtExit() ),
+	    "summary"	:   ``( SummaryDialog() ),
+	];
+
+    map sequence = $[
+	"ws_start" :  "archive",
+	"archive" :
+	$[
+	    `next	: "property",
+	    `abort	: "atexit"
+	],
+	"marchive" :
+	$[
+	    `next	: "install",
+	    `abort	: "atexit"
+	],
+	"property" :
+	$[
+	    `details	: "contents",
+	    `options	: "options",
+	    `multi	: "marchive",
+	    `next	: "install",
+	    `abort	: "atexit"
+	],
+	"contents" :
+	$[
+	    `next	: "property",
+	    `abort	: "atexit"
+	],
+	"options" :
+	$[
+	    `next	: "property",
+	    `abort	: "atexit"
+	],
+	"install" :
+	$[
+	    `next	: "uninstall",
+	    `abort	: "atexit"
+	],
+	"uninstall" :
+	$[
+	    `next	: "sw_single",
+	    `abort	: "atexit"
+	],
+	"sw_single" :
+	$[
+	    `next	: "select",
+	    `abort	: "atexit"
+	],
+	"select" :
+	$[
+	    `files	: "selectfile",
+	    `abort	: "atexit",
+	    `next	: "restore"
+	],
+	"restore" :
+	$[
+	    `next	: "SuSEconfig",
+	    `abort	: "atexit"
+	],
+	"SuSEconfig" :
+	$[
+	    `next	: "summary",
+	    `abort	: "atexit"
+	],
+	"selectfile" :
+	$[
+	    `next	: "select",
+	    `abort	: "atexit"
+	],
+	"summary" :
+	$[
+	    `abort	: "atexit",
+	    `next	: "atexit"
+	],
+	"atexit" :
+	$[
+	    `next	: `next
+	]
+    ];
+
+    Wizard::CreateDialog ();
+
+    any ret = WizardSequencer (aliases, sequence);
+
+    UI::CloseDialog ();
+    return ret;
+}
+
+
+
+/**
+ * Restoration without reading and writing.
+ * For use with autoinstallation.
+ * @return any Returned value from WizardSequencer() call
+ */
+global define any RestoreAutoSequence() ``{
+
+    map aliases =
+	$[
+	    "archive"	:   ``( ArchiveSelectionDialog(false, false) ),
+	    "property"	:   ``( ArchivePropertyDialog() ),
+	    "marchive"	: [ ``( ArchiveSelectionDialog(true, true) ), true ],
+	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
+	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
+	    "select"	:   ``( PackageSelectionRestoreDialog() ),
+	    "selectfile": [ ``( FileSelectionDialog(restorepackagename) ), true ],
+	];
+
+    map sequence = $[
+	"ws_start" : "archive",
+	"archive" :
+	$[
+	    `next	: "property",
+	    `abort	: `abort
+	],
+	"marchive" :
+	$[
+	    `next	: "select",
+	    `abort	: `abort
+	],
+	"property" :
+	$[
+	    `details	: "contents",
+	    `options	: "options",
+	    `multi	: "marchive",
+	    `next	: "select",
+	    `abort	: `abort
+	],
+	"contents" :
+	$[
+	    `next	: "property",
+	    `abort	: `abort
+	],
+	"options" :
+	$[
+	    `next	: "property",
+	    `abort	: `abort
+	],
+	"select" :
+	$[
+	    `files	: "selectfile",
+	    `abort	: `abort,
+	    `next	: `next
+	],
+	"selectfile" :
+	$[
+	    `next	: "select",
+	    `abort	: `abort
+	]
+    ];
+
+    Wizard::CreateDialog ();
+
+    input = Restore::inputname;
+
+    any ret = WizardSequencer (aliases, sequence);
+
+    UI::CloseDialog ();
+    return ret;
+}
+
 
 /**
  * Create content for table widget - columns: selection mark, package name, version, description
