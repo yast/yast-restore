@@ -30,6 +30,7 @@
     import "Runlevel";
     import "Require";
     import "Label";
+    import "Popup";
 
     textdomain "restore";
 
@@ -643,79 +644,16 @@ It was probably not created by the backup module.
 	    y2milestone("File unpacked");
 	}
 
-	string pkginfo_str = SCR::Read(.target.string, tempdir + "/info/packages_info");
+	// covert package info file to YCP structure by perl script
+	y2milestone("Converting package info");
+	SCR::Execute(.target.bash, "/usr/lib/YaST2/bin/restore_parse_pkginfo.pl < " + tempdir + "/info/packages_info > " + tempdir + "/info.ycp");
 
-	list pkginfo = splitstring(pkginfo_str, "\n");
-	pkginfo = filter(string pk, pkginfo, ``{return pk != "" && pk != nil;});
+	y2milestone("Reading package info");
+	archive_info = SCR::Read(.target.ycp, tempdir + "/info.ycp");
+	y2milestone("Read %1 packages", size(archive_info));
 
-	string actualpkg = nil;
-	string actualversion = "";
-	string prefix = "";
-	list pkfiles = [];
-
-	string packagestring = "Package: ";
-	string nopackagestring = "Nopackage:";
-	string prefixstring = "Installed: ";
-
-	foreach(string line, pkginfo, ``{
-		if (substring(line, 0, size(packagestring)) == packagestring || line == nopackagestring)
-		{
-		    if (actualpkg != nil)
-		    {
-			// read selection type - in autoinstall-config mode it already exists
-			string selt = archive_info[actualpkg, "sel_type"]:" ";
-			archive_info = add(archive_info, actualpkg, $[ "vers" : actualversion, "files" : pkfiles, "prefix" : prefix, "sel_type" : selt ]);
-			y2milestone("Found package: %1", actualpkg);
-		    }
-
-		    pkfiles = [];
-		    prefix = "";
-
-		    if (line == nopackagestring)
-		    {
-			actualpkg = "";
-			actualversion = "";
-		    }
-		    else
-		    {
-			string full = substring(line, size(packagestring));
-
-			actualversion = regexpsub(full, ".*-(.*-.*)", "\\1");
-			actualpkg = substring(full, 0, size(full) - size(actualversion) - 1);
-		    }
-		}
-		else if (substring(line, 0, size(prefixstring)) == prefixstring)
-		{
-		    prefix = substring(line, size(prefixstring));
-
-		    if (prefix == "(none)")
-		    {
-			prefix = "";
-		    }
-		}
-		else if (substring(line, 0, 1) == "/")
-		{
-		    pkfiles = add(pkfiles, line);
-		    //y2milestone("Found file: %1", line);
-		}
-		else
-		{
-		    y2error("Unknown line in file packages_info: %1", line);
-		}
-	    }
-	);
-
-	// add last package info
-	if (actualpkg != nil)
-	{
-	    // read selection type - in autoinstall-config mode it already exists
-	    string selt = archive_info[actualpkg, "sel_type"]:" ";
-
-	    archive_info = add(archive_info, actualpkg, $[ "files" : pkfiles, "prefix" : prefix, "vers" : actualversion, "sel_type" : selt ]);
-	}
 
 	// read actual installed packages
-
 	GetActualInstalledPackages();
 
 	map mismatched = GetMismatchedPackages();

@@ -37,6 +37,7 @@ include "require.ycp";
 include "restore/helps.ycp";
 include "restore/summary_dialog.ycp";
 import "Label";
+import "NetworkPopup";
 
 global string restorepackagename = nil;
 
@@ -55,9 +56,6 @@ global string mountdir = "";
 
 // entered archive name, can differ from local file name (e.g. nfs://server:dir/archive.tar)
 global string input = "";
-
-// list of found hosts on LAN
-global list hosts = nil;
 
 // map with detected removable devices
 global map removabledevices = nil;
@@ -481,21 +479,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 	}
 	if (ret == `selecthost)
 	{
-	    // cache found hosts
-	    if (hosts == nil)
-	    {
-		hosts = (Mode::test == false) ? sort(SCR::Read(.net.hostnames)) :
-		    // test mode data
-		    [ "host1.local", "host2.local", "server1.local"];
-
-		if (hosts == nil)
-		{
-		    hosts = [];
-		}
-	    }
-
-	    // popup dialog header - selection of network host
-	    string selectedhost = SelectFromList(_("Network &hosts:"), hosts, UI::QueryWidget(`id(`nfsserver), `Value));
+	    string selectedhost = NetworkPopup::NFSServer(UI::QueryWidget(`id(`nfsserver), `Value));
 
 	    if (selectedhost != "" && selectedhost != nil)
 	    {
@@ -1358,9 +1342,9 @@ Select them for restoration?
 		else
 		{
 		    // RPMoption is nil
-		    Popup::Warning("There is a conflict between selected
+		    Popup::Warning(_("There is a conflict between selected
 packages and RPM restoration option.
-Try to change selection or RPM restoration status.");
+Try to change selection or RPM restoration status."));
 		}
 	    }
 	}

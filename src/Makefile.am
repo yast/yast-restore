@@ -24,4 +24,7 @@ desktop_DATA =			\
 module_DATA =			\
 	Restore.ycp
 
-EXTRA_DIST = $(client_DATA) $(ynclude_DATA) $(config_DATA) $(module_DATA) $(desktop_DATA)
+ybin_SCRIPTS = \
+	restore_parse_pkginfo.pl
+
+EXTRA_DIST = $(client_DATA) $(ynclude_DATA) $(config_DATA) $(module_DATA) $(desktop_DATA) $(ybin_SCRIPTS)
