@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Fri Aug 27 14:49:21 CEST 2004 - lslezak@suse.cz
+
+- merged proofread text
+- version 2.10.0
+
+-------------------------------------------------------------------
 Mon May 24 15:29:00 CEST 2004 - lslezak@suse.cz
 
 - ignore gpg-pubkey packages - they are not real RPMs
