@@ -180,7 +180,7 @@
 	map ret = listmap(string pkg, info, ``{
 		list all = splitstring(pkg, " ");
 
-		return [all[0]:"unknown", all[1]:"" + "-" + all[2]:""];
+		return $[all[0]:"unknown" : all[1]:"" + "-" + all[2]:""];
 	    }
 	);
 
@@ -972,7 +972,7 @@ It was probably not created by the backup module.
 		string version = regexpsub(fullname, ".*-(.*-.*)", "\\1");
 		string name = substring(fullname, 0, size(fullname) - size(version) - 1);
 
-		return [name, version];
+		return $[name: version];
 	    }
 	);
 
