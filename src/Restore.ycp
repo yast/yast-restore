@@ -939,17 +939,17 @@ It was probably not created by the backup module.
 	infofiles = infofiles + (compressed_packages_info ? "info/packages_info.gz" : "info/packages_info");
 
 	// unpack info files
-	result = (map) SCR::Execute(.target.bash_output, "/bin/tar -C " + tempdir + " -x -f " + filename + " " + infofiles);
+	result = (map) SCR::Execute(.target.bash_output, "/bin/tar -C " + tempdir + " -x -f " + filename + " " + infofiles + " 2> /dev/null");
 
 	date = (string) SCR::Read(.target.string, tempdir + "/info/date");
 	comment = (string) SCR::Read(.target.string, tempdir + "/info/comment");
 	hostname = (string) SCR::Read(.target.string, tempdir + "/info/hostname");
 
-	y2debug("File content: %1", (string) SCR::Read(.target.string, tempdir + "/info/complete_backup"));
-
 	string complete_backup_str = (SCR::Read(.target.size, tempdir + "/info/complete_backup") > 0) ?
 	    (string) SCR::Read(.target.string, tempdir + "/info/complete_backup")
 	    : "";
+
+	y2debug("complete_backup_str: %1", complete_backup_str);
 
 	complete_backup = splitstring(complete_backup_str, "\n");
 	y2milestone("Complete backup: %1", complete_backup);
@@ -1522,14 +1522,14 @@ It was probably not created by the backup module.
 		    }
 
 		    // create (s)tar command
-		    string tarcommand = (star == false) ? "export LC_ALL=C; /bin/tar -C " + targetdir + " "
+		    string tarcommand = (star == false) ? ("export LC_ALL=C; /bin/tar -C " + targetdir + " "
 			    + compress + " -x -v -f " + tempdir + "/" + fileinarchive + " " + RPMdb
 			    + " " + unpackfiles + " 2> " + tempdir + "/tar.stderr > " + tempdir
-			    + "/tar.stdout"
-			: "export LC_ALL=C; /usr/bin/star -C " + targetdir + " "
+			    + "/tar.stdout")
+			: ("export LC_ALL=C; /usr/bin/star -C " + targetdir + " "
 			    + compress + " -x -v -U -f " + tempdir + "/" + fileinarchive + " " + RPMdb
 			    + " " + unpackfiles + " 2> " + tempdir + "/tar.stderr > " + tempdir
-			    + "/tar.stdout";
+			    + "/tar.stdout");
 			// -U option: replace existing files
 
 		    y2milestone("tarcommand: %1", tarcommand);
@@ -1589,6 +1589,8 @@ Press OK to exit.
 		    // start subprocess
 		    started = (boolean) SCR::Execute(.background.run_output, tarcommand);
 
+		    y2milestone("Tar command started: %1", started);
+
 		    while(SCR::Read(.background.isrunning) == true)
 		    {
 			sleep(100);	// small delay
@@ -1607,10 +1609,13 @@ Press OK to exit.
 		    list<string> stdout = splitstring((string) SCR::Read(.target.string, tempdir + "/tar.stdout"), "\n");
 
 		    // remove empty lines
-		    stdout = filter(string line, stdout, ``{return size(line) > 0;});
+		    if (stdout != nil)
+		    {
+			stdout = filter(string line, stdout, ``{return size(line) > 0;});
+		    }
 
 		    // star has more verbose output - get only file names
-		    if (star)
+		    if (star && stdout != nil)
 		    {
 			stdout = maplist(string line, stdout,
 			    ``{
@@ -1658,7 +1663,7 @@ Press OK to exit.
 		    );
 
 		    // package restoration failed
-		    if (packagefailedfiles == size(restoredfiles))
+		    if (restoredfiles != nil && packagefailedfiles == size(restoredfiles))
 		    {
 			y2warning("failed package: %1", package);
 		    }

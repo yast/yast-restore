@@ -951,7 +951,7 @@ global define symbol SelectionInstallDialog() ``{
 	else if (ret == `pkg)
 	{
 	    integer current = (integer) UI::QueryWidget(`id(`pkg), `CurrentItem);
-	    string current_value = (string) select((list) UI::QueryWidget(`id(`pkg), `Item(current)), 1, " ");
+	    string current_value = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(current)), 1, " ");
 
 	    if (current_value == " ")
 	    {
@@ -980,8 +980,8 @@ global define symbol SelectionInstallDialog() ``{
 
 	while (i < num)
 	{
-	    string s = (string) select((list) UI::QueryWidget(`id(`pkg), `Item(i)), 1, " ");
-	    string p = (string) select((list) UI::QueryWidget(`id(`pkg), `Item(i)), 2, " ");
+	    string s = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(i)), 1, " ");
+	    string p = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(i)), 2, " ");
 
 	    if (s == "X")
 	    {
@@ -1113,7 +1113,7 @@ global define symbol SelectionUninstallDialog() ``{
 	else if (ret == `pkg)
 	{
 	    integer current = (integer) UI::QueryWidget(`id(`pkg), `CurrentItem);
-	    string current_value = (string) select((list) UI::QueryWidget(`id(`pkg), `Item(current)), 1, " ");
+	    string current_value = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(current)), 1, " ");
 
 	    if (current_value == " ")
 	    {
@@ -1142,8 +1142,8 @@ global define symbol SelectionUninstallDialog() ``{
 
 	while (i < num)
 	{
-	    string s = (string) select((list) UI::QueryWidget(`id(`pkg), `Item(i)), 1, " ");
-	    string p = (string) select((list) UI::QueryWidget(`id(`pkg), `Item(i)), 2, " ");
+	    string s = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(i)), 1, " ");
+	    string p = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(i)), 2, " ");
 
 	    if (s == "X")
 	    {
@@ -1151,7 +1151,7 @@ global define symbol SelectionUninstallDialog() ``{
 		string v = i["ver"]:"";
 		packagestouninstall = add(packagestouninstall, p, $[ "ver" : v ]);
 	    }
-	    else if (haskey(packagestouninstall, p))
+	    else if (p != nil && haskey(packagestouninstall, p))
 	    {
 		packagestouninstall = remove(packagestouninstall, p);
 	    }
@@ -1405,9 +1405,9 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	if (size(tablecontents) > 0)
 	{
 	    current = (integer) UI::QueryWidget(`id(`pkgtable), `CurrentItem);
-	    current_value = (string) select((list) UI::QueryWidget(`id(`pkgtable), `Item(current)), 1, " ");
-	    current_pkgname = (string) select((list) UI::QueryWidget(`id(`pkgtable), `Item(current)), 3, "");
-	    current_version = (string) select((list) UI::QueryWidget(`id(`pkgtable), `Item(current)), 4, "");
+	    current_value = (string) select((term) UI::QueryWidget(`id(`pkgtable), `Item(current)), 1, " ");
+	    current_pkgname = (string) select((term) UI::QueryWidget(`id(`pkgtable), `Item(current)), 3, "");
+	    current_version = (string) select((term) UI::QueryWidget(`id(`pkgtable), `Item(current)), 4, "");
 	}
 
 	restorepackagename = current_pkgname;
@@ -1837,7 +1837,7 @@ global define string StatusToString(boolean status) ``{
 global define symbol SummaryDialog() ``{
 
     // summary information texts
-    string basicinfo = "<P>" + _("Number of installed packages: ") + size(packagestoinstall) + "<BR>" + _("Number of uninstalled packages: ") + size(packagestouninstall) + "</P><P>" + _("Total restored packages: ") + restoredpackages + "<BR>" + _("Total restored files: ") + size(restoredfiles) + "</P>";
+    string basicinfo = "<P>" + _("Number of installed packages: ") + size(packagestoinstall) + "<BR>" + _("Number of uninstalled packages: ") + size(packagestouninstall) + "</P><P>" + _("Total restored packages: ") + restoredpackages + "<BR>" + _("Total restored files: ") + ((restoredfiles != nil) ? size(restoredfiles) : 0) + "</P>";
 
     // display failed files if any
     if (size(failedfiles) > 0)
@@ -1854,7 +1854,7 @@ global define symbol SummaryDialog() ``{
 
     string filelist = "";
 
-    if (size(restoredfiles) > 0)
+    if (restoredfiles != nil && size(restoredfiles) > 0)
     {
 	string prefix = Restore::targetDirectory;
 
