@@ -43,10 +43,11 @@ global list archivecontentscache = nil;
 global list restoredfiles = [];
 global list failedfiles = [];
 global integer restoredpackages = 0;
+global boolean lilostatus = nil;
 
 
 /**
- * Whole configuration of restore
+ * Whole restoration
  * @return any Returned value from WizardSequencer() call
  */
 global define any RestoreSequence () ``{
@@ -173,8 +174,10 @@ global define any RestoreAutoSequence () ``{
 }
 
 
-
-
+/**
+ * Backup archive is selected in this dialog.
+ * @return symbol UI::UserInput() result
+ */
 global define symbol ArchiveSelectionDialog() ``{
 
     term contents = `HBox(
@@ -236,8 +239,10 @@ global define symbol ArchiveSelectionDialog() ``{
     return ret;
 }
 
-
-
+/**
+ * Display archive property - date of backup, user comment...
+ * @return symbol UI::UserInput() result
+ */
 global define symbol ArchivePropertyDialog() ``{
 
     y2milestone("missing packages %1: ", Restore::GetMissingPackages());
@@ -287,11 +292,17 @@ global define symbol ArchivePropertyDialog() ``{
     return ret;
 }
 
+/**
+ * Create content for table widget - columns: selection mark, package name, version, description
+ * @param contents Map $[ "packagename" : $[ "ver" : "version", "descr" : "short description" ] ]
+ * @param defaultval if true "X" is in the first column, else " "
+ * @return list Contents for Table widget
+ */
 global define list CreateTableContents(map contents, boolean defaultval) ``{
     list ret = [];
     integer num = 0;
 
-    string defval = (defaultval) ? "X" : " ";
+    string defval = (defaultval == true) ? "X" : " ";
 
     if (contents != nil)
     {
@@ -310,6 +321,12 @@ global define list CreateTableContents(map contents, boolean defaultval) ``{
 }
 
 
+/**
+ * Create content for table widget - columns: selection mark, package name, backup version, installed version, description
+ * @param contents Map $[ "packagename" : $[ "ver" : "version", "descr" : "short description" ] ]
+ * @param defaultval if true "X" is in the first column, else " "
+ * @return list Contents for Table widget
+ */
 global define list CreateTableContentsWithMismatched(map contents, boolean defaultval) ``{
     list ret = [];
     integer num = 0;
@@ -333,6 +350,11 @@ global define list CreateTableContentsWithMismatched(map contents, boolean defau
     return ret;
 }
 
+
+/**
+ * Dialog for package selection - packages to install
+ * @return symbol UI::UserInput() result
+ */
 global define symbol SelectionInstallDialog() ``{
 
     // LATER: if all packages are installed return `next (or `back)
@@ -356,8 +378,8 @@ global define symbol SelectionInstallDialog() ``{
 		`Table(`id(`pkg), `opt(`notify), header, missing),
 		`VSpacing(1),
 		`HBox(
-		    `PushButton(`id(`all), "&Select all"),
-		    `PushButton(`id(`none), "&Deselect all")
+		    `PushButton(`id(`all), _("&Select all")),
+		    `PushButton(`id(`none), _("&Deselect all"))
 		),
 		`VSpacing(1.5)
 	    ),
@@ -434,6 +456,10 @@ global define symbol SelectionInstallDialog() ``{
 }
 
 
+/**
+ * Dialog for package selection - packages to uninstall
+ * @return symbol UI::UserInput() result
+ */
 global define symbol SelectionUninstallDialog() ``{
 
     // LATER: if all packages are installed return `next (or `back)
@@ -452,8 +478,8 @@ global define symbol SelectionUninstallDialog() ``{
 		`Table(`id(`pkg), `opt(`notify), header, extra),
 		`VSpacing(1),
 		`HBox(
-		    `PushButton(`id(`all), "&Select all"),
-		    `PushButton(`id(`none), "&Deselect all")
+		    `PushButton(`id(`all), _("&Select all")),
+		    `PushButton(`id(`none), _("&Deselect all"))
 		),
 		`VSpacing(1.5)
 	    ),
@@ -526,9 +552,11 @@ global define symbol SelectionUninstallDialog() ``{
     return ret;
 }
 
+/**
+ * Packages (and files) for restoration can be selected in this archive.
+ * @return symbol UI::UserInput() result
+ */
 global define symbol PackageSelectionRestoreDialog() ``{
-
-    // TODO: warn user if there are missing packages and/or packages with different version
 
     // TODO: read this value from system
     boolean profi = true;
@@ -538,7 +566,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
     string help_profi = "To select files which will be restored from archive press <B>Select files</B> button.";
 
-    list tablecontents = CreateTableContentsRestoreSelection(Restore::GetArchiveInfo(), Restore::GetActualInstalledPackages());
+    list tablecontents = CreateTableContentsRestoreSelection(Restore::GetArchiveInfo());
     integer position = 0;
 
     // refresh previous selection
@@ -695,7 +723,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	    }
 
 	    // change table contents
-	    UI::ChangeWidget(`id(`pkgtable), `Items, CreateTableContentsRestoreSelection(Restore::GetArchiveInfo(), Restore::GetActualInstalledPackages()));
+	    UI::ChangeWidget(`id(`pkgtable), `Items, CreateTableContentsRestoreSelection(Restore::GetArchiveInfo()));
 
 	    // set previous selection
 	    if (current != nil)
@@ -725,7 +753,10 @@ global define symbol PackageSelectionRestoreDialog() ``{
     return ret;
 }
 
-
+/**
+ * Dialog with options.
+ * @return UI::UserInput() result
+ */
 global define symbol RestoreOptionsDialog() ``{
     term contents = `HBox(
 	    `HSpacing(2),
@@ -769,7 +800,10 @@ global define symbol RestoreOptionsDialog() ``{
     return ret;
 }
 
-// uses global variable string restorepackagename
+/**
+ * Display all files in backup archive which belong to package. User can select wqhich files will be resored.
+ * @return symbol UI::UserInput() result
+ */
 global define symbol FileSelectionDialog(string packagename) ``{
 
     // create multiselection widget contents
@@ -815,8 +849,8 @@ global define symbol FileSelectionDialog(string packagename) ``{
 		`ReplacePoint(`id(`rp), `MultiSelectionBox(`id(`mbox), mlabel, cont)),
 		`VSpacing(1),
 		`HBox(
-		    `PushButton(`id(`all), "&Select all"),
-		    `PushButton(`id(`none), "&Deselect all")
+		    `PushButton(`id(`all), _("&Select all")),
+		    `PushButton(`id(`none), _("&Deselect all"))
 		),
 		`VSpacing(1.5)
 	    ),
@@ -882,7 +916,10 @@ global define symbol FileSelectionDialog(string packagename) ``{
     return ret;
 }
 
-
+/**
+ * Display content of backup archive in the table.
+ * @return symbol UI::UserInput() result
+ */
 global define symbol ArchiveContentsDialog() ``{
 
     Wizard::ClearContents();
@@ -925,6 +962,10 @@ global define symbol ArchiveContentsDialog() ``{
     return ret;
 }
 
+/**
+ * Restore packages from backup archive - display progress of restoring process
+ * @return symbol UI::UserInput() result
+ */
 global define symbol RestoreProgressDialog() ``{
 
     symbol ret = nil;
@@ -972,14 +1013,17 @@ global define symbol RestoreProgressDialog() ``{
     return ret;
 }
 
-
+/**
+ * Start Yast2 package manager
+ * @return symbol UI::UserInput() result
+ */
 global define symbol SWsingleDialog() ``{
 
     // TODO:  CallModule("sw_single", ["beginner"]);
 
     term contents = `Label(_("Here will be sw_single dialog displayed and (un)installed packages."));
 
-    Wizard::SetContents(_(""), contents, "", true, true);
+    Wizard::SetContents("", contents, "", true, true);
 
     symbol ret = nil;
 
@@ -999,14 +1043,17 @@ global define symbol SWsingleDialog() ``{
     //TODO after package (un)install refresh actual installed packages (do Restore::ReadActualInstalledPackages())
 }
 
-
+/**
+ * Start SuSEconfig
+ * @return symbol UI::UserInput() result
+ */
 global define symbol SuSEconfigDialog() ``{
 
     // TODO: CallModule("inst_suseconfig", []);
 
     term contents = `Label(_("Here will be SuSEconfig started (optionally)."));
 
-    Wizard::SetContents(_(""), contents, "", true, true);
+    Wizard::SetContents("", contents, "", true, true);
 
     symbol ret = nil;
 
@@ -1024,23 +1071,44 @@ global define symbol SuSEconfigDialog() ``{
     return ret;
 }
 
-
+/**
+ * Display summary of restoration
+ * @return symbol UI::UserInput() result
+ */
 global define symbol SummaryDialog() ``{
 
     string basicinfo = "<P>Number of installed packages: 3<BR>Number of uninstalled packages: 0</P><P>Total restored packages: " + restoredpackages + "<BR>Total restored files: " + size(restoredfiles) + "</P><P>Restore status: Ok</P>";
 
+    // display failed files if any
     if (size(failedfiles) > 0)
     {
 	 basicinfo = basicinfo + "<P><B>Failed files</B><BR>" + mergestring(failedfiles, "<BR>") + "</P>";
     }
 
-    string extendedinfo = "<P><BR><B>Details:</B></P><P>Lilo return status: <I>Not started</I></P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>Restored files:</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
+    // set lilo result string
+    string lilostr = _("<I>Not started</I>");
+
+    if (lilostatus == true)
+    {
+	lilostr = _("Ok");
+    }
+    else if (lilostatus == false)
+    {
+	lilostr = _("<B>Failed<B>");
+    }
+
+
+    string extendedinfo = "<P><BR><B>Details:</B></P><P>Lilo return status: " + lilostr + "</P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>Restored files:</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
 
     return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, "help", _("Summary of restoration"), `finish);
 }
 
 
-
+/**
+ * Return content for table widget - list of backup files
+ * @param packagesinfo Map $[ "packagename" : $[ "files" : ["files in the archive"] ] ]
+ * @return list Table content
+ */
 global define list CreateArchiveContentTable(map packagesinfo) ``{
     list ret = [];
     integer num = 0;
@@ -1062,16 +1130,19 @@ global define list CreateArchiveContentTable(map packagesinfo) ``{
     return ret;
 }
 
-
-
-global define list CreateTableContentsRestoreSelection(map backupselection, map installed) ``{
+/**
+ * Return table widget contens - files and packages selected for restoration
+ * @param restoreselection Restore settings
+ * @return list Table content
+ */
+global define list CreateTableContentsRestoreSelection(map restoreselection) ``{
     list ret = [];
     // id of item in the table
     integer num = 0;
 
-    if (backupselection != nil)
+    if (restoreselection != nil)
     {
-	foreach(string p, map m, backupselection, ``{
+	foreach(string p, map m, restoreselection, ``{
 
 		string ver = lookup(m, "vers", "");
 		string descr = lookup(m, "descr", "");

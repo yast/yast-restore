@@ -65,7 +65,7 @@
     global boolean runSuSEconfig = true;
 
     /**
-     * Rewrite RPM db - unapack /var/lib/rpm/* files from backup
+     * Rewrite RPM db - unapack /var/lib/rpm/* files from backup if present
      */
     global boolean restoreRPMdb = false;
 
@@ -112,23 +112,29 @@
 
     /**
      * Return map with packages installed at backup time (form is $["package name" : "version"]).
-     * @return map Intalled packages at backup time
+     * @return map Installed packages at backup time
      */
     global define map GetArchiveInstalledPackages() ``{
 	return installedpkgs;
     }
 
+    /**
+     * Return list of files in the backup archive
+     * @return list Files in the archive
+     */
     global define list GetArchiveFiles() ``{
 	return archivefiles;
     }
 
+
+    /**
+     * Return missing packages (packages which were installed at backup time, but at restore time they are not installed)
+     * @return map Map $[ "packagename" : $[ "ver" : "version", "descr" : "Short description of the package"]], key description is present only if decription exists
+     */
     global define map GetMissingPackages() ``{
 	map ret = $[];
 
-	if (actualinstalledpackages == $[])
-	{
-	    actualinstalledpackages = ReadActualInstalledPackages();
-	}
+	GetActualInstalledPackages();
 
 	// filter actual installed packages out
 	ret = filter(string p, string v, installedpkgs, ``{
@@ -154,13 +160,14 @@
 	return ret;
     }
 
+    /**
+     * Return extra packages (packages which are installed at restore time, but at restore time they are installed)
+     * @return map Map $[ "packagename" : $[ "ver" : "version", "descr" : "Short description of the package"]], key description is present only if decription exists
+     */
     global define map GetExtraPackages() ``{
 	map ret = $[];
 
-	if (actualinstalledpackages == $[])
-	{
-	    actualinstalledpackages = ReadActualInstalledPackages();
-	}
+	GetActualInstalledPackages();
 
 	// filter actual installed packages out
 	ret = filter(string p, string v, actualinstalledpackages, ``{
@@ -186,14 +193,14 @@
 	return ret;
     }
 
-    // package name: $["inst": actual, "ver : "at backup time, "descr" : package description]
+    /**
+     * Return packages which have different version at backup archive and in system
+     * @return map Map $[ "packagename" : $[ "inst": "installed version", "ver" : "version at backup time, "descr" : "Short description of the package"]], key description is present only if decription exists
+     */
     global define map GetMismatchedPackages() ``{
 	map ret = $[];
 
-	if (actualinstalledpackages == $[])
-	{
-	    actualinstalledpackages = ReadActualInstalledPackages();
-	}
+	GetActualInstalledPackages();
 
 	foreach(string p, string v, actualinstalledpackages, ``{
 		if (haskey(installedpkgs, p) == true)
@@ -214,6 +221,10 @@
 	return ret;
     }
 
+    /**
+     * Return installed packages. Result is cached in Restore module, so only first use takes long time
+     * @return map Map $[ "packagename" : "version" ]
+     */
     global define map GetActualInstalledPackages() ``{
 	if (actualinstalledpackages == $[] || actualinstalledpackages == nil)
 	{
@@ -223,6 +234,11 @@
 	return actualinstalledpackages;
     }
 
+
+    /**
+     * Read installed packages.
+     * @return map Map $[ "packagename" : "version" ]
+     */
     global define map ReadActualInstalledPackages() ``{
 	// read info about installed packages
 	map info = SCR::Read(.targetpkg.info);
@@ -242,10 +258,16 @@
 	return ret;
     }
 
+    /**
+     * Clear cache of installed packages. Next use of GetActualInstalledPackages() function will reread installed packages.
+     */
+     global define void ClearInstalledPackagesCache()
+     {
+	 actualinstalledpackages = nil;
+     }
 
     /**
-     * Get all restore settings from the first parameter
-     * (For use by autoinstallation.)
+     * Get all restore settings - for use by autoinstallation.
      * @param settings The YCP structure to be imported.
      * @return boolean True on success
      */
@@ -256,8 +278,7 @@
     }
 
     /**
-     * Dump the restore settings to a single map
-     * (For use by autoinstallation.)
+     * Dump the restore settings to a single map - for use by autoinstallation.
      * @return map Dumped settings (later acceptable by Import ())
      */
     global define map Export () ``{
@@ -271,7 +292,6 @@
      * @param archivefile File name of backup archive
      * @return boolean True if archive was succesfully read, otherwise false (file does not exist, not tar archive, broken archive, archive not created by Backup module, ...)
      */
-
     global define boolean Read(string archivefile) ``{
 	if (tempdir == "")
 	{
@@ -436,10 +456,8 @@
 	}
 
 	// read actual installed packages
-        if (actualinstalledpackages == $[] || actualinstalledpackages == nil)
-	{
-	    actualinstalledpackages = ReadActualInstalledPackages();
-	}
+
+	GetActualInstalledPackages();
 
 	map mismatched = GetMismatchedPackages();
 
@@ -476,11 +494,19 @@
     }
 
 
+    /**
+     * Return restore configuration
+     * @return map Map $[ "packagename" : $["vers" : "version", "files" : ["files in the archive"], "prefix" : "installprefix", "descr" : "Short description", "sel_type" : "X", "sel_file" : ["selected files to restore"] ] ], possible values for "sel_type" key are: "X" - restore all files from archive, " " - do not restore this package, "P" - partial restore, restore only selected files at "sel_file" key. Package name "" means files not owned by any package.
+     */
     global define map GetArchiveInfo() ``{
 	return archive_info;
     }
 
-
+    /**
+     * Change restore selection of package.
+     * @param pkgname Name of package
+     * @param selection New restore selection for package, map  $[ "sel_type" : "X", "sel_file" : ["files"] ]
+     */
     global define void SetRestoreSelection(string pkgname, map selection) ``{
 	if (haskey(archive_info, pkgname) == false)
 	{
@@ -488,7 +514,6 @@
 	}
 	else
 	{
-//"vers" : actualversion, "files" : [pkfiles], "prefix" : prefix, "descr", "sel_type" : "X", "sel_file" : []
 	    string sel_type = lookup(selection, "sel_type", " ");
 	    list sel_file = [];
 	    map pkginfo = lookup(archive_info, pkgname, $[]);
@@ -499,7 +524,7 @@
 	    }
 	    else if (sel_type != "X" && sel_type != " ")
 	    {
-		y2warning("Unknown selection type '%1' in package %2", sel_type, pkgname);
+		y2warning("Unknown selection type '%1' for package '%2'", sel_type, pkgname);
 	    }
 
 	    pkginfo = add(pkginfo, "sel_type", sel_type);
@@ -509,7 +534,9 @@
 	}
     }
 
-
+    /**
+     * Constructor: initialize targetpkg agent using Packages module
+     */
     global define void Restore() ``{
 	// false = no force, do not reset previous package selection
 	if (Mode::test == false)
@@ -518,6 +545,10 @@
 	}
     }
 
+    /**
+     * Return number of files which will be unpacked from archive
+     * @return integer Total selected files
+     */
     global define integer TotalFilesToRestore() ``{
 	integer total = 0;
 
@@ -630,7 +661,7 @@
 		foreach(string f, archivefiles, ``{
 			if (regexpmatch(f, "^" + name + "-........-.\\.tar.*") == true)
 			{
-			    y2milestone("package %1 is in archive file %2", package, f);
+			    y2debug("package %1 is in archive file %2", package, f);
 			    fileinarchive = f;
 			}
 		    }
@@ -642,8 +673,29 @@
 		}
 		else
 		{
-		    // unpack subarchive
-		    integer result = SCR::Execute(.target.bash, "export LC_ALL=C; /bin/tar -C " + tempdir + " -x -f " + filename + " " + fileinarchive);
+		    // unpack subarchive at background
+		    boolean started  = SCR::Execute(.background.run, "export LC_ALL=C; /bin/tar -C " + tempdir + " -x -f " + filename + " " + fileinarchive);
+
+		    // abort test cycle
+		    while(SCR::Read(.background.isrunning))
+		    {
+			sleep(100);
+
+			aborted = eval(abort);
+
+			if (aborted == true)
+			{
+			    y2warning("Restoration aborted!");
+			    SCR::Execute(.background.kill, nil);	// kill subprocess
+			    break;
+			}
+		    }
+
+		    // break all packages cycle
+		    if (aborted == true)
+		    {
+			break;
+		    }
 
 		    // set compression parameter
 		    string compress = "";
@@ -675,7 +727,7 @@
 		    }
 
 		    // start subprocess
-		    boolean started = SCR::Execute(.background.run_output, "export LC_ALL=C; /bin/tar -C " + targetdir + " " + compress + " -x -v -f " + tempdir + "/" + fileinarchive + " " + RPMdb + " " + unpackfiles + " 2> " + tempdir + "/tar.stderr");
+		    started = SCR::Execute(.background.run_output, "export LC_ALL=C; /bin/tar -C " + targetdir + " " + compress + " -x -v -f " + tempdir + "/" + fileinarchive + " " + RPMdb + " " + unpackfiles + " 2> " + tempdir + "/tar.stderr");
 
 		    while(SCR::Read(.background.output_open) || (SCR::Read(.background.newlines) > 0))
 		    {
@@ -696,18 +748,9 @@
 
 			    aborted = eval(abort);
 
-/*			    ret = UI::PollInput();
-
-			    if (ret == `cancel)
-			    {
-				ret = `abort;
-			    }
-
-			    // check if abort button was pressed
-			    if (ret == `abort && UI::AnyQuestionPopup(_("Abort confirmation"), _("Do you really want to abort restore?"), YesButtonLabel(), NoButtonLabel(), `focus_no))
-*/
 			    if (aborted == true)
 			    {
+				y2warning("Restoration aborted!");
 				SCR::Execute(.background.kill, nil);	// kill subprocess
 				break;
 			    }
@@ -726,23 +769,38 @@
 		    }
 
 		    // read failedfiles
-		    failedfiles = merge(failedfiles, splitstring(SCR::Read(.target.string, tempdir + "/tar.stderr"), "\n"));
+		    list stderr =  splitstring(SCR::Read(.target.string, /*tempdir + "/tar.stderr"*/ "/tmp/test/tar.stderr"), "\n");
+		    integer packagefailedfiles = 0;
 
-		    y2milestone("restored files: %1", restored);
+		    y2warning("stderr: %1", stderr);
+
+		    // add file names to failedfiles
+		    foreach(string line, stderr, ``{
+			    y2warning("line: %1", line);
+
+			    if (line != nil && line != "")
+			    {
+				string file = regexpsub(line, "tar: (.*):.*:.*", "\\1");
+
+				if (file != nil)
+				{
+				    add(failedfiles, file);
+				    packagefailedfiles = packagefailedfiles + 1;
+
+				    y2warning("Restoration of file %1 failed", file);
+				}
+			    }
+			}
+		    );
 
 		    // package restoration failed
-		    if (size(failedfiles) == size(restoredfiles))
+		    if (packagefailedfiles == size(restoredfiles))
 		    {
-			y2error("failed package: %1", package);
+			y2warning("failed package: %1", package);
 		    }
 		    else
 		    {
-			restoredpackages = restoredpackages  + 1;
-		    }
-
-		    if (size(failedfiles) > 0)
-		    {
-			y2error("failed files: %1", failedfiles);
+			restoredpackages = restoredpackages + 1;
 		    }
 		}
 	    }
@@ -759,11 +817,29 @@
 	    }
 	);
 
+	y2milestone("restored files: %1", restored);
 
 	return $[ "aborted" : aborted, "restored" : restoredfiles, "failed" : failedfiles ];
     }
 
 
+    /**
+     * Start lilo if requested.
+     * @return map Map $[ "lilo" : integer exit_value, "stderr" : [ "stderr lines" ] ] or $[ "lilo" : nil ] if lilo was not started
+     */
+    global define map Lilo() ``{
+	if (runlilo == true)
+	{
+	    // start lilo
+	    map ret  = SCR::Execute(.target.bash_output, "/sbin/lilo");
+	    return $[ "lilo" : lookup(ret, "exit", -1), "stderr" : splitstring(lookup(ret, "stderr", ""), "\n") ];
+	}
+	else
+	{
+	    // lilo was not used
+	    return $[ "lilo" : nil ];
+	}
+    }
 
 
 }
