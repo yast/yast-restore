@@ -53,8 +53,6 @@
     string hostname = "";
     string comment = "";
 
-    boolean multivolume = false;
-
     // list of files
     list volumeparts = [];
 
@@ -85,7 +83,7 @@
      * @return boolen True if archive have more than one part.
      */
     global define boolean IsMultiVolume() ``{
-	return multivolume;
+	return (size(volumeparts) > 0);
     }
 
     /**
@@ -356,77 +354,17 @@
 	    return true;
 	}
 
-	//parse 'input'
-	string nfsprefix = "nfs://";
-	string fileprefix = "file://";
-	string cdprefix = "cd";		// cd prefix can be "cd://" (equivalent to "cd0://"), "cd1://", "cd2://", ... number of CD identification
+	// mount source
+	map mresult = MountInput(input);
 
-	if (substring(input, 0, size(nfsprefix)) == nfsprefix)
+	if (lookup(mresult, "success", false) == false)
 	{
-	    string tail = substring(input, size(nfsprefix));
-	    integer pos = findfirstof(tail, ":");
-
-	    string nfs_server = substring(tail, 0, pos);
-	    string nfs_file = substring(tail, pos + 1);
-
-	    y2milestone("NFS source - server: %1  file: %2", nfs_server, nfs_file);
-
-	    map mountresult = mountNFS(nfs_server, nfs_file);
-
-	    if (lookup(mountresult, "mounted", false) == false)
-	    {
-		y2error("Cannot read source '%1' - mount failed", input);
-		return false;
-	    }
-	    else
-	    {
-		mountpoint = lookup(mountresult, "mountpoint", "");
-		filename = mountpoint + "/" + lookup(mountresult, "file", "");
-	    }
-	}
-	else if (substring(input, 0, size(fileprefix)) == fileprefix)
-	{
-	    filename = substring(input, size(fileprefix));
-
-	    y2milestone("FILE source: %1", filename);
-	}
-	else if (substring(input, 0, size(cdprefix)) == cdprefix)
-	{
-	    // get CD drive index
-	    string cdindex = regexpsub(input, "cd([0-9]*)://(.*)", "\\1");
-	    string cdfile = regexpsub(input, "cd([0-9]*)://(.*)", "\\2");
-
-	    if (cdindex == nil || cdindex == "")
-	    {
-		cdindex = "0";
-	    }
-
-	    if (cdfile == nil)
-	    {
-		cdfile = "";
-	    }
-
-	    y2milestone("CD source - drive: %1  file: %2", cdindex, cdfile);
-
-	    // mount CD
-	    map mountresult = mountCD(tointeger(cdindex));
-
-	    if (lookup(mountresult, "mounted", false) == false)
-	    {
-		y2error("Cannot read source '%1' - mount failed", input);
-		return false;
-	    }
-	    else
-	    {
-		mountpoint = lookup(mountresult, "mountpoint", "");
-		filename = mountpoint + "/" + cdfile;
-	    }
-	}
-	else
-	{
-	    y2error("Unknown prefix in input: %1", input);
 	    return false;
 	}
+
+	filename = lookup(mresult, "file", "");
+	mountpoint = lookup(mresult, "mpoint", "");
+
 
 	// get archive contents
 	map result = SCR::Execute(.target.bash_output, "/bin/tar -t -f " + filename);
@@ -434,43 +372,20 @@
 	// check tar exit value
 	if (lookup(result, "exit", -1) != 0)
 	{
-	    // test if archive is multi volume - use -v parameter to get file descriptions
-	    map detailresult = SCR::Execute(.target.bash_output, "/bin/tar -v -t -f " + filename);
+	    // tar failed, check whether file is first volume of multivolume archive
+	    volumeparts = [];
+	    map addresult = AddVolume(filename);
 
-	    list stdout = splitstring(lookup(detailresult, "stdout", ""), "\n");
-	    string firstline = select(stdout, 0, "");
-
-	    // check if there is first volume label
-	    if (regexpmatch(firstline, "V--------- .* YaST2 backup: Volume 1--.*--") == true)
+	    if (lookup(addresult, "success", false) == true)
 	    {
-		// multivolume archive found - continue
-		y2milestone("Found multivolume archive");
-		multivolume = true;
-
-		string tmpfile = tempdir + "/001.tar";
-
-		// copy multi volume part to temp directory
-		integer exit = SCR::Execute(.target.bash, "/bin/cp " + filename + " " + tmpfile);
-
-		if (exit == 0)
-		{
-		    // set list of volumes
-		    volumeparts = [ tmpfile ];
-
-		    // read archive info from local copy (should be faster)
-		    filename = tmpfile;
-		}
-		else
-		{
-		    y2error("Copy failed");
-		    return false;
-		}
-
+		// read archive info from local copy (should be faster)
+		filename = select(volumeparts, 0, "");
 	    }
 	    else
 	    {
 		return false;
 	    }
+
 	}
 
 	// get list of files
@@ -674,6 +589,28 @@
     }
 
     /**
+     * Return number of packages which will be restored from archive
+     * @return integer Total selected packages
+     */
+    global define integer TotalPackagesToRestore() ``{
+	integer total = 0;
+
+	// filter out unselected packages
+	foreach(string p, map info, archive_info, ``{
+		string sel_type = lookup(info, "sel_type", " ");
+
+		if (sel_type == "X" || sel_type == "P")
+		{
+		    total = total + 1;
+		}
+	    }
+	);
+
+	return total;
+    }
+
+
+    /**
      * Return number of files which will be unpacked from archive
      * @return integer Total selected files
      */
@@ -710,7 +647,6 @@
 
 	map restore = archive_info;
 	integer total = 0;
-	integer restored = 0;
 	integer restoredpackages = 0;
 	list restoredfiles = [];
 	list failedfiles = [];
@@ -760,25 +696,13 @@
 	    {
 		// update name of package
 		UI::ChangeWidget(`id(progress), `Label, label);
+		UI::ChangeWidget(`id(progress), `Value, i);
 	    }
 
 	    if (Mode::test == true)
 	    {
-		// "unpacking" in test mode
-		integer numf = (sel_type == "P") ? size(lookup(info, "sel_file", [])) : size(lookup(info, "files", []));
-
-		while (numf > 0)
-		{
-		    restored = restored + 1;
-
-		    if (progress != nil)
-		    {
-			UI::ChangeWidget(`id(progress), `Value, restored);
-		    }
-
-		    sleep(300);
-		    numf = numf - 1;
-		}
+		// delay
+		sleep(300);
 	    }
 	    else
 	    {
@@ -802,7 +726,26 @@
 		else
 		{
 		    // unpack subarchive at background
-		    boolean started  = SCR::Execute(.background.run, "export LC_ALL=C; /bin/tar -C " + tempdir + " -x -f " + filename + " " + fileinarchive);
+		    boolean started  = nil;
+
+		    if (IsMultiVolume() == true)
+		    {
+			string param = " ";
+
+			foreach(string f, volumeparts, ``{
+				param = param + "-f " + f + " ";
+			    }
+			);
+
+			string command = "export LC_ALL=C; echo q | /bin/tar -C " + tempdir + " -x -M " + param + fileinarchive + " 2> /dev/null";
+			y2debug("Running command: %1", command);
+
+			started = SCR::Execute(.background.run, command);
+		    }
+		    else
+		    {
+			started  = SCR::Execute(.background.run, "export LC_ALL=C; /bin/tar -C " + tempdir + " -x -f " + filename + " " + fileinarchive);
+		    }
 
 		    // abort test cycle
 		    while(SCR::Read(.background.isrunning))
@@ -855,48 +798,27 @@
 		    }
 
 		    // start subprocess
-		    started = SCR::Execute(.background.run_output, "export LC_ALL=C; /bin/tar -C " + targetdir + " " + compress + " -x -v -f " + tempdir + "/" + fileinarchive + " " + RPMdb + " " + unpackfiles + " 2> " + tempdir + "/tar.stderr");
+		    started = SCR::Execute(.background.run_output, "export LC_ALL=C; /bin/tar -C " + targetdir + " " + compress + " -x -v -f " + tempdir + "/" + fileinarchive + " " + RPMdb + " " + unpackfiles + " 2> " + tempdir + "/tar.stderr > " + tempdir + "/tar.stdout");
 
-		    while(SCR::Read(.background.output_open) || (SCR::Read(.background.newlines) > 0))
+		    while(SCR::Read(.background.isrunning) == true)
 		    {
-			restored = restored + SCR::Read(.background.newlines);
+			sleep(100);	// small delay
 
-			// read output from tar
-			restoredfiles = merge(restoredfiles, SCR::Read(.background.newout));
-
-			// update progressbar
-			if (progress != nil)
-			{
-			    UI::ChangeWidget(`id(progress), `Value, restored);
-			}
-
-			while (SCR::Read(.background.newlines) == 0 && SCR::Read(.background.output_open))
-			{
-			    sleep(100);	// small delay
-
-			    aborted = eval(abort);
-
-			    if (aborted == true)
-			    {
-				y2warning("Restoration aborted!");
-				SCR::Execute(.background.kill, nil);	// kill subprocess
-				break;
-			    }
-			}
+			aborted = eval(abort);
 
 			if (aborted == true)
 			{
+			    y2warning("Restoration aborted!");
+			    SCR::Execute(.background.kill, nil);	// kill subprocess
 			    break;
 			}
-
 		    }
 
-		    if (aborted == true)
-		    {
-			break;
-		    }
+		    // read restored files
+		    list stdout =  splitstring(SCR::Read(.target.string, tempdir + "/tar.stdout"), "\n");
+		    restoredfiles = merge(restoredfiles, stdout);
 
-		    // read failedfiles
+		    // read failed files
 		    list stderr =  splitstring(SCR::Read(.target.string, tempdir + "/tar.stderr"), "\n");
 		    integer packagefailedfiles = 0;
 
@@ -933,10 +855,21 @@
 		    {
 			restoredpackages = restoredpackages + 1;
 		    }
+
+		    if (aborted == true)
+		    {
+			break;
+		    }
 		}
 	    }
 
 	    i = i + 1;
+	}
+
+	if (progress != nil)
+	{
+	    // update progress to 100%
+	    UI::ChangeWidget(`id(progress), `Value, i);
 	}
 
 	// sort list of restored files and remove duplicates (caused by multiple unpacking)
@@ -948,9 +881,129 @@
 	    }
 	);
 
-	y2milestone("restored files: %1", restored);
+	return $[ "aborted" : aborted, "restored" : restoredfiles, "failed" : failedfiles, "packages" : restoredpackages ];
+    }
 
-	return $[ "aborted" : aborted, "restored" : restoredfiles, "failed" : failedfiles ];
+
+    global define map ReadNextVolume(string input) ``{
+
+	// umount mounted file system
+	Umount();
+
+	boolean ret = false;
+	boolean last = true;
+
+	// mount source
+	map mount = MountInput(input);
+
+	if (lookup(mount, "success", false) == true)
+	{
+	    mountpoint = lookup(mount, "mpoint", "");
+
+	    // add mounted file
+	    map addvol =  AddVolume(lookup(mount, "file", "dummy"));
+
+	    ret = lookup(addvol, "success", false);
+	    last = lookup(addvol, "lastvolume", true);
+	}
+
+	return $[ "success" : ret, "lastvolume" : last ];
+    }
+
+
+    define map AddVolume(string file) ``{
+
+	integer vol = size(volumeparts) + 1;
+	boolean success = false;
+
+	// check if file is next volume
+	map check = CheckVolume(file, vol);
+
+	y2debug("CheckVolume(%1, %2): %3", file, vol, check);
+
+	if (lookup(check, "success", false) == true)
+	{
+
+	    // copy file to temporary directory
+	    map copy = CopyVolume(file, vol);
+	    y2debug("CopyVolume(%1, %2): %3", file, vol, copy);
+
+	    if (lookup(copy, "success", false) == true)
+	    {
+		string partname = lookup(copy, "file", "");
+
+		volumeparts = add(volumeparts, partname);
+
+		success = true;
+	    }
+	}
+
+	return $[ "success" : success, "lastvolume" : lookup(check, "lastvolume", true) ];
+    }
+
+
+    define map CheckVolume(string filename, integer num) ``{
+	boolean success = false;
+	boolean lastvolume = true;
+
+	// test if archive is multi volume - use -v parameter to get file descriptions
+	map detailresult = SCR::Execute(.target.bash_output, "/bin/tar -v -t -f " + filename);
+
+	list stdout = splitstring(lookup(detailresult, "stdout", ""), "\n");
+	string firstline = select(stdout, 0, "");
+
+	y2debug("Test: First line: %1", firstline);
+
+	// check if first line is volume label number num
+	if (regexpmatch(firstline, sformat("V--------- .* YaST2 backup: Volume %1--.*--", num)) == true)
+	{
+	    success = true;
+	}
+
+	return $[ "success" : success, "lastvolume" : (lookup(detailresult, "exit", "") == 0) ];
+    }
+
+
+    global define boolean TestAllVolumes() ``{
+	boolean ret = false;
+
+	if (size(volumeparts) > 0)
+	{
+	    string param = "";
+
+	    foreach(string f, volumeparts, ``{
+		    param = param + "-f " + f + " ";
+		}
+	    );
+
+	    // echo 'q' to tar stdin - if error occurs tar asks for next volume, q means quit
+	    integer exit = SCR::Execute(.target.bash, "echo q | /bin/tar -t -M " + param);
+	    y2milestone("Test result: %1", exit);
+
+	    ret = (exit == 0);
+	}
+
+	return ret;
+    }
+
+
+    define map CopyVolume(string filename, integer num) ``{
+	boolean success = false;
+	string tmpfile = tempdir + "/" + sformat("%1", num) + ".tar";
+
+	// copy multi volume part to temp directory
+	integer exit = SCR::Execute(.target.bash, "/bin/cp " + filename + " " + tmpfile);
+
+	if (exit == 0)
+	{
+	    success = true;
+	}
+	else
+	{
+	    y2error("Copy failed");
+	}
+
+	return $[ "success" : success, "file" : tmpfile ];
     }
 
 
@@ -971,6 +1024,90 @@
 	    return $[ "lilo" : nil ];
 	}
     }
+
+
+    define map MountInput(string input) ``{
+
+	boolean success = false;
+	string mpoint = "";
+	string file = "";
+
+	//parse 'input'
+	string nfsprefix = "nfs://";
+	string fileprefix = "file://";
+	string cdprefix = "cd";		// cd prefix can be "cd://" (equivalent to "cd0://"), "cd1://", "cd2://", ... number of CD identification
+
+	if (substring(input, 0, size(nfsprefix)) == nfsprefix)
+	{
+	    string tail = substring(input, size(nfsprefix));
+	    integer pos = findfirstof(tail, ":");
+
+	    string nfs_server = substring(tail, 0, pos);
+	    string nfs_file = substring(tail, pos + 1);
+
+	    y2milestone("NFS source - server: %1  file: %2", nfs_server, nfs_file);
+
+	    map mountresult = mountNFS(nfs_server, nfs_file);
+
+	    if (lookup(mountresult, "mounted", false) == false)
+	    {
+		y2error("Cannot read source '%1' - NFS mount failed", input);
+	    }
+	    else
+	    {
+		mpoint = lookup(mountresult, "mpoint", "");
+		file = mpoint + "/" + lookup(mountresult, "file", "");
+		success = true;
+	    }
+	}
+	else if (substring(input, 0, size(fileprefix)) == fileprefix)
+	{
+	    file = substring(input, size(fileprefix));
+	    y2milestone("FILE source: %1", file);
+
+	    success = true;
+	}
+	else if (substring(input, 0, size(cdprefix)) == cdprefix)
+	{
+	    // get CD drive index
+	    string cdindex = regexpsub(input, "cd([0-9]*)://(.*)", "\\1");
+	    string cdfile = regexpsub(input, "cd([0-9]*)://(.*)", "\\2");
+
+	    if (cdindex == nil || cdindex == "")
+	    {
+		cdindex = "0";
+	    }
+
+	    if (cdfile == nil)
+	    {
+		cdfile = "";
+	    }
+
+	    y2milestone("CD source - drive: %1  file: %2", cdindex, cdfile);
+
+	    // mount CD
+	    map mountresult = mountCD(tointeger(cdindex));
+
+	    if (lookup(mountresult, "mounted", false) == false)
+	    {
+		y2error("Cannot read source '%1' - mount failed", input);
+	    }
+	    else
+	    {
+		mpoint = lookup(mountresult, "mpoint", "");
+		file = mpoint + "/" + cdfile;
+
+		success = true;
+	    }
+	}
+	else
+	{
+	    y2error("Unknown prefix in input: %1", input);
+	}
+
+	return $[ "success" : success, "mpoint" : mpoint, "file" : file ];
+    }
+
 
 
 
@@ -1036,9 +1173,42 @@
 	if (mountpoint != "" && mountpoint != nil)
 	{
 	    SCR::Execute(.target.umount, mountpoint);
+	    mountpoint = "";
 	}
     }
 
+
+    global define void ResetArchiveSelection() ``{
+	// clear selected archive
+	filename = "";
+	inputname = "";
+
+	// clear content of archive
+	archivefiles = [];
+
+	// clear installed packages at backup time
+	installedpkgs = $[];
+
+	// clear archive selection
+	archive_info = $[];
+
+	// clear archive info
+	date = "";
+	hostname = "";
+	comment = "";
+
+	// clear list of files
+	volumeparts = [];
+
+	Umount();
+    }
+
+    global define void ResetAll() ``{
+	ResetArchiveSelection();
+
+	// clear list of installed packages
+	actualinstalledpackages = $[];
+    }
 
 }
 

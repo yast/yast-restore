@@ -262,7 +262,7 @@ global define symbol ArchiveSelectionDialog() ``{
     {
 	// set default values
 	// TODO: remove this, use initialized values
-	file_name = "/tmp/bk.tar";
+	file_name = "/tmp/backup-new4/01_bk.tar";
 	nfs_server = "dhcp28";
 	nfs_file = "/local/backup.tar";
 	cd_file = "/bk.tar";
@@ -272,7 +272,7 @@ global define symbol ArchiveSelectionDialog() ``{
     Restore::Umount();
 
     term contents = `VBox(
-		`Frame("Backup archive",
+		`Frame(_("Backup archive"),
 			`HBox(
 			    `RadioButtonGroup(`id(`source),
 				`VBox(
@@ -342,6 +342,7 @@ global define symbol ArchiveSelectionDialog() ``{
 	    if (hosts == nil)
 	    {
 		hosts = (Mode::test == false) ? sort(SCR::Read(.net.hostnames)) :
+		    // test mode data
 		    [ "host1.local", "host2.local", "server1.local"];
 
 		if (hosts == nil)
@@ -362,6 +363,7 @@ global define symbol ArchiveSelectionDialog() ``{
 	    if (cddrives == nil)
 	    {
 		cddrives = (Mode::test == false) ? SCR::Read(.probe.cdrom) :
+		    // test mode data
 		    [ $["device" :  "Toshiba DVD-ROM SD-M1402", "dev_name" : "/dev/hdc"], $["device" :  "CD-540E", "dev_name" : "/dev/hdd"] ];
 
 		if (cddrives == nil)
@@ -437,7 +439,7 @@ global define symbol ArchiveSelectionDialog() ``{
 	    }
 	    else
 	    {
-		UI::ErrorPopup("Can not mount CD");
+		UI::ErrorPopup(_("Can not mount CD"));
 	    }
 	}
 	else if (ret == `next)
@@ -477,9 +479,28 @@ global define symbol ArchiveSelectionDialog() ``{
 		y2error("Unknown source type %1", type);
 	    }
 
+	    boolean readresult = false;
+	    boolean lastvolume = false;
+
 	    // read archive file
 	    UI::OpenDialog(`Label(_("Reading archive contents...")));
-	    boolean readresult = Restore::Read(input);
+
+	    if (Restore::IsMultiVolume() == false)
+	    {
+		readresult = Restore::Read(input);
+
+		if (Restore::IsMultiVolume() == true)
+		{
+		    UI::MessagePopup(_("Multivolume archive - ...."));
+		}
+	    }
+	    else
+	    {
+		// read next volume
+		map nextresult = Restore::ReadNextVolume(input);
+		readresult = lookup(nextresult, "success", false);
+		lastvolume = lookup(nextresult, "lastvolume", false);
+	    }
 	    UI::CloseDialog();
 
 	    if (readresult == false)
@@ -495,8 +516,83 @@ global define symbol ArchiveSelectionDialog() ``{
 
 		if (Restore::IsMultiVolume() == true)
 		{
-		    // TODO: umount source and ask for next volume
-		    // propose file name - increase number
+		    // umount source and ask for next volume
+		    Restore::Umount();
+
+		    if (lastvolume == false)
+		    {
+			// propose file name - increase number
+			symbol widget = nil;
+
+			if (type == `file)
+			{
+			    widget = `filename;
+			}
+			else if (type == `cd)
+			{
+			    widget = `cdfilename;
+			}
+			else if (type == `nfs)
+			{
+			    widget = `nfsfilename;
+			}
+			else
+			{
+			    y2warning("Unknown source type: %1", type);
+			}
+
+			if (widget != nil)
+			{
+			    string volume = UI::QueryWidget(`id(widget), `Value);
+
+			    // increase number in file name
+			    integer pos = findlastof(volume, "/");
+			    string volumedir = (pos != nil) ? substring(volume, 0, pos + 1) : "";
+			    string volumefile = (pos != nil) ? substring(volume, pos + 1) : volume;
+
+			    // ignore leading zeroes, 0xxx means octal number in tointeger() builtin
+			    integer volumenum = tointeger(regexpsub(volumefile, "0*([0-9]+)([^0-9]*)", "\\1"));
+
+			    string volumebase = regexpsub(volumefile, "([0-9]+)([^0-9]*)", "\\2");
+			    string newvolume = "";
+
+			    if (volumenum != nil)
+			    {
+				volumenum = volumenum + 1;
+				newvolume = sformat("%1", volumenum);
+
+				if (size(newvolume) == 1)
+				{
+				    newvolume = "0" + newvolume;
+				}
+
+				UI::ChangeWidget(`id(widget), `Value, volumedir + newvolume + volumebase);
+			    }
+
+			    // refresh help in wizard contents
+			    //Wizard::SetContents(_("Multi archive selection"), contents, "multi volume archive help", true, true);
+			}
+
+			ret = `dummy;
+		    }
+		    else
+		    {
+			// last volume - test all volumes together
+			boolean testall = Restore::TestAllVolumes();
+
+			y2debug("TestAllVolumes(): %1", testall);
+
+			if (testall == false)
+			{
+			    y2error("Test Restore::TestAllVolumes() failed");
+			    UI::ErrorPopup(_("Volume test failed"));
+
+			    // reset archive selection
+			    Restore::ResetArchiveSelection();
+
+			    ret = `dummy;
+			}
+		    }
 		}
 	    }
 	}
@@ -829,13 +925,11 @@ global define symbol SelectionUninstallDialog() ``{
  */
 global define symbol PackageSelectionRestoreDialog() ``{
 
-    // TODO: read this value from system
-    boolean profi = true;
+    // read product info
+    boolean personal = false;  // TODO FIXME Product::personal;
 
     // in personal version is button = `Empty() and help text will be shorter
-    term button = (profi) ? `PushButton(`id(`files), _("S&elect files")) : `Empty();
-
-    string help_profi = "To select files which will be restored from archive press <B>Select files</B> button.";
+    term button = (!personal) ? `PushButton(`id(`files), _("S&elect files")) : `Empty();
 
     list tablecontents = CreateTableContentsRestoreSelection(Restore::GetArchiveInfo());
     integer position = 0;
@@ -864,8 +958,14 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::SetContents(_("Packages to restore"),
-	contents, "X = Restore all files from backup, P = Partiall restore of manually selected files", true, true);
+    string helptext = _("X = Restore all files from backup, P = Partiall restore of manually selected files");
+
+    if (!personal)
+    {
+	helptext = helptext + _("<BR>To select files which will be restored from archive press <B>Select files</B> button.");
+    }
+
+    Wizard::SetContents(_("Packages to restore"), contents, helptext, true, true);
 
     // set currnet item in the table
     if (size(tablecontents) > 0)
@@ -1246,7 +1346,7 @@ global define symbol RestoreProgressDialog() ``{
 	    `HSpacing(2),
 	    `VBox(
 		`VSpacing(1),
-		`ProgressBar(`id(progressbar), " ", Restore::TotalFilesToRestore(), 0),
+		`ProgressBar(`id(progressbar), " ", Restore::TotalPackagesToRestore(), 0),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -1357,7 +1457,7 @@ global define symbol SummaryDialog() ``{
     }
 
     // set lilo result string
-    string lilostr = _("<I>Not started</I>");
+    string lilostr = "<I>" + _("Not started") + "</I>";
 
     if (lilostatus == true)
     {
@@ -1365,7 +1465,7 @@ global define symbol SummaryDialog() ``{
     }
     else if (lilostatus == false)
     {
-	lilostr = _("<B>Failed<B>");
+	lilostr = "<B>" + _("Failed") + "</B>";
     }
 
 
