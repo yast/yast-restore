@@ -1,0 +1,637 @@
+/**
+ * File:
+ *   include/restore/ui.ycp
+ *
+ * Package:
+ *   Restore module
+ *
+ * Summary:
+ *   User interface functions.
+ *
+ * Authors:
+ *   Ladislav Slezak <lslezak@suse.cz>
+ *
+ * $Id$
+ *
+ * All user interface functions.
+ *
+ */
+
+{
+
+textdomain "restore";
+
+import "Wizard";
+import "Wizard_hw";
+import "Progress";
+import "Restore";
+
+include "ui/common_popups.ycp";
+include "ui/common_messages.ycp";
+include "ui/file_popups.ycp";
+include "wizard/sequencer.ycp";
+
+include "restore/helps.ycp";
+
+
+global string restorepackagename = "";
+global map restoreselectedfiles = $[];
+
+/**
+ * Whole configuration of restore
+ * @return any Returned value from WizardSequencer() call
+ */
+global define any RestoreSequence () ``{
+    map aliases =
+	$[
+	    "archive"	:   ``( ArchiveSelectionDialog() ),
+	    "property"	:   ``( ArchivePropertyDialog() ),
+	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
+	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
+	    "install"	:   ``( SelectionInstallDialog() ),
+	    "uninstall"	:   ``( SelectionUninstallDialog() ),
+	    "sw_single"	:   ``( SWsingleDialog() ),
+	    "select"	:   ``( PackageSelectionRestoreDialog() ),
+	    "selectfile": [ ``( FileSelectionDialog(restorepackagename, restoreselectedfiles) ), true ],
+	    "restore"	: [ ``( RestoreProgressDialog() ), true ],
+	    "SuSEconfig": [ ``( SuSEconfigDialog() ), true ],
+	    "summary"	:   ``( SummaryDialog() ),
+	];
+
+    map sequence = $[
+	"ws_start" : "archive",
+	"archive" :
+	$[
+	    `options	: "options",
+	    `next	: "property",
+	    `abort	: `abort
+	],
+	"property" :
+	$[
+	    `details	: "contents",
+	    `next	: "install",
+	    `abort	: `abort
+	],
+	"contents" :
+	$[
+	    `next	: "property",
+	    `abort	: `abort
+	],
+	"options" :
+	$[
+	    `next	: "archive",
+	    `abort	: `abort
+	],
+	"install" :
+	$[
+	    `next	: "uninstall",
+	    `abort	: `abort
+	],
+	"uninstall" :
+	$[
+	    `next	: "sw_single",
+	    `abort	: `abort
+	],
+	"sw_single" :
+	$[
+	    `next	: "select",
+	    `abort	: `abort
+	],
+	"select" :
+	$[
+	    `files	: "selectfile",
+	    `abort	: `abort,
+	    `next	: "restore"
+	],
+	"restore" :
+	$[
+	    `next	: "SuSEconfig",
+	    `abort	: `abort
+	],
+	"SuSEconfig" :
+	$[
+	    `next	: "summary",
+	    `abort	: `abort
+	],
+	"selectfile" :
+	$[
+	    `next	: "select",
+	    `abort	: `abort
+	],
+	"summary" :
+	$[
+	    `abort	: `abort,
+	    `next	: `next
+	]
+    ];
+
+    string caption = _("Restore configuration");
+    term contents = `Label (_("Initializing ..."));
+
+    Wizard::CreateDialog ();
+    Wizard::SetContentsButtons ( caption,
+				contents,
+				"",
+				BackButtonLabel (),
+				NextButtonLabel ());
+
+    any ret = WizardSequencer (aliases, sequence);
+
+    UI::CloseDialog ();
+    return ret;
+}
+
+/**
+ * Whole configuration of restore but without reading and writing.
+ * For use with autoinstallation.
+ * @return any Returned value from WizardSequencer() call
+ */
+global define any RestoreAutoSequence () ``{
+    string caption = _("Restore configuration");
+    term contents = `Label (_("Initializing ..."));
+
+    Wizard::CreateDialog ();
+    Wizard::SetContentsButtons ( caption,
+				contents,
+				"",
+				BackButtonLabel (),
+				NextButtonLabel ());
+
+    // Run the main configuration workflow
+    any ret = MainSequence ();
+
+    UI::CloseDialog ();
+    return ret;
+}
+
+
+
+
+global define symbol ArchiveSelectionDialog() ``{
+
+    term contents = `HBox(
+	    `HSpacing(2),
+	    `VBox(
+		`HBox(
+		    `TextEntry(`id(`filename), _("Archive file na&me:"), "/tmp/backup.tar"),
+		    `HSpacing(2),
+		    `PushButton(`id(`file), _("&Select file"))
+		),
+		`VSpacing(2),
+		`PushButton(`id(`options), _("R&estore options...")),
+		`VSpacing(1.5)
+	    ),
+	    `HSpacing(2)
+	);
+
+    Wizard::SetContents(_("Archive selection"),
+	contents, "help", true, true);
+
+    symbol ret = nil;
+
+    do
+    {
+	ret = UI::UserInput();
+
+	if (ret == `file)
+	{
+	    string file = PopupFile("/tmp/backup.tar");
+
+	    /* TODO: check file name */
+
+	    UI::ChangeWidget(`id(`filename), `Value, file);
+	}
+    }
+    while(ret != `next && ret != `abort && ret != `back && ret != `options);
+
+    if (ret == `cancel)
+    {
+	ret = `abort;
+    }
+
+    // TODO: install read archive contents
+
+//    Restore::ReadArchiveFile(UI::QueryWidget(`id(`filename), `Value));
+
+//   Restore::ReadArchiveFile("/tmp/backup.tar");
+
+//    y2milestone("Archive contents: %1", Restore::GetArchiveContents());
+
+    return ret;
+}
+
+
+
+global define symbol ArchivePropertyDialog() ``{
+
+    term contents = `HBox(
+	    `HSpacing(2),
+	    `VBox(
+		`VSpacing(1),
+		`Left(`HBox(`Label(`id(`flabel), _("Archive file name:")), `HSpacing(2), `Label(`id(`flabel2), "/tmp/backup.tar"))),
+		`VSpacing(0.5),
+		`Left(`HBox(`Label(`id(`dlabel), _("Date of backup:")), `HSpacing(2), `Label(`id(`dlabel2), "02.05.2002  18:08"))),
+		`VSpacing(0.5),
+		`Left(`HBox(`Label(`id(`hlabel), _("Backup host name:")), `HSpacing(2), `Label(`id(`hlabel2), "linux.local"))),
+		`VSpacing(1.0),
+		`MultiLineEdit(`id(`description), `opt(`disabled), _("Archive &description:"), "Backup archive created before root partition resize"),
+		`VSpacing(1.0),
+		`PushButton(`id(`details), _("&Show archive contents...")),
+		`VSpacing(2)
+	    ),
+	    `HSpacing(2)
+	);
+
+    Wizard::SetContents(_("Archive properties"),
+	contents, "help", true, true);
+
+    symbol ret = nil;
+
+    do
+    {
+	ret = UI::UserInput();
+
+    }
+    while(ret != `next && ret != `abort && ret != `back && ret != `details);
+
+    if (ret == `cancel)
+    {
+	ret = `abort;
+    }
+
+    return ret;
+}
+
+
+global define symbol SelectionInstallDialog() ``{
+
+    // LATER: if all packages are installed return `next (or `back)
+
+    term contents = `HBox(
+	    `HSpacing(2),
+	    `VBox(
+		`VSpacing(1),
+		`MultiSelectionBox(`id(`pkg), _("&Packages which will be installed"),  [ `item(`id(1), "aaa_base-2.4.1-45", true),
+		    `item(`id(2), "yast2-base-2.6.2-32", true), `item(`id(3), "sysconfig-base-2.6.1-2", true)
+		]),
+		`VSpacing(1),
+		`HBox(
+		    `PushButton(`id(`all), "&Select all"),
+		    `PushButton(`id(`none), "&Deselect all")
+		),
+
+/*		`VSpacing(0.2),
+		`CheckBox(`id(`all), "Display all packages"),
+		`VSpacing(0.2),
+		`HBox(`PushButton(`id(`select), "&Select package"), `PushButton(`id(`deselect), "&Deselect package"), `PushButton(`id(`files), _("&File selection"))),*/
+
+		`VSpacing(1.5)
+	    ),
+	    `HSpacing(2)
+	);
+
+    Wizard::SetContents(_("Package restoration - installation"), contents, "help", true, true);
+
+    symbol ret = nil;
+
+    do
+    {
+	ret = UI::UserInput();
+    }
+    while(ret != `next && ret != `abort && ret != `back);
+
+    if (ret == `cancel)
+    {
+	ret = `abort;
+    }
+
+    // TODO: warn if some packages are not available on CDs and display path selection dialog to packages
+    // LATER: allow to select package from backup archive (YOU stores packages to /var/... and they can be used)
+
+    return ret;
+}
+
+
+global define symbol SelectionUninstallDialog() ``{
+
+//    CallModule("sw_single", ["./test"]);
+
+    // LATER: if no extra package is installed return `next (or `back)
+
+    term contents = `HBox(
+	    `HSpacing(2),
+	    `VBox(
+		`VSpacing(1),
+		`MultiSelectionBox(`id(`pkg), _("&Packages which will be uninstalled"),  [ `item(`id(1), "abcd-2.4.1-45", true),
+		    `item(`id(2), "tools-4.2-3", true)
+		]),
+		`VSpacing(1),
+		`HBox(
+		    `PushButton(`id(`all), "&Select all"),
+		    `PushButton(`id(`none), "&Deselect all")
+		),
+		`VSpacing(1.5)
+	    ),
+	    `HSpacing(2)
+	);
+
+    Wizard::SetContents(_("Package restoration - uninstallation"), contents, "help", true, true);
+
+    symbol ret = nil;
+
+    do
+    {
+	ret = UI::UserInput();
+    }
+    while(ret != `next && ret != `abort && ret != `back);
+
+    if (ret == `cancel)
+    {
+	ret = `abort;
+    }
+
+    // TODO: uninstall selected packages
+
+    return ret;
+}
+
+global define symbol PackageSelectionRestoreDialog() ``{
+
+    term contents = `HBox(
+	    `HSpacing(2),
+	    `VBox(
+		`VSpacing(1),
+		`Table(`id(`pkgtable),`opt(`notify), `header(" ", _("Files"), _("Package"), _("Description")), [ `item(`id(1), "X", "all", "aaa_base-2.4.1-45", "Basic package"),
+		    `item(`id(2), "P", "2 of 3", "yast2-base-2.6.2-32", "Yast basic package"), `item(`id(3), "", "", "sysconfig-base-2.6.1-2", "System configuration files")
+		]),
+		`VSpacing(0.2),
+		`HBox(`PushButton(`id(`select), _("&Select package")), `PushButton(`id(`deselect), _("&Deselect package")), `PushButton(`id(`files), _("S&elect files"))),
+//		`VSpacing(0.2),
+//		`PushButton(`id(`options), _("Restore &options...")),
+		`VSpacing(1.5)
+	    ),
+	    `HSpacing(2)
+	);
+
+    Wizard::SetContents(_("Packages to restore"),
+	contents, "X = Restore all files from backup, P = Partiall restore of manually selected files", true, true);
+
+    // TODO: display warning if some packages are not installed
+
+    symbol ret = nil;
+
+    do
+    {
+	ret = UI::UserInput();
+    }
+    while(ret != `next && ret != `abort && ret != `back && ret != `files);
+
+    if (ret == `cancel)
+    {
+	ret = `abort;
+    }
+
+    return ret;
+}
+
+
+global define symbol RestoreOptionsDialog() ``{
+
+    term contents = `HBox(
+	    `HSpacing(2),
+	    `VBox(
+		`VSpacing(1),
+		`Left(`CheckBox(`id(`lilo), _("Run &lilo after restoration"), true)),
+		`VSpacing(0.2),
+		`Left(`CheckBox(`id(`susecfg), _("Run &SuSEconfig after restoration"), true)),
+		`VSpacing(0.2),
+		`Left(`CheckBox(`id(`rpmdb), _("Rewrite RPM &database"), false)),
+		`VSpacing(1.5)
+	    ),
+	    `HSpacing(2)
+	);
+
+    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
+
+    Wizard::SetContents(_("Restore options"), contents, "help", true, true);
+
+    symbol ret = nil;
+
+    do
+    {
+	ret = UI::UserInput();
+    }
+    while(ret != `next && ret != `abort && ret != `back);
+
+    if (ret == `cancel)
+    {
+	ret = `abort;
+    }
+
+    Wizard::RestoreNextButton();
+
+    return ret;
+}
+
+
+global define symbol FileSelectionDialog(string packagename, map files) ``{
+
+    term contents = `HBox(
+	    `HSpacing(2),
+	    `VBox(
+		`VSpacing(1),
+		`MultiSelectionBox(`id(`pkg), _("&Files"),  [ `item(`id(1), "/usr/blah/blah.cfg", true),
+		    `item(`id(2), "/etc/sysconfig/qwerty", true)
+		]),
+		`VSpacing(1),
+		`HBox(
+		    `PushButton(`id(`all), "&Select all"),
+		    `PushButton(`id(`none), "&Deselect all")
+		),
+		`VSpacing(1.5)
+	    ),
+	    `HSpacing(2)
+	);
+
+    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
+
+    Wizard::SetContents(_("File selection - package aaa_base"), contents, "help", true, true);
+
+    symbol ret = nil;
+
+    do
+    {
+	ret = UI::UserInput();
+    }
+    while(ret != `next && ret != `abort && ret != `back);
+
+    if (ret == `cancel)
+    {
+	ret = `abort;
+    }
+
+    Wizard::RestoreNextButton();
+
+    return ret;
+}
+
+
+global define symbol ArchiveContentsDialog() ``{
+
+    term contents = `HBox(
+	    `HSpacing(2),
+	    `VBox(
+		`VSpacing(1),
+
+		`Table(`id(`table), `header(_("File"), _("Package")), [ `item(`id(1), "/dsf/fsdfsdf", "aaa_base-2.4.1-45"), `item(`id(2), "/qert/ret/erqt", "aaa_base-2.4.1-45"),
+		    `item(`id(3),  "/adfg/dafg/hg", "yast2-base-2.6.2-32"), `item(`id(4), "/gfh/sg/gsfh/gh", "sysconfig-base-2.6.1-2")
+		]),
+		`VSpacing(1.5)
+	    ),
+	    `HSpacing(2)
+	);
+
+    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
+
+    Wizard::SetContents(_("Package selection"), contents, "help", true, true);
+
+    symbol ret = nil;
+
+    do
+    {
+	ret = UI::UserInput();
+    }
+    while(ret != `next && ret != `abort && ret != `back);
+
+    if (ret == `cancel)
+    {
+	ret = `abort;
+    }
+
+    Wizard::RestoreNextButton();
+
+    return ret;
+}
+
+global define symbol RestoreProgressDialog() ``{
+
+    term contents = `HBox(
+	    `HSpacing(2),
+	    `VBox(
+		`VSpacing(1),
+		`ProgressBar(`id(`pb), _("Restoring package aaa_base ..."), 42, 17),
+		`VSpacing(1.5)
+	    ),
+	    `HSpacing(2)
+	);
+
+    Wizard::SetContents(_("Restoring files"), contents, "help", true, true);
+
+    symbol ret = nil;
+
+    do
+    {
+	ret = UI::UserInput();
+    }
+    while(ret != `next && ret != `abort && ret != `back);
+
+    if (ret == `cancel)
+    {
+	ret = `abort;
+    }
+
+    return ret;
+}
+
+global define symbol SWsingleDialog() ``{
+
+/*    y2milestone("sw_single result: %1", CallModule("sw_single", ["beginner"]));
+    CallModule("inst_suseconfig", []);*/
+
+
+    term contents = `Label(_("Here will be sw_single dialog displayed and (un)installed packages."));
+
+    Wizard::SetContents(_(""), contents, "", true, true);
+
+    symbol ret = nil;
+
+    do
+    {
+	ret = UI::UserInput();
+    }
+    while(ret != `next && ret != `abort && ret != `back);
+
+    if (ret == `cancel)
+    {
+	ret = `abort;
+    }
+
+    return ret;
+
+//    return `next;
+}
+
+
+global define symbol SuSEconfigDialog() ``{
+
+    term contents = `Label(_("Here will be SuSEconfig started (optionally)."));
+
+    Wizard::SetContents(_(""), contents, "", true, true);
+
+    symbol ret = nil;
+
+    do
+    {
+	ret = UI::UserInput();
+    }
+    while(ret != `next && ret != `abort && ret != `back);
+
+    if (ret == `cancel)
+    {
+	ret = `abort;
+    }
+
+    return ret;
+}
+
+
+global define symbol SummaryDialog() ``{
+
+    term contents = `VBox(
+	    `VSpacing(0.5),
+	    `RichText("<P>Total restored packages: 34<BR>Total restored files: 228</P><P>Number of installed packages: 3<BR>Number of uninstalled packages: 0</P><P>Restore status: Ok</P>"),
+	    `VSpacing(0.5),
+	    `PushButton(`id(`details), _("&Details...")),
+	    `VSpacing(1.0)
+	);
+
+    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), FinishButtonLabel()));
+
+    Wizard::SetContents(_("Summary of restoration"), contents, "help", true, true);
+
+    symbol ret = nil;
+
+    do
+    {
+	ret = UI::UserInput();
+
+	if (ret == `details)
+	{
+	    UI::LongTextPopup(_("Restore details:"), `RichText("<P>Lilo return status: Ok</P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>Restored files:</B><BR>/sdfsdf/sdf<BR>/sdf/sdf/sdf<BR></P>"), 70, 15);
+	}
+    }
+    while(ret != `next && ret != `abort && ret != `back);
+
+    if (ret == `cancel)
+    {
+	ret = `abort;
+    }
+
+    Wizard::RestoreNextButton();
+
+    return ret;
+}
+
+
+}
+

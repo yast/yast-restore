@@ -1,0 +1,54 @@
+/**
+ * File:
+ *   clients/restore.ycp
+ *
+ * Package:
+ *   Restore module
+ *
+ * Summary:
+ *   Main file
+ *
+ * Authors:
+ *   Ladislav Slezak <lslezak@suse.cz>
+ *
+ * $Id$
+ *
+ * Main file for restore configuration. Uses all other files.
+ *
+ */
+
+{
+    /***
+     * <h3>Configuration of the restore</h3>
+     */
+
+    textdomain "restore";
+
+    include "restore/ui.ycp";
+
+    /* The main () */
+    y2milestone ("Restore module started");
+    y2milestone ("----------------------------------------");
+
+    /**
+     * Should we suppress Read() and Write()? It is necessary in proposals...
+     */
+    boolean no_io = false;
+
+    foreach (`arg, Args(), ``{
+	    if (arg == .noio)
+	    {
+		no_io = true;
+	    }
+	}
+    );
+
+
+    /* main ui function */
+    any ret = (no_io) ? RestoreAutoSequence () : RestoreSequence ();
+    y2debug ("ret == %1", ret);
+
+    /* Finish */
+    y2milestone ("Restore module finished");
+    return ret;
+}
