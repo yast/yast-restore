@@ -228,6 +228,8 @@ define string ComboToDevice(string selected, map dev) ``{
  */
 define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, string input) ``{
 
+    y2debug("input: %1", input);
+
     // cache removable devices
     if (removabledevices == nil)
     {
@@ -466,121 +468,185 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 	    }
 	    else if (type == `file)
 	    {
-		input = "file://" + (string) UI::QueryWidget(`id(`filename), `Value);
+		string fname = (string) UI::QueryWidget(`id(`filename), `Value);
+
+		if (fname == "")
+		{
+		    // error message - file name is missing
+		    Popup::Error(_("Enter valid file name."));
+		    input = "";
+		}
+		else
+		{
+		    input = "file://" + fname;
+		}
 	    }
 	    else if (type == `nfs)
 	    {
 		string server = (string) UI::QueryWidget(`id(`nfsserver), `Value);
 		string file = (string) UI::QueryWidget(`id(`nfsfilename), `Value);
 
-		input = "nfs://" + server + ":" + file;
+		if (server == "" || file == "")
+		{
+		    // error message - file or server name is missing
+		    Popup::Error(_("Enter valid server and file name."));
+		    input = "";
+		}
+		else
+		{
+		    input = "nfs://" + server + ":" + file;
+		}
 	    }
 	    else if (type == `removable)
 	    {
 		string selected = (string) UI::QueryWidget(`id(`device), `Value);
 		string device = ComboToDevice(selected, removabledevices);
+		string fname = (string) UI::QueryWidget(`id(`remfilename), `Value);
 
 		y2milestone("Selected removable device: %1", device);
 
-		input = device + (string) UI::QueryWidget(`id(`remfilename), `Value);
+		if (device == "" || fname == "")
+		{
+		    // error message - file or device name is missing
+		    Popup::Error(_("Enter valid device and file name."));
+		    input = "";
+		}
+		else
+		{
+		    input = device + fname;
+		}
 	    }
 	    else
 	    {
 		y2error("Unknown source type %1", type);
 	    }
 
-	    boolean readresult = false;
-	    boolean lastvolume = false;
-
-	    // progress message
-	    UI::OpenDialog(`Label(_("Reading archive contents...")));
-
-	    y2debug("Restore::IsMultiVolume(): %1", Restore::IsMultiVolume());
-
-	    if (Restore::IsMultiVolume() == false)
+	    if (input != "")
 	    {
-		readresult = Restore::Read(input);
-	    }
-	    else
-	    {
-		// read next volume
-		map nextresult = Restore::ReadNextVolume(input);
-		readresult = nextresult["success"]:false;
-		lastvolume = nextresult["lastvolume"]:false;
-	    }
+		boolean configure = true;
 
-	    UI::CloseDialog();
-
-	    if (readresult == false)
-	    {
-		// error message - %1 is archive file name
-		Popup::Error(sformat(_("Cannot read backup archive file '%1'."), input));
-		Restore::Umount();
-		ret = `dummy;
-	    }
-	    else
-	    {
-		restoredfiles = [];
-		failedfiles = [];
-
-		if (Restore::IsMultiVolume() == true && askformore == true)
+		if (Mode::config)
 		{
-		    // umount source and ask for next volume
-		    Restore::Umount();
+		    // popup question
+		    boolean answer = Popup::YesNo(_("Detailed configuration requires reading of the archive.\nIf archive is not read full restoration will be configured.\n\nDo you want to read selected archive?"));
 
-		    if (lastvolume == false)
+		    configure = answer;
+		    Restore::completerestoration = !answer;
+		    y2debug("completerestoration: %1", Restore::completerestoration);
+
+		    if (!configure)
 		    {
-			if (multivolume == true)
-			{
-			    symbol widget = nil;
+			Restore::runbootloader = true;
+			Restore::runSuSEconfig = true;
+			Restore::restoreRPMdb = true;
+			Restore::inputname = input;
+		    }
+		}
 
-			    if (type == `file)
-			    {
-				widget = `filename;
-			    }
-			    else if (type == `removable)
-			    {
-				widget = `remfilename;
-			    }
-			    else if (type == `nfs)
-			    {
-				widget = `nfsfilename;
-			    }
-			    else
-			    {
-				y2warning("Unknown source type: %1", type);
-			    }
+		if (configure)
+		{
+		    boolean readresult = false;
+		    boolean lastvolume = false;
 
-			    string fn = (string) UI::QueryWidget(`id(widget), `Value);
-			    string prop = ProposeNextVolume(fn);
+		    // progress message
+		    UI::OpenDialog(`Label(_("Reading archive contents...")));
 
-			    if (prop != "")
-			    {
-				UI::ChangeWidget(`id(widget), `Value, prop);
-			    }
+		    y2debug("Restore::IsMultiVolume(): %1", Restore::IsMultiVolume());
 
-			    ret = `dummy;
-			}
+		    if (Restore::IsMultiVolume() == false)
+		    {
+			readresult = Restore::Read(input);
 		    }
 		    else
 		    {
-			// last volume - test all volumes together
-			boolean testall = Restore::TestAllVolumes();
+			// read next volume
+			map nextresult = Restore::ReadNextVolume(input);
+			readresult = nextresult["success"]:false;
+			lastvolume = nextresult["lastvolume"]:false;
+		    }
 
-			y2debug("TestAllVolumes(): %1", testall);
+		    UI::CloseDialog();
 
-			if (testall == false)
+		    if (readresult == false)
+		    {
+			// error message - %1 is archive file name
+			Popup::Error(sformat(_("Cannot read backup archive file '%1'."), input));
+			Restore::Umount();
+			ret = `dummy;
+		    }
+		    else
+		    {
+			restoredfiles = [];
+			failedfiles = [];
+
+			if (Restore::IsMultiVolume() == true && askformore == true)
 			{
-			    y2error("Test Restore::TestAllVolumes() failed");
-			    // error message - multi volume archive consistency check failed
-			    Popup::Error(_("Test of all volumes failed.
-An archive file is probably corrupted.
-"));
+			    // umount source and ask for next volume
+			    Restore::Umount();
 
-			    ret = `back;
+			    if (lastvolume == false)
+			    {
+				if (multivolume == true)
+				{
+				    symbol widget = nil;
+
+				    if (type == `file)
+				    {
+					widget = `filename;
+				    }
+				    else if (type == `removable)
+				    {
+					widget = `remfilename;
+				    }
+				    else if (type == `nfs)
+				    {
+					widget = `nfsfilename;
+				    }
+				    else
+				    {
+					y2warning("Unknown source type: %1", type);
+				    }
+
+				    string fn = (string) UI::QueryWidget(`id(widget), `Value);
+				    string prop = ProposeNextVolume(fn);
+
+				    if (prop != "")
+				    {
+					UI::ChangeWidget(`id(widget), `Value, prop);
+				    }
+
+				    ret = `dummy;
+				}
+			    }
+			    else
+			    {
+				// last volume - test all volumes together
+				boolean testall = Restore::TestAllVolumes();
+
+				y2debug("TestAllVolumes(): %1", testall);
+
+				if (testall == false)
+				{
+				    y2error("Test Restore::TestAllVolumes() failed");
+				    // error message - multi volume archive consistency check failed
+				    Popup::Error(_("Test of all volumes failed.
+	An archive file is probably corrupted.
+	"));
+
+				    ret = `back;
+				}
+			    }
 			}
 		    }
 		}
+		else
+		{
+		    ret = `noconfig;
+		}
+	    }
+	    else
+	    {
+		ret = `dummy;
 	    }
 	}
 	else if (ret == `cancel)
@@ -588,7 +654,7 @@ An archive file is probably corrupted.
 	    ret = `abort;
 	}
     }
-    while (ret != `next && ret != `abort && ret != `back && ret != `multi);
+    while (ret != `next && ret != `abort && ret != `back && ret != `multi && ret != `noconfig);
 
     return (symbol) ret;
 }
@@ -1857,6 +1923,7 @@ define symbol RestoreSequence () ``{
 	"archive" :
 	$[
 	    `next	: "property",
+	    `noconfig	: "atexit",
 	    `abort	: "atexit"
 	],
 	"marchive" :
@@ -1962,6 +2029,7 @@ define any RestoreAutoSequence() ``{
 	"archive" :
 	$[
 	    `next	: "property",
+	    `noconfig	: "atexit",
 	    `abort	: `abort
 	],
 	"marchive" :

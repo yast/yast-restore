@@ -41,6 +41,8 @@
     // entered file name (e.g. nfs://server:/dir/archive.tar)
     global string inputname = "";
 
+    global boolean completerestoration = false;
+
     // list of volumes in URL-like syntax
     list inputvolumes = [];
 
@@ -1074,6 +1076,7 @@ It was probably not created by the backup module.
 	runbootloader = settings["runbootloader"]:true;
 	runSuSEconfig = settings["runSuSEconfig"]:true;
 	restoreRPMdb = settings["restoreRPMdb"]:false;
+	completerestoration = settings["completerestoration"]:false;
 
 	list archiveslist = settings["archives"]:[];
 	// read archives
@@ -1152,6 +1155,7 @@ It was probably not created by the backup module.
 	    "runbootloader"		: runbootloader,
 	    "runSuSEconfig"	: runSuSEconfig,
 	    "restoreRPMdb"	: restoreRPMdb,
+	    "completerestoration" : completerestoration,
 	    "selection"		: selection
 	];
     }
@@ -1289,12 +1293,14 @@ It was probably not created by the backup module.
 	if (out != 0)
 	{
 	    // error message
-	    Report::Error(sformat(_("Cannot create target dircetory %1"), targetdir));
+	    Report::Error(sformat(_("Cannot create target directory %1"), targetdir));
 	}
 
 	// filter out unselected packages and compute total restored files
 	restore = filter(string p, map info, restore, ``{
 		string sel_type = info["sel_type"]:" ";
+
+		if (completerestoration) sel_type = "X";
 
 		if (sel_type == "X")
 		{
@@ -1877,9 +1883,15 @@ Press OK to exit.
 		+ RemoveShortCut(_("Run &SuSEconfig after restoration")) + ":  " + yesno(runSuSEconfig) + "<BR>"
 		+ RemoveShortCut(_("Restore RPM &database (if present in archive)")) + ":  " + yesno(restoreRPMdb) + "<BR></P>";
 
+	    // summary text heading
 	    string selection_info = "<P><B>" + _("Packages to restore") + "</B></P><P>";
 
-	    if (archive_info != nil)
+	    if (completerestoration)
+	    {
+		// part of the summary text
+		selection_info = selection_info + _("<I>Restore all files from the archive</I>");
+	    }
+	    else if (archive_info != nil)
 	    {
 		foreach(string p, map info, archive_info, ``{
 			if (p == "")
