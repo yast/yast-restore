@@ -12,7 +12,7 @@
  *   Ladislav Slezak <lslezak@suse.cz>
  *
  * $Id$
- *
+
  * Representation of the configuration of restore.
  * Input and output routines.
  *
@@ -70,6 +70,9 @@
 
     // temporary directory
     string tempdir = "";
+
+    // restore files to the selected directory
+    global string targetDirectory = "/";
 
     // mount point, stored for unmounting
     string mountpoint = "";
@@ -279,7 +282,7 @@
 	foreach(string p, string v, actualinstalledpackages, ``{
 		if (haskey(installedpkgs, p) == true)
 		{
-		    string backupversion = lookup(installedpkgs, p, "");
+		    string backupversion = (string)(installedpkgs[p]:"");
 
 		    if (backupversion != v)
 		    {
@@ -307,7 +310,7 @@
 	{
 	    // filter out unselected packages
 	    ret = filter(string p, map info, archive_info, ``{
-		    string sel_type = lookup(info, "sel_type", " ");
+		    string sel_type = (string)(info["sel_type"]:" ");
 
 		    if (sel_type == "X" || sel_type == "P")
 		    {
@@ -517,14 +520,14 @@
 
 	    map mountresult = mountNFS(nfs_server, nfs_file);
 
-	    if (lookup(mountresult, "mounted", false) == false)
+	    if (mountresult["mounted"]:false == false)
 	    {
 		y2error("Cannot read source '%1' - NFS mount failed", input);
 	    }
 	    else
 	    {
-		mpoint = lookup(mountresult, "mountpoint", "");
-		file = mpoint + "/" + lookup(mountresult, "file", "");
+		mpoint = mountresult["mountpoint"]:"";
+		file = mpoint + "/" + mountresult["file"]:"";
 		success = true;
 
 		y2milestone("mpoint: %1", mpoint);
@@ -543,13 +546,13 @@
 
 	    map mountresult = mountDevice(device);
 
-	    if (lookup(mountresult, "mounted", false) == false)
+	    if (mountresult["mounted"]:false == false)
 	    {
 		y2error("Cannot read source '%1' - device mount failed", input);
 	    }
 	    else
 	    {
-		mpoint = lookup(mountresult, "mpoint", "");
+		mpoint = mountresult["mpoint"]:"";
 		file = mpoint + "/" + devfile;
 		success = true;
 	    }
@@ -582,13 +585,13 @@
 	    // mount CD
 	    map mountresult = mountCD(tointeger(cdindex));
 
-	    if (lookup(mountresult, "mounted", false) == false)
+	    if (mountresult["mounted"]:false == false)
 	    {
 		y2error("Cannot read source '%1' - mount failed", input);
 	    }
 	    else
 	    {
-		mpoint = lookup(mountresult, "mpoint", "");
+		mpoint = mountresult["mpoint"]:"";
 		file = mpoint + "/" + cdfile;
 		success = true;
 	    }
@@ -614,13 +617,13 @@
 	    // mount floppy
 	    map mountresult = mountFloppy(tointeger(fdindex));
 
-	    if (lookup(mountresult, "mounted", false) == false)
+	    if (mountresult["mounted"]:false == false)
 	    {
 		y2error("Cannot read source '%1' - mount failed", input);
 	    }
 	    else
 	    {
-		mpoint = lookup(mountresult, "mpoint", "");
+		mpoint = mountresult["mpoint"]:"";
 		file = mpoint + "/" + fdfile;
 		success = true;
 	    }
@@ -706,16 +709,16 @@
 
 	y2debug("CheckVolume(%1, %2): %3", file, vol, check);
 
-	if (lookup(check, "success", false) == true)
+	if (check["success"]:false == true)
 	{
 
 	    // copy file to temporary directory
 	    map copy = CopyVolume(file, vol);
 	    y2debug("CopyVolume(%1, %2): %3", file, vol, copy);
 
-	    if (lookup(copy, "success", false) == true)
+	    if (copy["success"]:false == true)
 	    {
-		string partname = lookup(copy, "file", "");
+		string partname = copy["file"]:"";
 
 		volumeparts = add(volumeparts, partname);
 
@@ -723,7 +726,7 @@
 	    }
 	}
 
-	return $[ "success" : success, "lastvolume" : lookup(check, "lastvolume", true) ];
+	return $[ "success" : success, "lastvolume" : check["lastvolume"]:true ];
     }
 
     /**
@@ -743,13 +746,13 @@
 	}
 	else
 	{
-	    string sel_type = lookup(selection, "sel_type", " ");
+	    string sel_type = selection["sel_type"]:" ";
 	    list sel_file = [];
-	    map pkginfo = lookup(archive_info, pkgname, $[]);
+	    map pkginfo = archive_info[pkgname]:$[];
 
 	    if (sel_type == "P")
 	    {
-		sel_file = lookup(selection, "sel_file", []);
+		sel_file = selection["sel_file"]:[];
 	    }
 	    else if (sel_type != "X" && sel_type != " ")
 	    {
@@ -842,7 +845,7 @@
 
 	y2debug("MountInput: %1", mresult);
 
-	if (lookup(mresult, "success", false) == false)
+	if (mresult["success"]:false == false)
 	{
 	    // error message
 	    Report::Error(_("Cannot mount file system."));
@@ -889,10 +892,10 @@ It is not a tar archive or it is broken.
 		// copy archive to local file
 		map copy = CopyVolume(filename, 0);
 
-		if (lookup(copy, "success", false) == true)
+		if (copy["success"]:false == true)
 		{
 		    // set file name to local copy
-		    filename = lookup(copy, "file", "");
+		    filename = copy["file"]:"";
 
 		    // umount file system
 		    Umount();
@@ -909,7 +912,7 @@ to temporary directory.
 	}
 
 	// get list of files
-	archivefiles = splitstring(lookup(result, "stdout", ""), "\n");
+	archivefiles = splitstring(result["stdout"]:"", "\n");
 	archivefiles = filter(string f, archivefiles, ``{return f != "" && f != nil;});
 
 	boolean compressed_packages_info = contains(archivefiles, "info/packages_info.gz");
@@ -1054,9 +1057,9 @@ It was probably not created by the backup module.
 
     global define void Set(map settings) ``{
 	y2milestone("Using settings: %1", settings);
-	runbootloader = lookup(settings, "runbootloader", true);
-	runSuSEconfig = lookup(settings, "runSuSEconfig", true);
-	restoreRPMdb = lookup(settings, "restoreRPMdb", false);
+	runbootloader = settings["runbootloader"]:true;
+	runSuSEconfig = settings["runSuSEconfig"]:true;
+	restoreRPMdb = settings["restoreRPMdb"]:false;
 
 	list archiveslist = settings["archives"]:[];
 	// read archives
@@ -1118,8 +1121,8 @@ It was probably not created by the backup module.
 	}
 
 	foreach(string package, map info, archive_info, ``{
-		string sel_type = lookup(info, "sel_type", " ");
-		list sel_file = lookup(info, "sel_file", []);
+		string sel_type = info["sel_type"]:" ";
+		list sel_file = info["sel_file"]:[];
 
 		if (package == "")
 		{
@@ -1156,7 +1159,7 @@ It was probably not created by the backup module.
 
 	// filter out unselected packages
 	foreach(string p, map info, archive_info, ``{
-		string sel_type = lookup(info, "sel_type", " ");
+		string sel_type = info["sel_type"]:" ";
 
 		if (sel_type == "X" || sel_type == "P")
 		{
@@ -1178,15 +1181,15 @@ It was probably not created by the backup module.
 
 	// filter out unselected packages and compute total restored files
 	foreach(string p, map info, archive_info, ``{
-		string sel_type = lookup(info, "sel_type", " ");
+		string sel_type = info["sel_type"]:" ";
 
 		if (sel_type == "X")
 		{
-		    total = total + size(lookup(info, "files", []));
+		    total = total + size(info["files"]:[]);
 		}
 		else if (sel_type == "P")
 		{
-		    total = total + size(lookup(info, "sel_file", []));
+		    total = total + size(info["sel_file"]:[]);
 		}
 	    }
 	);
@@ -1260,18 +1263,33 @@ It was probably not created by the backup module.
 	list failedfiles = [];
 	boolean aborted = false;
 
+	if (size(targetdir) == 0 || substring(targetdir, 0, 1) != "/")
+	{
+	    // error message
+	    Report::Error(sformat(_("Invalid target directory (%1)"), targetdir));
+	    return $[ "aborted" : aborted, "restored" : restoredfiles, "failed" : failedfiles, "packages" : restoredpackages, "bootloader" : false ];
+	}
+
+	// create target directory if it doesn't exist
+	integer out = (integer)SCR::Execute(.target.bash, "/bin/mkdir -p " + targetdir);
+	if (out != 0)
+	{
+	    // error message
+	    Report::Error(sformat(_("Cannot create target dircetory %1"), targetdir));
+	}
+
 	// filter out unselected packages and compute total restored files
 	restore = filter(string p, map info, restore, ``{
-		string sel_type = lookup(info, "sel_type", " ");
+		string sel_type = info["sel_type"]:" ";
 
 		if (sel_type == "X")
 		{
-		    total = total + size(lookup(info, "files", []));
+		    total = total + size(info["files"]:[]);
 		    return true;
 		}
 		else if (sel_type == "P")
 		{
-		    total = total + size(lookup(info, "sel_file", []));
+		    total = total + size(info["sel_file"]:[]);
 		    return true;
 		}
 		else
@@ -1283,7 +1301,6 @@ It was probably not created by the backup module.
 
 	y2milestone("%1 files will be restored from archive", total);
 
-	// get list of all packages to restore (while cycle is used, because foreach cannot be stopped)
 	list<string> packages = [];
 	foreach(string package, map info, restore, ``{
 		packages = add(packages, package);
@@ -1307,7 +1324,66 @@ It was probably not created by the backup module.
 	    {
 		y2warning("RPM DB backup script (%1) was not found, DB was not backed up!", rpm_backup_script);
 	    }
+
+	    string stat = archive_info["", "sel_type"]:" ";
+	    y2warning("NOPACKAGE status: '%1'", stat);
+	    y2warning("NOPACKAGE files: '%1'", archive_info["", "files"]:[]);
+
+	    if (stat == " " || stat == "P")
+	    {
+		// RPM DB restoration is selected, but files not owned by any package are deselected
+		// uncompress only RPM DB files, which are in directory /var/lib/rpm
+
+		list<string> RPM = [];
+
+		// search RPM DB files
+		foreach(string f, archive_info["", "files"]:[], ``{
+			if (regexpmatch(f, "^/var/lib/rpm/") == true)
+			{
+			    RPM = add(RPM, f);
+			}
+		    }
+		);
+
+		y2warning("found RPM DB files: %1", RPM);
+
+		if (stat == " ")
+		{
+		    map in = (map)eval(archive_info[""]:$[]);
+
+		    in["sel_type"] = "P";
+		    in["sel_file"] = RPM;
+
+		    // set new values
+		    restore[""] = (map)eval(in);
+
+		    total = total + size(RPM);
+		}
+		else
+		{
+		    // may be some files are already selected
+		    // check status of each file
+		    list<string> already_selected = archive_info["sel_file"]:[];
+
+		    foreach(string rpm_file, RPM, ``{
+			   if (!contains(already_selected, rpm_file))
+			    {
+				already_selected = add(already_selected, rpm_file);
+				total = total + 1;
+			    }
+			}
+		    );
+
+		    map in = (map)eval(archive_info[""]:$[]);
+		    in["sel_file"] = already_selected;
+
+		    // set new values
+		    restore[""] = (map)eval(in);
+		}
+	    }
 	}
+
+	y2warning("packages: %1", packages);
 
 	while (i < size(packages))
 	{
@@ -1317,7 +1393,7 @@ It was probably not created by the backup module.
 	    string label = (package == "") ? _("Restoring files not owned by any package...") :
 		// progress bar label - %1 is package name
 		sformat(_("Restoring package %1..."), package);
-	    string sel_type = lookup(info, "sel_type", "");
+	    string sel_type = info["sel_type"]:"";
 
 	    if (progress != nil)
 	    {
@@ -1334,14 +1410,14 @@ It was probably not created by the backup module.
 	    else
 	    {
 		// y2logs will be probably overwritten - backup them
-		if (package == "")
+		if (package == "" && targetDirectory == "/")
 		{
 		    integer copy = (integer) SCR::Execute(.target.bash, "cp -r /var/log/YaST2 /var/log/YaST2.before_restore");
 		    y2milestone("copy y2logs to /var/log/YaST2.before_restore: ret=%1", copy);
 		}
 
 		// get subarchive name
-		string name = (package == "") ? "NOPACKAGE" : package + "-" + lookup(info, "vers", "");
+		string name = (package == "") ? "NOPACKAGE" : package + "-" + info["vers"]:"";
 		string fileinarchive = "";
 
 		foreach(string f, archivefiles, ``{
@@ -1432,7 +1508,7 @@ It was probably not created by the backup module.
 		    if (sel_type == "P")
 		    {
 			// strip leading '/'
-			foreach(string f, lookup(info, "sel_file", []), ``{
+			foreach(string f, info["sel_file"]:[], ``{
 				if (size(f) > 1 && substring(f, 0, 1) == "/")
 				{
 				    unpackfiles = unpackfiles + " " + substring(f, 1);
@@ -1635,15 +1711,15 @@ Press OK to exit.
 	// mount source
 	map mount = MountInput(input);
 
-	if (lookup(mount, "success", false) == true)
+	if (mount["success"]:false == true)
 	{
-	    mountpoint = lookup(mount, "mpoint", "");
+	    mountpoint = mount["mpoint"]:"";
 
 	    // add mounted file
-	    map addvol =  AddVolume(lookup(mount, "file", "dummy"));
+	    map addvol =  AddVolume(mount["file"]:"dummy");
 
-	    ret = lookup(addvol, "success", false);
-	    last = lookup(addvol, "lastvolume", true);
+	    ret = addvol["success"]:false;
+	    last = addvol["lastvolume"]:true;
 
 	    if (ret == true)
 	    {
@@ -1804,7 +1880,7 @@ Press OK to exit.
     }
 
 
-    global define map ProposeRPMdbRestoration() ``{
+    global define map<string, any> ProposeRPMdbRestoration() ``{
 
 	map extra = GetExtraPackages();
 	map missing = GetMissingPackages();

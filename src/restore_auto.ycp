@@ -50,9 +50,9 @@ if (func == "Import")
     ret = Restore::Import(param);
 }
 /* create a summary */
-else if(func == "Summary")
+else if (func == "Summary")
 {
-    ret =  Restore::Summary();
+    ret = Restore::Summary();
 }
 else if (func == "Reset")
 {
@@ -81,7 +81,8 @@ else if (func == "Write")
 
     if (size(volumes) == 0)
     {
-	return false;
+	ret = false;
+	return ret;
     }
 
     boolean read = false;
@@ -92,7 +93,8 @@ else if (func == "Write")
     foreach(string volume, volumes, ``{
 	if (ui == `abort)
 	{
-	    return;
+	    ret = false;
+	    return ret;
 	}
 
 	if (index == 0)
@@ -101,13 +103,14 @@ else if (func == "Write")
 	}
 	else
 	{
-	    read = lookup(Restore::ReadNextVolume(volume), "success", false);
+	    map read_result = Restore::ReadNextVolume(volume);
+	    read = (boolean)(read_result["success"]:false);
 	}
 
 	if (read == false)
 	{
 	    // read failed, offer manual selection
-	    input = volume;
+	    string input = "";
 
 	    // popup dialog text part 1
 	    if (Popup::YesNo((index == 0 ? _("Archive file cannot be read.") :
@@ -129,19 +132,20 @@ else if (func == "Write")
 
 		// select file
 		Wizard::CreateDialog();		// TODO remove this ?
-		ui = ArchiveSelectionDialog(index != 0, false);	// false = ask only for one file, others are in 'volumes'
+		ui = ArchiveSelectionDialog(index != 0, false, input);	// false = ask only for one file, others are in 'volumes'
 
 		// ask for more volumes if they are not specified
 		if (index == 0 && Restore::IsMultiVolume() == true && size(volumes) == 1)
 		{
-		    ui = ArchiveSelectionDialog(true, false);
+		    ui = ArchiveSelectionDialog(true, false, input);
 		}
 
 		UI::CloseDialog();		// TODO remove this ?
 	    }
 	    else
 	    {
-		return false;
+		ret = false;
+		return ret;
 	    }
 	}
 
@@ -159,20 +163,20 @@ else if (func == "Write")
     Progress::off ();
     block<boolean> blck = ``{ return false; };
 
-//    map ret = Restore::Write( ``{ return false; }, nil, "/" );
-    map ret = Restore::Write( blck, nil, "/" );
+    map write_ret = Restore::Write( blck, nil, Restore::targetDirectory);
     Progress::on ();
 
     Restore::Umount();
 
-    return (size(lookup(ret, "failed", [])) == 0);
+    ret = (size(write_ret["failed"]:[]) == 0);
+    return ret;
 }
 
 /* unknown function */
 else
 {
     y2error("unknown function: %1", func);
-    ret =  false;
+    ret = false;
 }
 
 /* Finish */

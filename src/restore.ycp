@@ -30,22 +30,9 @@
     y2milestone ("Restore client started");
     y2milestone ("----------------------------------------");
 
-    /**
-     * Should we suppress Read() and Write()? It is necessary in proposals...
-     */
-    boolean no_io = false;
-
-    foreach (`arg, WFM::Args(), ``{
-	    if (arg == .noio)
-	    {
-		no_io = true;
-	    }
-	}
-    );
-
 
     /* main ui function */
-    any ret = (no_io) ? RestoreAutoSequence () : RestoreSequence ();
+    symbol ret = RestoreSequence();
     y2debug ("ret == %1", ret);
 
     /* Finish */

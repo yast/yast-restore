@@ -53,9 +53,6 @@ global map packagestouninstall = $[];
 // mounted directory
 global string mountdir = "";
 
-// entered archive name, can differ from local file name (e.g. nfs://server:dir/archive.tar)
-global string input = "";
-
 // map with detected removable devices
 global map removabledevices = nil;
 
@@ -169,7 +166,7 @@ global define list CreateDeviceList(map dev, string sel) ``{
     }
 
     foreach(string d, map info, dev, ``{
-	    ret = add(ret, `item(`id(lookup(info, "device", "") + " (" + d + ")"), lookup(info, "device", "") + " (" + d + ")", sel == d));
+	    ret = add(ret, `item(`id(info["device"]:"" + " (" + d + ")"), info["device"]:"" + " (" + d + ")", sel == d));
 	}
     );
 
@@ -207,9 +204,9 @@ global define string ComboToDevice(string selected, map dev) ``{
     string ret = "";
 
     foreach(string d, map info, dev, ``{
-	    if (selected == lookup(info, "device", "") + " (" + d + ")")
+	    if (selected == info["device"]:"" + " (" + d + ")")
 	    {
-		ret = lookup(info, "type", "cd://");
+		ret = info["type"]:"cd://";
 	    }
 	}
     );
@@ -228,7 +225,7 @@ global define string ComboToDevice(string selected, map dev) ``{
  * @param askformore False: ask only for one volume part, true: ask until all volumes are entered
  * @return symbol UI::UserInput() result
  */
-global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore) ``{
+global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, string input) ``{
 
     // cache removable devices
     if (removabledevices == nil)
@@ -728,8 +725,8 @@ global define list CreateArchiveContentTree(map packagesinfo) ``{
     if (packagesinfo != nil)
     {
 	foreach(string p, map info, packagesinfo, ``{
-		list files = lookup(info, "files", []);
-		string version = lookup(info, "vers", "");
+		list files = info["files"]:[];
+		string version = info["vers"]:"";
 
 		files = maplist(string s, files, ``{return `item(s);});
 
@@ -809,6 +806,9 @@ global define symbol RestoreOptionsDialog() ``{
 		`VSpacing(0.2),
 		// check box label - restore option
 		`Left(`CheckBox(`id(`susecfg), _("Run &SuSEconfig after restoration"), Restore::runSuSEconfig)),
+		`VSpacing(1),
+		// check box label - restore option
+		`Left(`TextEntry(`id(`target), _("Target directory"), Restore::targetDirectory)),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -820,10 +820,21 @@ global define symbol RestoreOptionsDialog() ``{
     Wizard::SetContents(_("Restore options"), contents, RestoreOptionsHelp(), true, true);
 
     any ret = nil;
+    string target_dir = "/";
 
     do
     {
 	ret = UI::UserInput();
+
+	target_dir = (string)UI::QueryWidget(`id(`target), `Value);
+
+	if (size(target_dir) == 0 || substring(target_dir, 0, 1) != "/")
+	{
+	    // error message - entered directory is empty or doesn't start with / character
+	    Popup::Error(_("Target directory is invalid or path is not absolute."));
+
+	    ret = nil;
+	}
     }
     while(ret != `next && ret != `abort && ret != `back);
 
@@ -835,6 +846,7 @@ global define symbol RestoreOptionsDialog() ``{
     {
 	Restore::runbootloader = (boolean) UI::QueryWidget(`id(`lilo), `Value);
 	Restore::runSuSEconfig = (boolean) UI::QueryWidget(`id(`susecfg), `Value);
+	Restore::targetDirectory = (string)UI::QueryWidget(`id(`target), `Value);
     }
 
     Wizard::RestoreNextButton();
@@ -859,9 +871,9 @@ global define list CreateTableContentsWithMismatched(map contents, map selected,
     {
 	foreach(string p, map m, contents, ``{
 
-		string ver = lookup(m, "ver", "");
-		string descr = lookup(m, "descr", "");
-		string installed = lookup(m, "inst", "");
+		string ver = m["ver"]:"";
+		string descr = m["descr"]:"";
+		string installed = m["inst"]:"";
 
 		if (selected != nil)
 		{
@@ -1028,8 +1040,8 @@ global define list CreateTableContents(map contents, map selected, boolean defau
     {
 	foreach(string p, map m, contents, ``{
 
-		string ver = lookup(m, "ver", "");
-		string descr = lookup(m, "descr", "");
+		string ver = m["ver"]:"";
+		string descr = m["descr"]:"";
 
 		if (selected != nil)
 		{
@@ -1204,10 +1216,10 @@ global define list CreateTableContentsRestoreSelection(map restoreselection) ``{
     {
 	foreach(string p, map m, restoreselection, ``{
 
-		string ver = lookup(m, "vers", "");
-		string descr = lookup(m, "descr", "");
+		string ver = m["vers"]:"";
+		string descr = m["descr"]:"";
 
-		string seltype = lookup(m, "sel_type", " ");
+		string seltype = m["sel_type"]:" ";
 
 		string numfiles = "";
 
@@ -1222,8 +1234,8 @@ global define list CreateTableContentsRestoreSelection(map restoreselection) ``{
 		}
 		else if (seltype == "P")
 		{
-		    integer total = size(lookup(m, "files", []));
-		    integer sel = size(lookup(m, "sel_file", []));
+		    integer total = size(m["files"]:[]);
+		    integer sel = size(m["sel_file"]:[]);
 
 		    // selected %1 (number of files) of %2 (number of files)
 		    numfiles = sformat(_("%1 of %2"), sel, total);
@@ -1315,10 +1327,14 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
     boolean RPMoption = Restore::restoreRPMdb;
 
+    y2warning("RPMoption: %1", RPMoption);
+
     if (RPMoption == nil)
     {
 	RPMoption = proposedRPMrestoration["proposed"]:false;
     }
+
+    y2warning("RPMoption: %1", RPMoption);
 
     term contents = `HBox(
 	    `HSpacing(2),
@@ -1544,6 +1560,8 @@ Select them for restoration?
 packages and the RPM database restoration option.
 Try to change selection or RPM database restoration status."));
 		}
+
+		Restore::restoreRPMdb = selectedRPM;
 	    }
 	}
 	else if (ret == `cancel)
@@ -1558,7 +1576,7 @@ Try to change selection or RPM database restoration status."));
 	map final = Restore::GetArchiveInfo();
 
 	final = filter(string p, map i, final, ``{
-		return (lookup(i, "sel_type", " ") != " ");
+		return (i["sel_type"]:" " != " ");
 	    }
 	);
 
@@ -1587,9 +1605,9 @@ global define symbol FileSelectionDialog(string packagename) ``{
 
     map pkginfo = lookup(Restore::GetArchiveInfo(), packagename, $[]);
 
-    string sel_type = lookup(pkginfo, "sel_type", " ");
-    list files = lookup(pkginfo, "files", []);
-    list sel_file = lookup(pkginfo, "sel_file", []);
+    string sel_type = pkginfo["sel_type"]:" ";
+    list files = pkginfo["files"]:[];
+    list sel_file = pkginfo["sel_file"]:[];
 
     list cont = [];
 
@@ -1736,19 +1754,19 @@ global define symbol RestoreProgressDialog() ``{
     Wizard::SetContents(_("Restoring files"), contents, RestoreProgressHelp(), false, false);
 
     // start restoration
-    map result = Restore::Write(callback, progressbar, "/");
+    map result = Restore::Write(callback, progressbar, Restore::targetDirectory);
 
     // set values from restoration
-    ret = (lookup(result, "aborted", false)) ? `abort : `next;
+    ret = (result["aborted"]:false) ? `abort : `next;
 
     // get lilo status
-    bloaderstatus = lookup(result, "bootloader", false);
+    bloaderstatus = result["bootloader"]:false;
 
     if (ret == `next)
     {
-	 restoredfiles = lookup(result, "restored", []);
-	 failedfiles = lookup(result, "failed", []);
-	 restoredpackages = lookup(result, "packages", 0);
+	 restoredfiles = result["restored"]:[];
+	 failedfiles = result["failed"]:[];
+	 restoredpackages = result["packages"]:0;
     }
 
     lastret = ret;
@@ -1834,8 +1852,22 @@ global define symbol SummaryDialog() ``{
     // set SuSEconfig result string
     string SuSEinfo = StatusToString(susestatus);
 
+    string filelist = "";
+
+    if (size(restoredfiles) > 0)
+    {
+	string prefix = Restore::targetDirectory;
+
+	if (substring(prefix, size(prefix) - 1, 1) != "/")
+	{
+	    prefix = prefix + "/";
+	}
+
+	filelist = prefix + mergestring(restoredfiles, "<BR>" + prefix);
+    }
+
     // summary information texts - details
-    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Boot Loader Configuration: ") + lilostr + "<BR>" + _("SuSEconfig status: ") + SuSEinfo + " </P><P><B>" + _("Restored files:") + "</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
+    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Boot Loader Configuration: ") + lilostr + "<BR>" + _("SuSEconfig status: ") + SuSEinfo + " </P><P><B>" + _("Restored files:") + "</B><BR>" + filelist + "</P>";
 
     // dialog header
     return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, SummaryHelp(), _("Summary of restoration"), `finish);
@@ -1845,12 +1877,12 @@ global define symbol SummaryDialog() ``{
  * Whole restoration
  * @return any Returned value from WizardSequencer() call
  */
-global define any RestoreSequence () ``{
+global define symbol RestoreSequence () ``{
     map aliases =
 	$[
-	    "archive"	:   ``( ArchiveSelectionDialog(false, false) ),
+	    "archive"	:   ``( ArchiveSelectionDialog(false, false, "") ),
 	    "property"	:   ``( ArchivePropertyDialog() ),
-	    "marchive"	: [ ``( ArchiveSelectionDialog(true, true) ), true ],
+	    "marchive"	: [ ``( ArchiveSelectionDialog(true, true, "") ), true ],
 	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
 	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
 	    "install"	:   ``( SelectionInstallDialog() ),
@@ -1943,7 +1975,7 @@ global define any RestoreSequence () ``{
 
     Wizard::CreateDialog ();
 
-    any ret = WizardSequencer (aliases, sequence);
+    symbol ret = WizardSequencer (aliases, sequence);
 
     UI::CloseDialog ();
     return ret;
@@ -1960,9 +1992,9 @@ global define any RestoreAutoSequence() ``{
 
     map aliases =
 	$[
-	    "archive"	:   ``( ArchiveSelectionDialog(false, false) ),
+	    "archive"	:   ``( ArchiveSelectionDialog(false, false, "") ),
 	    "property"	:   ``( ArchivePropertyDialog() ),
-	    "marchive"	: [ ``( ArchiveSelectionDialog(true, true) ), true ],
+	    "marchive"	: [ ``( ArchiveSelectionDialog(true, true, "") ), true ],
 	    "contents"	: [ ``( ArchiveContentsDialog() ), true ],
 	    "options"	: [ ``( RestoreOptionsDialog() ), true ],
 	    "select"	:   ``( PackageSelectionRestoreDialog() ),
@@ -2014,8 +2046,6 @@ global define any RestoreAutoSequence() ``{
 
     Wizard::CreateDialog ();
 
-    input = Restore::inputname;
-
     any ret = WizardSequencer (aliases, sequence);
 
     UI::CloseDialog ();
@@ -2035,8 +2065,8 @@ global define list CreateArchiveContentTable(map packagesinfo) ``{
     if (packagesinfo != nil)
     {
 	foreach(string p, map info, packagesinfo, ``{
-		list files = lookup(info, "files", []);
-		string version = lookup(info, "vers", "");
+		list files = info["files"]:[];
+		string version = info["vers"]:"";
 
 		foreach(string file, files, ``{
 			ret = add(ret, `item(`id(num), p, version, file));
