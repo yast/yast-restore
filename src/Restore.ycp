@@ -32,6 +32,7 @@
     import "Label";
     import "Popup";
     import "URL";
+    import "Message";
 
     textdomain "restore";
 
@@ -1318,7 +1319,7 @@ It was probably not created by the backup module.
 	if (out != 0)
 	{
 	    // error message
-	    Report::Error(sformat(_("Cannot create target directory %1."), targetdir));
+	    Report::Error( Message::UnableToCreateDirectory(targetdir) );
 	}
 
 	// filter out unselected packages and compute total restored files
