@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Fri Apr  2 16:20:08 CEST 2004 - uml6@suse.cz
+
+- changed license to GPL
+- version 2.9.10
+
+-------------------------------------------------------------------
 Tue Mar 30 04:32:25 CEST 2004 - nashif@suse.de
 
 - Also add sequence for atexit
