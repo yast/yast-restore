@@ -16,7 +16,9 @@
 
 textdomain "restore";
 
+import "Popup";
 import "Restore";
+import "Wizard";
 include "restore/ui.ycp";
 
 /* The main () */
