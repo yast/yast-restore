@@ -23,6 +23,7 @@
      */
 
     textdomain "restore";
+    import "Restore";
 
     include "restore/ui.ycp";
 
@@ -37,5 +38,9 @@
 
     /* Finish */
     y2milestone ("Restore client finished");
+
+    // unmount any mounted filesystem
+    Restore::Umount();
+
     return ret;
 }

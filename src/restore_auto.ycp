@@ -179,6 +179,9 @@ else
     ret = false;
 }
 
+// umount any mounted filesystem
+Restore::Umount();
+
 /* Finish */
 y2debug("ret=%1", ret);
 y2milestone("Restore autoinit client finished");
