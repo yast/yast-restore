@@ -26,10 +26,7 @@
     import "Report";
     import "Mode";
     import "Summary";
-
-    import "Lilo";
-    include "lilo/routines.ycp";
-    include "lilo/io.ycp";
+    import "Bootloader";
 
     textdomain "restore";
 
@@ -915,7 +912,7 @@ It was probably not created by the backup module.
 		string fileinarchive = "";
 
 		foreach(string f, archivefiles, ``{
-			if (regexpmatch(f, "^" + name + "-........-.\\.tar.*") == true)
+			if (regexpmatch(f, "^" + name + "-........-.\\.s+tar.*") == true)
 			{
 			    y2debug("package %1 is in archive file %2", package, f);
 			    fileinarchive = f;
@@ -974,16 +971,26 @@ It was probably not created by the backup module.
 
 		    // set compression parameter
 		    string compress = "";
-		    if (regexpmatch(fileinarchive, ".*\.tar\.gz$") == true)
+
+		    // use star archiver
+		    boolean star = false;
+
+		    if (regexpmatch(fileinarchive, ".*\\.tar\\.gz$") == true)
 		    {
 			compress = "-z";
 		    }
-		    else if (regexpmatch(fileinarchive, ".*\.tar\.bz2$") == true)
+		    else if (regexpmatch(fileinarchive, ".*\\.tar\\.bz2$") == true)
 		    {
 			compress = "-j";
 		    }
+		    else if (regexpmatch(fileinarchive, ".*\\.star\\{\\.bz2|\\.gz|\\}$") == true)
+		    {
+			// star can autodetect used compression
+			compress = "";
+			star = true;
+		    }
 
-		    string RPMdb = (restoreRPMdb) ? "" : "--exclude var/lib/rpm";
+		    string RPMdb = (restoreRPMdb) ? "" : (star ? "-not pat=var/lib/rpm" : "--exclude var/lib/rpm");
 
 		    // files to unpack, "" means all files
 		    string unpackfiles = "";
@@ -1001,8 +1008,69 @@ It was probably not created by the backup module.
 			);
 		    }
 
+		    // create (s)tar command
+		    string tarcommand = (star == false) ? "export LC_ALL=C; /bin/tar -C " + targetdir + " "
+			    + compress + " -x -v -f " + tempdir + "/" + fileinarchive + " " + RPMdb
+			    + " " + unpackfiles + " 2> " + tempdir + "/tar.stderr > " + tempdir
+			    + "/tar.stdout"
+			: "export LC_ALL=C; /usr/bin/star -C " + targetdir + " "
+			    + compress + " -x -v -U -f " + tempdir + "/" + fileinarchive + " " + RPMdb
+			    + " " + unpackfiles + " 2> " + tempdir + "/tar.stderr > " + tempdir
+			    + "/tar.stdout";
+			// -U option: replace existing files
+
+		    y2milestone("tarcommand: %1", tarcommand);
+
+		    // check whether star is installed
+                    if (SCR::Read(.target.size, "/usr/bin/star") < 0)
+                    {
+			// remove short
+			string cont = UI::ContinueButtonLabel();
+			cont = mergestring(splitstring(cont, "&"), "");
+
+                        // popup message text - ask to install 'star' package
+			// %1 is translated 'Continue' label
+                        boolean inst = UI::ContinueCancelPopup(sformat(_("Package 'star' is needed to extract
+files from archive.\nPress '%1' to install package."), cont));
+
+                        if (inst == true)
+                        {
+			    // install star package
+
+			    // initialize package manager
+			    Pkg::SourceStartCache(true);
+			    Pkg::TargetInit ("/", false);
+
+			    boolean ok = true;
+
+			    // select star package to installation
+			    ok = Pkg::PkgInstall("star");
+
+			    // solve dependencies
+			    ok = ok && Pkg::PkgSolve();
+
+			    // perform installation (0 means install from all media)
+			    list result = Pkg::PkgCommit(0);
+
+			    // check result
+			    y2debug ("PkgCommit: %1", result);
+			    inst = ok && result[1]:nil == [] && result[2]:nil == [];
+                        }
+
+                        // abort restoration if star installation failed
+                        if (inst == false)
+                        {
+			    // error popup message
+			    Report::Error(_("Package 'star' is not installed!\nPress OK to exit."));
+                            y2error("star package wasn't installed - aborting");
+
+			    return $[ "aborted" : true, "restored" : restoredfiles, "failed" :
+				failedfiles, "packages" : restoredpackages, "bootloader" : bootload ];
+                        }
+                    }
+
 		    // start subprocess
-		    started = SCR::Execute(.background.run_output, "export LC_ALL=C; /bin/tar -C " + targetdir + " " + compress + " -x -v -f " + tempdir + "/" + fileinarchive + " " + RPMdb + " " + unpackfiles + " 2> " + tempdir + "/tar.stderr > " + tempdir + "/tar.stdout");
+		    started = SCR::Execute(.background.run_output, tarcommand);
 
 		    while(SCR::Read(.background.isrunning) == true)
 		    {
@@ -1019,14 +1087,26 @@ It was probably not created by the backup module.
 		    }
 
 		    // read restored files
-		    list stdout =  splitstring(SCR::Read(.target.string, tempdir + "/tar.stdout"), "\n");
+		    list stdout = splitstring(SCR::Read(.target.string, tempdir + "/tar.stdout"), "\n");
 
 		    // remove empty lines
 		    stdout = filter(`line, stdout, ``{return size(line) > 0;});
+
+		    // star has more verbose output - get only file names
+		    if (star)
+		    {
+			stdout = maplist(string line, stdout,
+			    ``{
+				return regexpsub(line, "x (.*) .* bytes, .* tape blocks", "\\1");
+			    }
+			);
+		    }
+
+
 		    restoredfiles = merge(restoredfiles, stdout);
 
 		    // read failed files
-		    list stderr =  splitstring(SCR::Read(.target.string, tempdir + "/tar.stderr"), "\n");
+		    list stderr = splitstring(SCR::Read(.target.string, tempdir + "/tar.stderr"), "\n");
 
 		    // remove empty lines
 		    stderr = filter(`line, stderr, ``{return size(line) > 0;});
@@ -1043,11 +1123,15 @@ It was probably not created by the backup module.
 
 			    if (line != nil && line != "")
 			    {
-				string file = regexpsub(line, "tar: (.*):.*:.*", "\\1");
+				string file = regexpsub(line, "s+tar: (.*)", "\\1");
 
-				if (file != nil)
+				// ignore final star summary
+				if (file != nil && !regexpmatch(line, "star: .* blocks \\+ .* bytes \\(total of .* bytes = .*k\\)\\.")
+				    && !regexpmatch(line, "star: WARNING: Archive is compressed")
+				    && !regexpmatch(line, "star: WARNING: skipping leading '/' on filenames.")
+				)
 				{
-				    add(failedfiles, file);
+				    failedfiles = add(failedfiles, file);
 				    packagefailedfiles = packagefailedfiles + 1;
 
 				    y2warning("Restoration of file %1 failed", file);
@@ -1254,42 +1338,49 @@ It was probably not created by the backup module.
 
 
     /**
-     * Activate bootloader configuration if requested.
+     * Activate boot loader configuration if requested.
+     * Uses variable Restore::runbootloader
      * @return boolean true on success
      */
     global define boolean Bootloader() ``{
 	boolean ret = nil;
 
+	// disable Bootloader's progress bar
+	Progress::off();
+
 	if (runbootloader == true && Mode::test == false)
 	{
-	    if (boot() == "grub")
-	    {
-		y2milestone("starting grub configuration");
-		ret = (DoGrub() == 0);
-		y2milestone("grub configured: %1", ret);
+	    y2milestone("activating boot loader configuration");
 
-		if (ret == false)
-		{
-		    // error message - grub bootloader failed
-		    Report::Error(_("Grub configuration failed.
-Boot loader was not updated."));
-		}
+	    // read actual boot loader configuration
+	    ret = Bootloader::Read();
+
+	    if (ret == false)
+	    {
+		y2error("Boot loader read failed");
 	    }
 	    else
 	    {
-		y2milestone("starting lilo configuration");
-		ret = (DoLilo() == 0);
-		y2milestone("lilo configured: %1", ret);
+		// write configuration - re-install boot loader
+		ret = Bootloader::Write();
 
 		if (ret == false)
 		{
-		    // error message - lilo failed
-		    Report::Error(_("LILO utility failed.
-Boot configuration was not updated.
-"));
+		    y2error("Boot loader write failed");
 		}
 	    }
+
+	    if (ret == false)
+	    {
+		// error popup message
+		Report::Error(_("Boot loader configuration failed!"));
+	    }
+
+	    y2milestone("boot loader activated: %1", ret);
 	}
+
+	// re-enable progress bar
+	Progress::on();
 
 	return ret;
     }

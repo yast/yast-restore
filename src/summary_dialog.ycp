@@ -22,7 +22,6 @@
 textdomain "restore";
 
 import "Wizard";
-import "Mode";
 
 include "ui/common_popups.ycp";
 include "ui/common_messages.ycp";
@@ -80,7 +79,7 @@ global define symbol DisplaySummaryDialog(string text, string detail_text, strin
 	    `RichText(`id(`rt), text),
 	    `VSpacing(0.5),
 	    // push button label
-	    `HBox(`CheckBox(`id(`details), `opt(`notify), `opt(`key_F2), _("&Show details"), false), `HSpacing(3),
+	    `HBox(`CheckBox(`id(`details), `opt(`notify, `key_F2), _("&Show details"), false), `HSpacing(3),
 		// push button label
 		`PushButton(`id(`save), _("Sa&ve to file..."))),
 	    `VSpacing(1.0)
@@ -88,15 +87,15 @@ global define symbol DisplaySummaryDialog(string text, string detail_text, strin
 
     if (button == `finish)
     {
-	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), `opt(`key_F10), FinishButtonLabel()));
+	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), FinishButtonLabel()));
     }
     else if (button == `ok)
     {
-	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), `opt(`key_F10), OkButtonLabel()));
+	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), OkButtonLabel()));
     }
     else if (button == `next)
     {
-	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), `opt(`key_F10), NextButtonLabel()));
+	Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), NextButtonLabel()));
     }
     else
     {
@@ -119,7 +118,7 @@ global define symbol DisplaySummaryDialog(string text, string detail_text, strin
 	}
 	else if (ret == `save)
 	{
-	    string savefile = SaveFileAs("//");
+	    string savefile = SaveFileAs("/");
 
 	    if (savefile != "" && savefile != nil)
 	    {

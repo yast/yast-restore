@@ -1,4 +1,16 @@
 -------------------------------------------------------------------
+Mon Feb  3 10:40:21 CET 2003 - lslezak@suse.cz
+
+- updated autoinstallation support
+- added function keys shortcuts
+- fixed autoinstallation configuration bug (files in partially
+  selected packages were lost)
+- star archiver support
+- update to the new Bootloader:: API
+- merged proof-read texts
+- version 2.7.0
+
+-------------------------------------------------------------------
 Wed Sep 18 13:38:57 CEST 2002 - lslezak@suse.cz
 
 - fixed unstranslated message in help text

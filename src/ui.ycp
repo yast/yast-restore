@@ -1176,7 +1176,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
     if (Mode::config == true)
     {
-        Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), FinishButtonLabel()));
+        Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), FinishButtonLabel()));
     }
 
     // set currnet item in the table
@@ -1614,6 +1614,7 @@ global define symbol RestoreProgressDialog() ``{
     Wizard::SetContents(_("Restoring files"), contents, RestoreProgressHelp(), false, false);
 
     // start restoration
+    // FIXME: unpack to root
     map result = Restore::Write(callback, progressbar, "/tmp/restore");
 
     // set values from restoration
@@ -1735,7 +1736,7 @@ global define symbol SummaryDialog() ``{
     string SuSEinfo = StatusToString(susestatus);
 
     // summary information texts - details
-    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Boot loader configuration: ") + lilostr + "<BR>" + _("SuSEconfig status: ") + SuSEinfo + " </P><P><B>" + _("Restored files:") + "</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
+    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Boot Loader Configuration: ") + lilostr + "<BR>" + _("SuSEconfig status: ") + SuSEinfo + " </P><P><B>" + _("Restored files:") + "</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
 
     // dialog header
     return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, SummaryHelp(), _("Summary of restoration"), `finish);

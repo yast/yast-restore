@@ -126,8 +126,8 @@ expert users. The default values are usually appropriate.</P>
 ") +
 
 	    // For translators: option dialog help (part 2)
-_("<P><B>Run lilo</B> -- If some files needed at system boot are changed,
-lilo must be run.
+_("<P><B>Activate boot loader configuration</B> -- Check this option to reinstall boot loader.
+Some boot loaders (e.g. Lilo) have to be reinstalled if configuration files or files needed at system boot are changed.
 <BR><B>Run SuSEconfig</B> -- SuSEconfig will activate changes in configuration files.
 <BR><B>Restore RPM db</B> -- If you delete RPM database by mistake or if it is badly
 corrupted, check this option.  The database will be restored if it is in the backup archive.
@@ -207,7 +207,7 @@ Select which packages to restore from the backup archive.</P>
 _("<P>The first column displays the restoration status of the package. It can be 'X' (package will be restored) or empty (package will not be restored).</P>") +
 
 	    // For translators: restore selection help 3/4
-((personal == false) ? _("<P>'P' means that package will be restored only partially. Press <B>Select files</B> button to restore package partially.</P>") : "" ) +
+((personal == false) ? _("<P>'P' means that a package will be restored only partially. Press <B>Select Files</B> to restore a package partially.</P>") : "" ) +
 
 	    // For translators: restore selection help 4/4
 _("<P>The number of selected files that will be restored from the archive is in the second column.</P>");
