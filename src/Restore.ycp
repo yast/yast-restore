@@ -266,8 +266,13 @@
 	return $[];
     }
 
+    /**
+     * Read contents of archive
+     * @param archivefile File name of backup archive
+     * @return boolean True if archive was succesfully read, otherwise false (file does not exist, not tar archive, broken archive, archive not created by Backup module, ...)
+     */
 
-    global define boolean ReadArchiveFile(string archivefile) ``{
+    global define boolean Read(string archivefile) ``{
 	if (tempdir == "")
 	{
 	    tempdir = SCR::Read(.target.tmpdir);
@@ -512,5 +517,253 @@
 	    Packages::Init(false);
 	}
     }
+
+    global define integer TotalFilesToRestore() ``{
+	integer total = 0;
+
+	// filter out unselected packages and compute total restored files
+	foreach(string p, map info, archive_info, ``{
+		string sel_type = lookup(info, "sel_type", " ");
+
+		if (sel_type == "X")
+		{
+		    total = total + size(lookup(info, "files", []));
+		}
+		else if (sel_type == "P")
+		{
+		    total = total + size(lookup(info, "sel_file", []));
+		}
+	    }
+	);
+
+	return total;
+    }
+
+    /**
+     * Restore files from archive
+     * @param abort This block is periodically evaluated, if it evaluates to true restoration will be aborted. It should be something like ``{return UI::PollInput () == `abort;} if UI exists or ``{ return false; } if there is no UI (abort will not be possible).
+     * @param progress Id of progress bar or nil.
+     * @param targetdir Directory to which files from archive will be upacked
+     * @return map Map $[ "aborted" : boolean, "restored" : [ "restored file" ], "failed" : [ "failed file" ] ]
+     */
+
+    global define map Write(block abort, symbol progress, string targetdir) ``{
+
+	map restore = archive_info;
+	integer total = 0;
+	integer restored = 0;
+	integer restoredpackages = 0;
+	list restoredfiles = [];
+	list failedfiles = [];
+	boolean aborted = false;
+
+	// filter out unselected packages and compute total restored files
+	restore = filter(string p, map info, restore, ``{
+		string sel_type = lookup(info, "sel_type", " ");
+
+		if (sel_type == "X")
+		{
+		    total = total + size(lookup(info, "files", []));
+		    return true;
+		}
+		else if (sel_type == "P")
+		{
+		    total = total + size(lookup(info, "sel_file", []));
+		    return true;
+		}
+		else
+		{
+		    return false;
+		}
+	    }
+	);
+
+	y2milestone("%1 files will be restored from archive", total);
+
+	// get list of all packages to restore (while cycle is used, because foreach cannot be stopped)
+	list packages = [];
+	foreach(string package, map info, restore, ``{
+		packages = add(packages, package);
+	    }
+	);
+
+	integer i = 0;
+	symbol ret = `next;
+
+	while (i < size(packages))
+	{
+	    string package = select(packages, i, "nonexistingpackage");
+	    map info = lookup(restore, package, $[]);
+	    string label = (package == "") ? _("Restoring files not owned by any package ...") : sformat(_("Restoring package %1 ..."), package);
+	    string sel_type = lookup(info, "sel_type", "");
+
+	    if (progress != nil)
+	    {
+		// update name of package
+		UI::ChangeWidget(`id(progress), `Label, label);
+	    }
+
+	    if (Mode::test == true)
+	    {
+		// "unpacking" in test mode
+		integer numf = (sel_type == "P") ? size(lookup(info, "sel_file", [])) : size(lookup(info, "files", []));
+
+		while (numf > 0)
+		{
+		    restored = restored + 1;
+
+		    if (progress != nil)
+		    {
+			UI::ChangeWidget(`id(progress), `Value, restored);
+		    }
+
+		    sleep(300);
+		    numf = numf - 1;
+		}
+	    }
+	    else
+	    {
+		// get subarchive name
+		string name = (package == "") ? "NOPACKAGE" : package + "-" + lookup(info, "vers", "");
+		string fileinarchive = "";
+
+		foreach(string f, archivefiles, ``{
+			if (regexpmatch(f, "^" + name + "-........-.\\.tar.*") == true)
+			{
+			    y2milestone("package %1 is in archive file %2", package, f);
+			    fileinarchive = f;
+			}
+		    }
+		);
+
+		if (fileinarchive == "")
+		{
+		    y2error("Can't find subarchive for package %1", package);
+		}
+		else
+		{
+		    // unpack subarchive
+		    integer result = SCR::Execute(.target.bash, "export LC_ALL=C; /bin/tar -C " + tempdir + " -x -f " + filename + " " + fileinarchive);
+
+		    // set compression parameter
+		    string compress = "";
+		    if (regexpmatch(fileinarchive, ".*\.tar\.gz$") == true)
+		    {
+			compress = "-z";
+		    }
+		    else if (regexpmatch(fileinarchive, ".*\.tar\.bz2$") == true)
+		    {
+			compress = "-j";
+		    }
+
+		    string RPMdb = (restoreRPMdb) ? "" : "--exclude var/lib/rpm";
+
+		    // files to unpack, "" means all files
+		    string unpackfiles = "";
+
+		    // select files to unpack
+		    if (sel_type == "P")
+		    {
+			// strip leading '/'
+			foreach(string f, lookup(info, "sel_file", []), ``{
+				if (size(f) > 1 && substring(f, 0, 1) == "/")
+				{
+				    unpackfiles = unpackfiles + " " + substring(f, 1);
+				}
+			    }
+			);
+		    }
+
+		    // start subprocess
+		    boolean started = SCR::Execute(.background.run_output, "export LC_ALL=C; /bin/tar -C " + targetdir + " " + compress + " -x -v -f " + tempdir + "/" + fileinarchive + " " + RPMdb + " " + unpackfiles + " 2> " + tempdir + "/tar.stderr");
+
+		    while(SCR::Read(.background.output_open) || (SCR::Read(.background.newlines) > 0))
+		    {
+			restored = restored + SCR::Read(.background.newlines);
+
+			// read output from tar
+			restoredfiles = merge(restoredfiles, SCR::Read(.background.newout));
+
+			// update progressbar
+			if (progress != nil)
+			{
+			    UI::ChangeWidget(`id(progress), `Value, restored);
+			}
+
+			while (SCR::Read(.background.newlines) == 0 && SCR::Read(.background.output_open))
+			{
+			    sleep(100);	// small delay
+
+			    aborted = eval(abort);
+
+/*			    ret = UI::PollInput();
+
+			    if (ret == `cancel)
+			    {
+				ret = `abort;
+			    }
+
+			    // check if abort button was pressed
+			    if (ret == `abort && UI::AnyQuestionPopup(_("Abort confirmation"), _("Do you really want to abort restore?"), YesButtonLabel(), NoButtonLabel(), `focus_no))
+*/
+			    if (aborted == true)
+			    {
+				SCR::Execute(.background.kill, nil);	// kill subprocess
+				break;
+			    }
+			}
+
+			if (aborted == true)
+			{
+			    break;
+			}
+
+		    }
+
+		    if (aborted == true)
+		    {
+			break;
+		    }
+
+		    // read failedfiles
+		    failedfiles = merge(failedfiles, splitstring(SCR::Read(.target.string, tempdir + "/tar.stderr"), "\n"));
+
+		    y2milestone("restored files: %1", restored);
+
+		    // package restoration failed
+		    if (size(failedfiles) == size(restoredfiles))
+		    {
+			y2error("failed package: %1", package);
+		    }
+		    else
+		    {
+			restoredpackages = restoredpackages  + 1;
+		    }
+
+		    if (size(failedfiles) > 0)
+		    {
+			y2error("failed files: %1", failedfiles);
+		    }
+		}
+	    }
+
+	    i = i + 1;
+	}
+
+	// sort list of restored files and remove duplicates (caused by multiple unpacking)
+	restoredfiles = toset(restoredfiles);
+
+	// remove failed files
+	restoredfiles = filter(string f, restoredfiles, ``{
+		return !contains(failedfiles, f);
+	    }
+	);
+
+
+	return $[ "aborted" : aborted, "restored" : restoredfiles, "failed" : failedfiles ];
+    }
+
+
+
 
 }
