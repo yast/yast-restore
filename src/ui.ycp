@@ -45,6 +45,7 @@ global list restoredfiles = [];
 global list failedfiles = [];
 global integer restoredpackages = 0;
 global boolean lilostatus = nil;
+global boolean susestatus = nil;
 
 global map packagestoinstall = nil;
 global map packagestouninstall = nil;
@@ -59,6 +60,9 @@ global list hosts = nil;
 
 // map with detected removable devices
 global map removabledevices = nil;
+
+// last user input, used for dialog skipping
+global symbol lastret = nil;
 
 /**
  * Whole restoration
@@ -846,7 +850,7 @@ global define symbol SelectionInstallDialog() ``{
 
     list missing = CreateTableContentsWithMismatched(missingpackages, packagestoinstall, true);
     string widgetlabel = _("&Packages which will be installed");
-    term header = `header(" ", _("Package"), _("Backup version"), _("Installed version"), _("Description"));
+    term header = `header(" ", _("Package"), _("Version"), _("Installed version"), _("Description"));
 
     term contents = `HBox(
 	    `HSpacing(2),
@@ -1438,7 +1442,6 @@ global define symbol FileSelectionDialog(string packagename) ``{
     if (ret == `next)
     {
 	string sel_type_new = "";
-	// TODO save changes
 	list sel = UI::QueryWidget(`id(`mbox), `SelectedItems);
 
 	if (size(sel) == 0)
@@ -1559,8 +1562,10 @@ global define symbol RestoreProgressDialog() ``{
     {
 	 restoredfiles = lookup(result, "restored", []);
 	 failedfiles = lookup(result, "failed", []);
+	 restoredpackages = lookup(result, "packages", 0);
     }
 
+    lastret = ret;
     return ret;
 }
 
@@ -1590,6 +1595,7 @@ global define symbol SWsingleDialog() ``{
 	ret = `abort;
     }
 
+    lastret = ret;
     return ret;
 
     //TODO after package (un)install refresh actual installed packages (do Restore::ReadActualInstalledPackages())
@@ -1601,32 +1607,40 @@ global define symbol SWsingleDialog() ``{
  */
 global define symbol SuSEconfigDialog() ``{
 
-    // TODO: CallModule("inst_suseconfig", []);
-
-    if (Restore::runlilo == true)
+    if (Restore::runSuSEconfig == true && Mode::test == false)
     {
-	term contents = `Label(_("Starting lilo..."));
-	Wizard::SetContents("", contents, "", true, true);
+	CallModule("inst_suseconfig", []);
+
+	// SuSE config was started
+	susestatus = true;
     }
 
-    term contents = `Label(_("Here will be SuSEconfig started (optionally)."));
-    Wizard::SetContents("", contents, "", true, true);
+    return `next;
+}
 
-    symbol ret = nil;
 
-    do
+/**
+ * Convert programm status to string
+ * @param status Status: true = OK, false = Failed, nil = "Not started"
+ * @return string Status
+ */
+
+global define string StatusToString(boolean status) ``
+{
+    string ret = "<I>" + _("Not started") + "</I>";
+
+    if (status == true)
     {
-	ret = UI::UserInput();
-
-	if (ret == `cancel)
-	{
-	    ret = `abort;
-	}
+	ret = _("Ok");
     }
-    while (ret != `next && ret != `abort && ret != `back);
+    else if (status == false)
+    {
+	ret = "<B>" + _("Failed") + "</B>";
+    }
 
     return ret;
 }
+
 
 /**
  * Display summary of restoration
@@ -1634,28 +1648,21 @@ global define symbol SuSEconfigDialog() ``{
  */
 global define symbol SummaryDialog() ``{
 
-    string basicinfo = "<P>Number of installed packages: 3<BR>Number of uninstalled packages: 0</P><P>Total restored packages: " + restoredpackages + "<BR>Total restored files: " + size(restoredfiles) + "</P><P>Restore status: Ok</P>";
+    string basicinfo = "<P>Number of installed packages: 3<BR>Number of uninstalled packages: 0" + "</P><P>" + _("Total restored packages: ") + restoredpackages + "<BR>" + _("Total restored files: ") + size(restoredfiles) + "</P>";
 
     // display failed files if any
     if (size(failedfiles) > 0)
     {
-	 basicinfo = basicinfo + "<P><B>Failed files</B><BR>" + mergestring(failedfiles, "<BR>") + "</P>";
+	 basicinfo = basicinfo + "<P><B>" + _("Failed files") + "</B><BR>" + mergestring(failedfiles, "<BR>") + "</P>";
     }
 
     // set lilo result string
-    string lilostr = "<I>" + _("Not started") + "</I>";
+    string lilostr = StatusToString(lilostatus);
 
-    if (lilostatus == true)
-    {
-	lilostr = _("Ok");
-    }
-    else if (lilostatus == false)
-    {
-	lilostr = "<B>" + _("Failed") + "</B>";
-    }
+    // set SuSEconfig result string
+    string SuSEinfo = StatusToString(susestatus);
 
-
-    string extendedinfo = "<P><BR><B>Details:</B></P><P>Lilo return status: " + lilostr + "</P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>Restored files:</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
+    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Lilo return status: ") + lilostr + "</P><P>" + _("SuSEconfig status: ") + SuSEinfo + " </P><P><B>Installed packages:</B><BR>dsfsd-2.5.2-2<BR>ssdgdsg-2.7.1-4<BR>qwqtrt-12.4.0-1</P><P><B>" + _("Restored files:") + "</B><BR>" + mergestring(restoredfiles, "<BR>") + "</P>";
 
     return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, SummaryHelp(), _("Summary of restoration"), `finish);
 }
