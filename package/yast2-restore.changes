@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Tue Mar 30 03:19:08 CEST 2004 - nashif@suse.de
+
+- Added missing alias to autoyast workflow
+
+-------------------------------------------------------------------
 Wed Mar 10 02:01:11 CET 2004 - nashif@suse.de
 
 - Adapt for new wizard
