@@ -1,110 +1,178 @@
 /**
- * File:
- *   restore_auto.ycp
- *
- * Package:
- *   Restore module
- *
- * Summary:
- *   Client for autoinstallation
- *
- * Authors:
- *   Ladislav Slezak <lslezak@suse.cz>
+ * File:       clients/restore_auto.ycp
+ * Package:    Restore module
+ * Summary:    Client for autoinstallation
+ * Authors:    Ladislav Slezak <lslezak@suse.cz>
  *
  * $Id$
  *
- * This is a client for autoinstallation. It takes its arguments,
- * goes through the configuration and return the setting.
+ * This is a client for autoinstallation.
  * Does not do any changes to the configuration.
+ *
  */
 
-/**
- * @param first a map of restore settings
- * @return map edited settings or an empty map if canceled
- * @example map mm = $[ "FAIL_DELAY" : "77" ];
- * @example map ret = WFM::CallModule ("restore_auto", [ mm ]);
- */
 
 {
-    textdomain "restore";
 
-    import "Restore";
+textdomain "restore";
 
-    include "restore/ui.ycp";
+import "Restore";
+include "restore/ui.ycp";
 
-    list args = WFM::Args();
+/* The main () */
+y2milestone("-------------------------------");
+y2milestone("Restore autoinst client started");
 
-    Mode::config = true;	// TODO remove this line!
+any ret = nil;
+string func = "";
+map param = $[];
 
-    if (size(args) <= 0)
+
+/* Check arguments */
+if (size(Args()) > 0 && is(Args(0), string))
+{
+    func = WFM::Args(0);
+
+    if (size(Args()) > 1 && is(Args(1), map))
     {
-	y2error("Did not get the settings, probably some mistake...");
+	param = WFM::Args(1);
+    }
+}
+
+y2milestone("func=%1", func);
+y2milestone("param=%1", param);
+
+/* Import data*/
+if (func == "Import")
+{
+    ret = Restore::Import(param);
+}
+/* create a summary */
+else if(func == "Summary")
+{
+    ret =  Restore::Summary();
+}
+else if (func == "Reset")
+{
+    ret = Restore::Import($[]);
+}
+else if (func == "Change")
+{
+    // remember settings which will be overwritten at archive selection
+    Restore::Import(param);
+    ret = RestoreAutoSequence();
+}
+else if (func == "Result")
+{
+    ret = Restore::Export();
+}
+else if (func == "Write")
+{
+    import "Progress";
+
+    // Read archive file
+    list volumes = lookup(param, "archives", []);
+
+    if (size(volumes) == 0)
+    {
 	return false;
     }
 
-    if (!is(WFM::Args(0), map))
-    {
-	y2error("Bad argument for restore_auto: %1", WFM::Args (0));
-	return false;
-    }
+    boolean read = false;
+    symbol ui = `dummy;
 
-    // The settings are in the first argument
-    map settings = select(args, 0, $[]);
-    y2milestone("Imported: %1", settings);
+    integer index = 0;
 
-    Restore::Import(settings);
-
-    term dialog_contents =
-	`VBox(
-	  `VSpacing(1),
-	  `RichText( `id(`summary), Restore::Summary()),
-	  `VSpacing(),
-	  `HBox(
-	    // push button label - start restore module
-	    `PushButton(`id(`configure), _("&Configure restore module")),
-	    `HStretch(),
-	    // push button label - set unconfigured state
-	    `PushButton(`id(`reset), _("Re&set configuration"))
-	    )
-	  );
-
-    // dialog header - configuration of restore module
-    Wizard::SetContents(_("Restore module configuration"),
-		dialog_contents, "", true, true);
-
-    symbol ret = nil;
-    repeat {
-	ret = UI::UserInput();
-
-	if (ret == `configure)
+    foreach(string volume, volumes, ``{
+	if (ui == `abort)
 	{
-	    symbol config = RestoreAutoSequence();
+	    return;
+	}
 
-	    if (config == `finish || config == `next)
+	if (index == 0)
+	{
+	    read = Restore::Read(volume);
+	}
+	else
+	{
+	    read = lookup(Restore::ReadNextVolume(volume), "success", false);
+	}
+
+	if (read == false)
+	{
+	    // read failed, offer manual selection
+	    input = volume;
+
+	    // popup dialog text part 1
+	    if (UI::YesNoPopup((index == 0 ? _("Archive file cannot be read.") :
+		// popup dialog text part 1
+		_("Archive volume cannot be read.")) +
+		// popup dialog text part 2
+		_("\nSelect it manually?
+")) == true)
 	    {
-		settings = Restore::Export();
-		// update summary
-		UI::ChangeWidget(`id(`summary), `Value, Restore::Summary());
+		if (index == 0)
+		{
+		    input = select(volumes, index, "");
+		}
+		else
+		{
+		    // in selection dialog is proposed new file name, use previous one
+		    input = select(volumes, index - 1, "");
+		}
+
+		// select file
+		Wizard::CreateDialog();		// TODO remove this ?
+		ui = ArchiveSelectionDialog(index != 0, false);	// false = ask only for one file, others are in 'volumes'
+
+		// ask for more volumes if they are not specified
+		if (index == 0 && Restore::IsMultiVolume() == true && size(volumes) == 1)
+		{
+		    ui = ArchiveSelectionDialog(true, false);
+		}
+
+		UI::CloseDialog();		// TODO remove this ?
 	    }
 	    else
 	    {
-		// restore previous settings
-		Restore::Import(settings);
+		return false;
 	    }
 	}
-	else if (ret == `reset)
-	{
-	    // reset settings
-	    settings = $[];
-	    Restore::Import(settings);
 
-	    // update summary
-	    UI::ChangeWidget(`id(`summary), `Value, Restore::Summary());
+	index = index + 1;
+    });
+
+    // set selection
+    map selection = lookup(settings, "selection", $[]);
+
+    foreach(string package, map info, selection, ``{
+	    Restore::SetRestoreSelection(package, info);
 	}
+    );
 
-    } until (ret == `back || ret == `next || ret ==`key || ret ==`abort);
+    Progress::off ();
+    map ret = Restore::Write( ``{ return false; }, nil, "/" );
+    Progress::on ();
 
-    return [ret, settings];
+    return (size(lookup(ret, "failed", [])) == 0);
 }
 
+/* unknown function */
+else
+{
+    y2error("unknown function: %1", func);
+    ret =  false;
+}
+
+/* Finish */
+y2debug("ret=%1", ret);
+y2milestone("Restore autoinit client finished");
+y2milestone("--------------------------------");
+
+return ret;
+/* EOF */
+
+}
+
+}
 

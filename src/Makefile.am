@@ -8,7 +8,6 @@ yncludedir = @yncludedir@/restore
 
 client_DATA =			\
 	restore.ycp		\
-	restore_write.ycp	\
 	restore_auto.ycp
 
 ynclude_DATA =			\

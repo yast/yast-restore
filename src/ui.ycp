@@ -492,7 +492,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 
 	if (ret == `selectfile)
 	{
-	    string file = PopupFile("/");
+	    string file = PopupFileWithMask("/", ["*.tar"]);
 
 	    if (file != "")
 	    {
@@ -538,7 +538,7 @@ global define symbol ArchiveSelectionDialog(boolean multivolume, boolean askform
 	    if (lookup(mount, "success", false) == true)
 	    {
 		string mountpnt = lookup(mount, "mpoint", "/");
-		string file = PopupFile(mountpnt + "/");
+		string file = PopupFileWithMask(mountpnt + "/", ["*.tar"]);
 
 		if (file != "")
 		{
@@ -739,10 +739,10 @@ global define symbol ArchivePropertyDialog() ``{
 		`MultiLineEdit(`id(`description), `opt(`disabled), _("Archive &description:"), comment),
 		`VSpacing(1.0),
 		// push button label
-		`PushButton(`id(`details), _("&Archive content...")),
+		`PushButton(`id(`details), `opt(`key_F2), _("&Archive content...")),
 		`VSpacing(1),
 		// push button label
-		`PushButton(`id(`options), _("E&xpert options...")),
+		`PushButton(`id(`options), `opt(`key_F7), _("E&xpert options...")),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -1131,7 +1131,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
 
     // in personal version is button = `Empty() and help text will be shorter
     // push button label
-    term button = (!personal) ? `PushButton(`id(`files), _("S&elect files")) : `Empty();
+    term button = (!personal) ? `PushButton(`id(`files), `opt(`key_F7), _("S&elect files")) : `Empty();
 
     list tablecontents = CreateTableContentsRestoreSelection(Restore::GetArchiveInfo());
     integer position = 0;
@@ -1378,7 +1378,7 @@ global define symbol RestoreOptionsDialog() ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
+    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), OKButtonLabel()));
 
     // dialog header
     Wizard::SetContents(_("Restore options"), contents, RestoreOptionsHelp(), true, true);
@@ -1468,7 +1468,7 @@ global define symbol FileSelectionDialog(string packagename) ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
+    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), OKButtonLabel()));
 
     // dialog header - %1 is name of package (e.g. "aaa_base")
     Wizard::SetContents(sformat(_("File selection -- package %1"), packagename), contents, FileSelectionHelp(), true, true);
@@ -1550,7 +1550,7 @@ global define symbol ArchiveContentsDialog() ``{
 	    `HSpacing(2)
 	);
 
-    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default), OKButtonLabel()));
+    Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), OKButtonLabel()));
 
     // dialog header
     Wizard::SetContents(_("Archive contents"), contents, ArchiveContentHelp(), true, true);
@@ -1614,7 +1614,7 @@ global define symbol RestoreProgressDialog() ``{
     Wizard::SetContents(_("Restoring files"), contents, RestoreProgressHelp(), false, false);
 
     // start restoration
-    map result = Restore::Write(callback, progressbar, "/");
+    map result = Restore::Write(callback, progressbar, "/tmp/restore");
 
     // set values from restoration
     ret = (lookup(result, "aborted", false)) ? `abort : `next;
@@ -1876,8 +1876,8 @@ global define string SelectFromList(string label, list inputlist, string selecte
 		`HSpacing(40),
 		`SelectionBox(`id(`selbox), label, inputlist),
 		`HBox(
-		    `PushButton(`id(`ok), `opt(`default), OKButtonLabel()),
-		    `PushButton(`id(`cancel), CancelButtonLabel())
+		    `PushButton(`id(`ok), `opt(`default, `key_F10), OKButtonLabel()),
+		    `PushButton(`id(`cancel), `opt(`key_F9), CancelButtonLabel())
 		)
 	    )
 	)

@@ -55,6 +55,8 @@
     // "vers" : "version", "files" : ["files"], "prefix" : "prefix", "descr" : "description", "sel_type" : "X", "sel_file" : [""]
     map archive_info = $[];
 
+    map autoinst_info = $[];
+
     // information stored in archive
     string date = "";
     string hostname = "";
@@ -396,6 +398,13 @@
 
 	// set restore selection
 	SetSelectionProperty(settings["selection"]:$[]);
+
+	// store settings - file selection will be refreshed after archive selection
+	// autoinstall config mode
+	autoinst_info = settings["selection"]:$[];
+	y2debug("setting autoinst_info: %1", autoinst_info);
+
+	y2warning("archive_info: %1", archive_info);
     }
 
     /**
@@ -717,6 +726,13 @@ It was probably not created by the backup module.
 		return [p, t];
 	    }
 	);
+
+	if (Mode::config == true)
+	{
+	    // refresh file selection in autoinstall config mode
+	    y2debug("Setting selection: %1", autoinst_info);
+	    SetSelectionProperty(autoinst_info);
+	}
 
 	y2milestone("values from archive: date=%1, comment=%2, hostname=%3", date, comment, hostname);
 
