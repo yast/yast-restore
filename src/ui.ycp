@@ -52,6 +52,13 @@ global string mountdir = "";
 // entered archive name, can differ from local file name (e.g. nfs://server:dir/archive.tar)
 global string input = "";
 
+// list of found hosts on LAN
+global list hosts = nil;
+
+global list cddrives = nil;
+
+// default is first CD drive
+global integer cddriveindex = 0;
 
 /**
  * Whole restoration
@@ -233,46 +240,53 @@ global define symbol ArchiveSelectionDialog() ``{
     else
     {
 	// set default values
+	// TODO: remove this, use initialized values
 	file_name = "/tmp/bk.tar";
 	nfs_server = "dhcp28";
-	nfs_file = "/local/bk.tar";
+	nfs_file = "/local/backup.tar";
 	cd_file = "";
     }
 
     term contents = `VBox(
 		`Frame("Backup archive",
-			`RadioButtonGroup(`id(`source),
-			    `VBox(
-				`VSpacing(0.5),
-				`Left(`RadioButton(`id(`file), _("L&ocal file"), type == `file)),
-				`HBox(
-				    `HSpacing(2),
-				    `TextEntry(`id(`filename), _("Archive file na&me:"), file_name),
-				    `HSpacing(2),
-				    `PushButton(`id(`selectfile), _("&Select file"))
-				),
-				`VSpacing(1.5),
-				`Left(`RadioButton(`id(`nfs), _("N&FS"), type == `nfs)),
-				`HBox(
-				    `HSpacing(2),
-				    `TextEntry(`id(`nfsserver), _("I&P adress or name of NFS server:"), nfs_server),
-				    `HSpacing(2)
-				),
-				`HBox(
-				    `HSpacing(2),
-				    `TextEntry(`id(`nfsfilename), _("&Archive file name:"), nfs_file),
-				    `HSpacing(2)
-				),
-				`VSpacing(1.5),
-				`Left(`RadioButton(`id(`cd), _("&CD disk"), type == `cd)),
-				`HBox(
-				    `HSpacing(2),
-				    `TextEntry(`id(`cdfilename), _("Arc&hive file name:"), cd_file),
-				    `HSpacing(2),
-				    `PushButton(`id(`cdfile), _("S&elect file"))
-				),
-				`VSpacing(1)
-			    )
+			`HBox(
+			    `RadioButtonGroup(`id(`source),
+				`VBox(
+				    `VSpacing(0.5),
+				    `Left(`RadioButton(`id(`file), _("&Local file"), type == `file)),
+				    `HBox(
+					`HSpacing(2),
+					`TextEntry(`id(`filename), _("Archive file na&me:"), file_name),
+					`HSpacing(1),
+					`Bottom(`PushButton(`id(`selectfile), _("&Select file...")))
+				    ),
+				    `VSpacing(1.5),
+				    `Left(`RadioButton(`id(`nfs), _("N&FS"), type == `nfs)),
+				    `HBox(
+					`HSpacing(2),
+					`TextEntry(`id(`nfsserver), _("I&P adress or name of NFS server:"), nfs_server),
+					`HSpacing(1),
+					`Bottom(`PushButton(`id(`selecthost), _("Select &host...")))
+				    ),
+				    `HBox(
+					`HSpacing(2),
+					`TextEntry(`id(`nfsfilename), _("&Archive file name:"), nfs_file)
+//					`HSpacing(2)
+				    ),
+				    `VSpacing(1.5),
+				    `Left(`RadioButton(`id(`cd), `opt(`notify), _("&CD disk"), type == `cd)),
+				    `HBox(
+					`HSpacing(2),
+					`TextEntry(`id(`cdfilename), _("Archi&ve file name:"), cd_file),
+					`HSpacing(1),
+					`Bottom(`PushButton(`id(`selectcd), _("C&D drive..."))),
+					`HSpacing(1),
+					`Bottom(`PushButton(`id(`cdfile), _("S&elect file")))
+				    ),
+				    `VSpacing(1)
+				)
+			    ),
+			    `HSpacing(1)
 			)
 		    ),
 		`VSpacing(1),
@@ -283,6 +297,7 @@ global define symbol ArchiveSelectionDialog() ``{
     Wizard::SetContents(_("Archive selection"),
 	contents, "help", true, true);
 
+
     symbol ret = nil;
 
     do
@@ -292,7 +307,106 @@ global define symbol ArchiveSelectionDialog() ``{
 	if (ret == `selectfile)
 	{
 	    string file = PopupFile("/");
-	    UI::ChangeWidget(`id(`filename), `Value, file);
+
+	    if (file != "")
+	    {
+		UI::ChangeWidget(`id(`filename), `Value, file);
+	    }
+	}
+	if (ret == `selecthost)
+	{
+	    // cache found hosts
+	    if (hosts == nil)
+	    {
+		hosts = (Mode::test == false) ? sort(SCR::Read(.net.hostnames)) :
+		    [ "host1.local", "host2.local", "server1.local"];
+
+		if (hosts == nil)
+		{
+		    hosts = [];
+		}
+	    }
+
+	    string selectedhost = SelectFromList(_("Network &hosts:"), hosts, UI::QueryWidget(`id(`nfsserver), `Value));
+
+	    if (selectedhost != "" && selectedhost != nil)
+	    {
+		UI::ChangeWidget(`id(`nfsserver), `Value, selectedhost);
+	    }
+	}
+	else if (ret == `selectcd)
+	{
+	    if (cddrives == nil)
+	    {
+		cddrives = (Mode::test == false) ? SCR::Read(.probe.cdrom) :
+		    [ $["device" :  "Toshiba DVD-ROM SD-M1402", "dev_name" : "/dev/hdc"], $["device" :  "CD-540E", "dev_name" : "/dev/hdd"] ];
+
+		if (cddrives == nil)
+		{
+		    cddrives = [];
+		}
+	    }
+
+	    if (size(cddrives) == 0)
+	    {
+		UI::WarningPopup(_("No CD-ROM drive is present!"));
+		cddriveindex = -1;
+	    }
+	    else
+	    {
+		// show CD drive selection dialog
+		list descriptions = [];
+
+		foreach(map cdinfo, cddrives, ``{
+			descriptions = add(descriptions, lookup(cdinfo, "device", _("Unknown CD device")) + " (" + lookup(cdinfo, "dev_name", _("unknown")) + ")");
+		    }
+		);
+
+		string selectedCD = SelectFromList(_("C&D drives:"), descriptions, select(descriptions, cddriveindex, ""));
+
+		if (selectedCD != "" && selectedCD != nil)
+		{
+		    // set number of CD drive
+		    integer index = 0;
+
+		    while (index < size(descriptions))
+		    {
+			if (selectedCD == select(descriptions, index, ""))
+			{
+			    cddriveindex = index;
+			    break;
+			}
+
+			index = index + 1;
+		    }
+
+		    y2milestone("Selected CD drive %1 [%2]", cddriveindex, select(descriptions, cddriveindex, ""));
+		}
+	    }
+	}
+	else if (ret == `cdfile)
+	{
+	    // file selection from CD
+	    map mount = Restore::mountCD(cddriveindex);
+
+	    if (lookup(mount, "mounted", false) == true)
+	    {
+		string mountpnt = lookup(mount, "mountpoint", "/");
+		string file = PopupFile(mountpnt);
+
+		if (file != "")
+		{
+		    // TODO remove mountpoint dir from name
+		    UI::ChangeWidget(`id(`cdfilename), `Value, file);
+		}
+
+		// umount CD
+		SCR::Execute(.target.umount, mountpnt);
+	    }
+	    else
+	    {
+		UI::ErrorPopup("Can not mount CD");
+	    }
 	}
 	else if (ret == `next)
 	{
@@ -315,29 +429,37 @@ global define symbol ArchiveSelectionDialog() ``{
 	    }
 	    else if (type == `cd)
 	    {
-		input = "cd://" + UI::QueryWidget(`id(`cdfilename), `Value);
+		string cdpref = "cd";
+
+		if (cddriveindex > 0)
+		{
+		    cdpref = cdpref + sformat("%1", cddriveindex);
+		}
+
+		cdpref = cdpref + "://";
+
+		input = cdpref + UI::QueryWidget(`id(`cdfilename), `Value);
 	    }
 	    else
 	    {
 		y2error("Unknown source type %1", type);
 	    }
 
+	    // read archive file
+	    UI::OpenDialog(`Label(_("Reading archive contents...")));
+	    boolean readresult = Restore::Read(input);
+	    UI::CloseDialog();
 
-		// read archive file
-		UI::OpenDialog(`Label(_("Reading archive contents...")));
-		boolean readresult = Restore::Read(input);
-		UI::CloseDialog();
-
-		if (readresult == false)
-		{
-		    UI::ErrorPopup(sformat(_("Can not read backup archive file '%1'!"), input));
-		    ret = `dummy;
-		}
-		else
-		{
-		    restoredfiles = [];
-		    failedfiles = [];
-		}
+	    if (readresult == false)
+	    {
+		UI::ErrorPopup(sformat(_("Can not read backup archive file '%1'!"), input));
+		ret = `dummy;
+	    }
+	    else
+	    {
+		restoredfiles = [];
+		failedfiles = [];
+	    }
 	}
 	else if (ret == `cancel)
 	{
@@ -1293,6 +1415,44 @@ global define list CreateTableContentsRestoreSelection(map restoreselection) ``{
 	    }
 	);
     }
+
+    return ret;
+}
+
+global define string SelectFromList(string label, list inputlist, string selected) ``{
+
+    UI::OpenDialog(
+	`HBox(
+	    `VSpacing(10),
+	    `VBox(
+		`HSpacing(40),
+		`SelectionBox(`id(`selbox), label, inputlist),
+		`HBox(
+		    `PushButton(`id(`ok), `opt(`default), OKButtonLabel()),
+		    `PushButton(`id(`cancel), CancelButtonLabel())
+		)
+	    )
+	)
+    );
+
+    if (contains(inputlist, selected))
+    {
+	UI::ChangeWidget(`id(`selbox), `CurrentItem, selected);
+    }
+
+    UI::SetFocus(`id(`ok));
+
+    symbol uinput = nil;
+
+    do
+    {
+	uinput = UI::UserInput();
+    }
+    while (uinput != `ok && uinput != `cancel);
+
+    string ret = (uinput == `cancel) ? "" : UI::QueryWidget(`id(`selbox), `CurrentItem);
+
+    UI::CloseDialog();
 
     return ret;
 }
