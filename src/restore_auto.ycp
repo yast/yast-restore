@@ -160,6 +160,8 @@ else if (func == "Write")
     map ret = Restore::Write( ``{ return false; }, nil, "/" );
     Progress::on ();
 
+    Restore::Umount();
+
     return (size(lookup(ret, "failed", [])) == 0);
 }
 

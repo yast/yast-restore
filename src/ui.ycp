@@ -1333,17 +1333,17 @@ Select them for restoration?
 
 		if (RPMoption == true)
 		{
-		    Popup::Warning(_("It is recommended to restore RPM database."));
+		    Popup::Warning(_("It is recommended to restore the RPM database."));
 		}
 		else if (RPMoption == false)
 		{
-		    Popup::Warning(_("It is recommended to NOT restore RPM database."));
+		    Popup::Warning(_("It is recommended NOT to restore the RPM database."));
 		}
 		else
 		{
 		    // RPMoption is nil
 		    Popup::Warning(_("There is a conflict between selected
-packages and RPM restoration option.
+packages and the RPM restoration option.
 Try to change selection or RPM restoration status."));
 		}
 	    }

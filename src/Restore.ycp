@@ -573,7 +573,7 @@ to temporary directory.
 	archivefiles = filter(string f, archivefiles, ``{return f != "" && f != nil;});
 
 	boolean compressed_packages_info = contains(archivefiles, "info/packages_info.gz");
-	y2internal("compressed_packages_info: %1", compressed_packages_info);
+	y2milestone("compressed_packages_info: %1", compressed_packages_info);
 
 	if (!(contains(archivefiles, "info/files") && (contains(archivefiles, "info/packages_info") || contains(archivefiles, "info/packages_info.gz")) && contains(archivefiles, "info/installed_packages")))
 	{
@@ -600,14 +600,14 @@ It was probably not created by the backup module.
 	comment = SCR::Read(.target.string, tempdir + "/info/comment");
 	hostname = SCR::Read(.target.string, tempdir + "/info/hostname");
 
-	y2internal("File content: %1", SCR::Read(.target.string, tempdir + "/info/complete_backup"));
+	y2debug("File content: %1", SCR::Read(.target.string, tempdir + "/info/complete_backup"));
 
 	string complete_backup_str = (SCR::Read(.target.size, tempdir + "/info/complete_backup") > 0) ?
 	    SCR::Read(.target.string, tempdir + "/info/complete_backup")
 	    : "";
 
 	complete_backup = splitstring(complete_backup_str, "\n");
-	y2internal("Complete backup: %1", complete_backup);
+	y2milestone("Complete backup: %1", complete_backup);
 
 	// read archive contents file
 	string archivefs = SCR::Read(.target.string, tempdir + "/info/files");
@@ -640,7 +640,7 @@ It was probably not created by the backup module.
 	{
 	    y2milestone("Unpacking packages_info.gz file");
 	    // uncompress compressed package info
-	    SCR::Execute(.target.bash, "/usr/bin/gunzip " + tempdir + "/info/packages_info.gz");
+	    SCR::Execute(.target.bash, "/usr/bin/gunzip -c " + tempdir + "/info/packages_info.gz > " + tempdir + "/info/packages_info");
 	    y2milestone("File unpacked");
 	}
 
@@ -1582,7 +1582,7 @@ Press OK to exit.
 	    y2milestone("file: %1", f);
 	    y2milestone("mpoint: %1", mpoint);
 
-	    boolean result = SCR::Execute(.target.mount, [server + ":" + dir, mpoint], "-t nfs");
+	    boolean result = SCR::Execute(.target.mount, [server + ":" + dir, mpoint], "-t nfs -o ro");
 
 	    return $[ "mounted" : result, "mountpoint" : mpoint , "file" : f, "server_dir" : dir ];
 	}
@@ -1663,7 +1663,8 @@ Press OK to exit.
 	// create mount point directory
 	SCR::Execute(.target.mkdir, mpoint);
 
-	boolean result = SCR::Execute(.target.mount, [device, mpoint] );
+	// mount read-only
+	boolean result = SCR::Execute(.target.mount, [device, mpoint], "-o ro" );
 
 	return $[ "mounted" : result, "mpoint" : mpoint ];
     }
@@ -1673,10 +1674,9 @@ Press OK to exit.
      */
 
     global define void Umount() ``{
-	y2debug("Umount() called");
-
 	if (mountpoint != "" && mountpoint != nil)
 	{
+	    y2milestone("Umount called - unmounting %1", mountpoint);
 	    SCR::Execute(.target.umount, mountpoint);
 	    mountpoint = "";
 	}
@@ -1815,8 +1815,7 @@ Press OK to exit.
 	// proposed DB restoration
 	boolean propose = nil;
 
-	y2internal("extra: %1", extra);
-	y2internal("missig: %1", missing);
+	y2debug("extra: %1, missig: %2", extra, missig);
 
 	list selected_list = [];
 	foreach(string p, map in, selected, ``{
@@ -1825,7 +1824,7 @@ Press OK to exit.
 	    }
 	);
 
-	y2internal("selected_list: %1", selected_list);
+	y2debug("selected_list: %1", selected_list);
 
 	// propose restoration when:
 	// - missing packages contain only fully backed packages
@@ -1834,7 +1833,7 @@ Press OK to exit.
 	if (size(extra) == 0)
 	{
 	    boolean all = true;
-	    y2internal("size(extra): %1", size(extra));
+	    y2debug("size(extra): %1", size(extra));
 
 	    foreach(string fullpkg, complete_backup, ``{
 
@@ -1849,7 +1848,7 @@ Press OK to exit.
 		}
 	    );
 
-	    y2internal("all completely packages selected: %1", all);
+	    y2debug("all completely packages selected: %1", all);
 
 	    if (all == true)
 	    {
@@ -1866,7 +1865,7 @@ Press OK to exit.
 
 		if (all == true)
 		{
-		    y2internal("only fully backed up packages are missing");
+		    y2debug("only fully backed up packages are missing");
 		    // RPM DB restoration is recommended
 		    return $["proposed" : true];
 		}
@@ -1927,7 +1926,7 @@ Press OK to exit.
 
     global define boolean RPMrestorable() ``{
 	list nopkgfiles = archive_info["", "files"]:[];
-	return contains(nopkgfiles, "/var/lib/rpm/packages.rpm");
+	return contains(nopkgfiles, "/var/lib/rpm/Packages");
     }
 
 }
