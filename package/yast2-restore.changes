@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon Aug 18 13:09:11 CEST 2003 - lslezak@suse.cz
+
+- use Label:: and Popup:: modules
+- version 2.8.1
+
+-------------------------------------------------------------------
 Wed Aug  6 10:09:52 CEST 2003 - lslezak@suse.de
 
 - added help text
