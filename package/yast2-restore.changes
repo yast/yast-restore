@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Fri Jul 05 13:00:01 CEST 2002 - arvin@suse.de
+
+- moved non binary files to /usr/share/YaST2
+
+-------------------------------------------------------------------
 Thu May  2 16:27:50 2002 - lslezak@suse.cz
 
 - initial version
