@@ -1,4 +1,13 @@
 -------------------------------------------------------------------
+Mon Aug 25 16:48:41 CEST 2003 - lslezak@suse.de
+
+- backup current RPM DB before restoration
+- removed "Initializing..." dialog
+- read commpressed package descriptions
+- propose and check RPM restoration status
+- version 2.8.2
+
+-------------------------------------------------------------------
 Mon Aug 18 13:09:11 CEST 2003 - lslezak@suse.cz
 
 - use Label:: and Popup:: modules

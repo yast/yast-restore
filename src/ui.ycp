@@ -165,17 +165,7 @@ global define any RestoreSequence () ``{
 	]
     ];
 
-    // dialog header
-    string caption = _("Restore module");
-    // dialog message
-    term contents = `Label (_("Initializing ..."));
-
     Wizard::CreateDialog ();
-    Wizard::SetContentsButtons ( caption,
-				contents,
-				"",
-				Label::BackButton (),
-				Label::NextButton ());
 
     any ret = WizardSequencer (aliases, sequence);
 
@@ -246,17 +236,7 @@ global define any RestoreAutoSequence() ``{
 	]
     ];
 
-    // dialog header
-    string caption = _("Restore module configuration");
-    // dialog message
-    term contents = `Label (_("Initializing ..."));
-
     Wizard::CreateDialog ();
-    Wizard::SetContentsButtons ( caption,
-				contents,
-				"",
-				Label::BackButton (),
-				Label::NextButton ());
 
     input = Restore::inputname;
 
@@ -1148,6 +1128,16 @@ global define symbol PackageSelectionRestoreDialog() ``{
 	);
     }
 
+    map proposedRPMrestoration = Restore::ProposeRPMdbRestoration();
+    y2milestone("Proposed RPM restoration: %1", proposedRPMrestoration);
+
+    boolean RPMoption = Restore::restoreRPMdb;
+
+    if (RPMoption == nil)
+    {
+	RPMoption = proposedRPMrestoration["proposed"]:false;
+    }
+
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(
@@ -1157,6 +1147,9 @@ global define symbol PackageSelectionRestoreDialog() ``{
 		`VSpacing(0.2),
 		// push button label
 		`HBox(`PushButton(`id(`select), _("&Select all")), `PushButton(`id(`deselect), _("&Deselect all")), button),
+		`VSpacing(1.0),
+		// check box label - restore option
+		`CheckBox(`id(`rpmdb), `opt(`notify), _("Restore RPM &database (if present in archive)"), RPMoption),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -1178,6 +1171,20 @@ global define symbol PackageSelectionRestoreDialog() ``{
     {
         Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::FinishButton()));
     }
+    else
+    {
+        Wizard::ReplaceNextButton(`PushButton(`id(`next), `opt(`default, `key_F10), Label::AcceptButton()));
+    }
+
+    if (Restore::RPMrestorable() == false)
+    {
+	// RPM DB cannot be restored (it is not contained in the archive)
+	Restore::restoreRPMdb = false;
+
+	UI::ChangeWidget(`id(`rpmdb), `Enabled, false);
+	y2warning("RPM DB is not present in the archive - cannot be restored");
+    }
+
 
     // set currnet item in the table
     if (size(tablecontents) > 0)
@@ -1186,6 +1193,7 @@ global define symbol PackageSelectionRestoreDialog() ``{
     }
 
     symbol ret = nil;
+
 
     do
     {
@@ -1328,6 +1336,34 @@ Select them for restoration?
 		UI::ChangeWidget(`id(`pkgtable), `CurrentItem, current);
 	    }
 	}
+	else if (ret == `rpmdb)
+	{
+	    // check current RPM rezstoration status with proposed
+	    boolean selectedRPM = UI::QueryWidget(`id(`rpmdb), `Value);
+	    proposedRPMrestoration = Restore::ProposeRPMdbRestoration();
+	    RPMoption = proposedRPMrestoration["proposed"]:nil;
+
+	    if (selectedRPM != RPMoption)
+	    {
+		// display warning
+
+		if (RPMoption == true)
+		{
+		    Popup::Warning(_("It is recommended to restore RPM database."));
+		}
+		else if (RPMoption == false)
+		{
+		    Popup::Warning(_("It is recommended to NOT restore RPM database."));
+		}
+		else
+		{
+		    // RPMoption is nil
+		    Popup::Warning("There is a conflict between selected
+packages and RPM restoration option.
+Try to change selection or RPM restoration status.");
+		}
+	    }
+	}
 	else if (ret == `cancel)
 	{
 	    ret = `abort;
@@ -1343,6 +1379,8 @@ Select them for restoration?
 		return (lookup(i, "sel_type", " ") != " ");
 	    }
 	);
+
+	Restore::restoreRPMdb = UI::QueryWidget(`id(`rpmdb), `Value);
 
 	y2debug("Final restore selection: %1", final);
     }
@@ -1370,9 +1408,6 @@ global define symbol RestoreOptionsDialog() ``{
 		`VSpacing(0.2),
 		// check box label - restore option
 		`Left(`CheckBox(`id(`susecfg), _("Run &SuSEconfig after restoration"), Restore::runSuSEconfig)),
-		`VSpacing(0.2),
-		// check box label - restore option
-		`Left(`CheckBox(`id(`rpmdb), _("Restore RPM &database (if present in archive)"), Restore::restoreRPMdb)),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -1399,7 +1434,6 @@ global define symbol RestoreOptionsDialog() ``{
     {
 	Restore::runbootloader = UI::QueryWidget(`id(`lilo), `Value);
 	Restore::runSuSEconfig = UI::QueryWidget(`id(`susecfg), `Value);
-	Restore::restoreRPMdb = UI::QueryWidget(`id(`rpmdb), `Value);
     }
 
     Wizard::RestoreNextButton();

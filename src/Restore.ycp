@@ -51,6 +51,8 @@
     // list of installed packages
     map actualinstalledpackages = $[];
 
+    list complete_backup = [];
+
     // restoration archive and selection
     // "vers" : "version", "files" : ["files"], "prefix" : "prefix", "descr" : "description", "sel_type" : "X", "sel_file" : [""]
     map archive_info = $[];
@@ -88,7 +90,7 @@
     /**
      * Rewrite RPM db - unapack /var/lib/rpm/* files from backup if present
      */
-    global boolean restoreRPMdb = false;
+    global boolean restoreRPMdb = nil;
 
 
     /**
@@ -569,7 +571,10 @@ to temporary directory.
 	archivefiles = splitstring(lookup(result, "stdout", ""), "\n");
 	archivefiles = filter(string f, archivefiles, ``{return f != "" && f != nil;});
 
-	if (!(contains(archivefiles, "info/files") && contains(archivefiles, "info/packages_info") && contains(archivefiles, "info/installed_packages")))
+	boolean compressed_packages_info = contains(archivefiles, "info/packages_info.gz");
+	y2internal("compressed_packages_info: %1", compressed_packages_info);
+
+	if (!(contains(archivefiles, "info/files") && (contains(archivefiles, "info/packages_info") || contains(archivefiles, "info/packages_info.gz")) && contains(archivefiles, "info/installed_packages")))
 	{
 	    // archive doesn't contain files from backup - file is not backup archive or not first volume of multi volume archive
 	    y2error("Archive does not contain 'info/files' or 'info/packages_info' or 'info/installed_packages' file!");
@@ -583,7 +588,9 @@ It was probably not created by the backup module.
 
 	y2debug("read archivefiles: %1", archivefiles);
 
-	string infofiles = "info/comment info/hostname info/date info/installed_packages info/files info/packages_info";
+	string infofiles = "info/comment info/hostname info/date info/installed_packages info/files info/complete_backup ";
+
+	infofiles = infofiles + (compressed_packages_info ? "info/packages_info.gz" : "info/packages_info");
 
 	// unpack info files
 	result = SCR::Execute(.target.bash_output, "/bin/tar -C " + tempdir + " -x -f " + filename + " " + infofiles);
@@ -591,6 +598,15 @@ It was probably not created by the backup module.
 	date = SCR::Read(.target.string, tempdir + "/info/date");
 	comment = SCR::Read(.target.string, tempdir + "/info/comment");
 	hostname = SCR::Read(.target.string, tempdir + "/info/hostname");
+
+	y2internal("File content: %1", SCR::Read(.target.string, tempdir + "/info/complete_backup"));
+
+	string complete_backup_str = (SCR::Read(.target.size, tempdir + "/info/complete_backup") > 0) ?
+	    SCR::Read(.target.string, tempdir + "/info/complete_backup")
+	    : "";
+
+	complete_backup = splitstring(complete_backup_str, "\n");
+	y2internal("Complete backup: %1", complete_backup);
 
 	// read archive contents file
 	string archivefs = SCR::Read(.target.string, tempdir + "/info/files");
@@ -619,6 +635,14 @@ It was probably not created by the backup module.
 	    }
 	);
 
+	if (compressed_packages_info == true)
+	{
+	    y2milestone("Unpacking packages_info.gz file");
+	    // uncompress compressed package info
+	    SCR::Execute(.target.bash, "/usr/bin/gunzip " + tempdir + "/info/packages_info.gz");
+	    y2milestone("File unpacked");
+	}
+
 	string pkginfo_str = SCR::Read(.target.string, tempdir + "/info/packages_info");
 
 	list pkginfo = splitstring(pkginfo_str, "\n");
@@ -641,6 +665,7 @@ It was probably not created by the backup module.
 			// read selection type - in autoinstall-config mode it already exists
 			string selt = archive_info[actualpkg, "sel_type"]:" ";
 			archive_info = add(archive_info, actualpkg, $[ "vers" : actualversion, "files" : pkfiles, "prefix" : prefix, "sel_type" : selt ]);
+			y2milestone("Found package: %1", actualpkg);
 		    }
 
 		    pkfiles = [];
@@ -671,6 +696,7 @@ It was probably not created by the backup module.
 		else if (substring(line, 0, 1) == "/")
 		{
 		    pkfiles = add(pkfiles, line);
+		    //y2milestone("Found file: %1", line);
 		}
 		else
 		{
@@ -885,6 +911,22 @@ It was probably not created by the backup module.
 
 	integer i = 0;
 	symbol ret = `next;
+
+	if (restoreRPMdb == true)
+	{
+	    string rpm_backup_script = "/etc/cron.daily/suse.de-backup-rpmdb";
+	    // backup existing RPM DB - use aaa_base script which is started from cron
+	    if (SCR::Read(.target.size, rpm_backup_script) > 0)
+	    {
+		y2milestone("Startting RPM backup script (%1)", rpm_backup_script);
+		integer result = SCR::Execute(.target.bash, rpm_backup_script);
+		y2milestone("RPM backup exit value: %1", result);
+	    }
+	    else
+	    {
+		y2warning("RPM DB backup script (%1) was not found, DB was not backed up!", rpm_backup_script);
+	    }
+	}
 
 	while (i < size(packages))
 	{
@@ -1821,6 +1863,133 @@ Press OK to exit.
 
 	    return archives_info + options_info + selection_info;
 	}
+    }
+
+
+    global define map ProposeRPMdbRestoration() ``{
+
+	map extra = GetExtraPackages();
+	map missing = GetMissingPackages();
+	map mismatched = GetMismatchedPackages();
+
+	map selected = GetSelectedPackages();
+
+	// proposed DB restoration
+	boolean propose = nil;
+
+	y2internal("extra: %1", extra);
+	y2internal("missig: %1", missing);
+
+	list selected_list = [];
+	foreach(string p, map in, selected, ``{
+		// store package name and vesion to the list
+		selected_list = add(selected_list, p + "-" + in["vers"]:"");
+	    }
+	);
+
+	y2internal("selected_list: %1", selected_list);
+
+	// propose restoration when:
+	// - missing packages contain only fully backed packages
+	// - all fully backed packages will be restored
+	// - there is no extra package
+	if (size(extra) == 0)
+	{
+	    boolean all = true;
+	    y2internal("size(extra): %1", size(extra));
+
+	    foreach(string fullpkg, complete_backup, ``{
+
+//		    integer pos = findlastof(fullpkg, "-");
+//		    string basename = substring(fullpkg, pos);
+//		    string version = substring(fullpkg, 0, pos);
+
+		    if (!contains(selected_list, fullpkg))
+		    {
+			all = false;
+		    }
+		}
+	    );
+
+	    y2internal("all completely packages selected: %1", all);
+
+	    if (all == true)
+	    {
+		// check missing packages - it should contain only completely backed up packages
+		foreach(string pkg, map inf, missing, ``{
+			string fpkg = pkg + "-" + inf["vers"]:"";
+
+			if (!contains(complete_backup, fpkg))
+			{
+			    all = false;
+			}
+		    }
+		);
+
+		if (all == true)
+		{
+		    y2internal("only fully backed up packages are missing");
+		    // RPM DB restoration is recommended
+		    return $["proposed" : true];
+		}
+	    }
+	}
+
+	boolean ok = true;
+	// propose no restoration if only installed packages will be restored
+	foreach(string pk, map inf, selected, ``{
+		string version = inf["vers"]:"";
+
+		// selected packages are not missing
+
+		if (ok && (missing[pk]:nil != nil || mismatched[pk]:nil != nil))
+		{
+		    ok = false;
+		}
+	    }
+	);
+
+	if (ok == true)
+	{
+	    return $["proposed" : false];
+	}
+
+	// there will be inconsistency between RPM DB and system,
+	// some packages will be in DB but no files will be present
+	// or there will be files without RPM entry or both
+	// it is also possible that package versions do not match
+
+	map different_versions = $[];	// package in system => package in RPM in the archive
+	list not_in_system = [];	// package is in DB in the archive, but not in the system and it won't be restored
+	list not_in_archiveDB = [];	// not in the archive, but in the system
+
+	foreach(string p, map inf, mismatched, ``{
+		if (selected[p]:nil != nil)
+		{
+		    different_versions[p + "-" + selected["vers"]:""] = p + "-" + installed;
+		}
+	    }
+	);
+
+	foreach(string p, map inf, missing, ``{
+		not_in_system = add(not_in_system, p + "-" + inf["vers"]:"");
+	    }
+	);
+
+	foreach(string p, map inf, extra, ``{
+		not_in_archiveDB = add(not_in_archiveDB, p + "-" + inf["vers"]:"");
+	    }
+	);
+
+	// both possible operations (restoration or preserving RPM DB)
+	// will cause to inconsistency in system
+	return $["proposed" : nil, "mismatched" : different_versions, "missing" : missing, "extra" : extra];
+    }
+
+
+    global define boolean RPMrestorable() ``{
+	list nopkgfiles = archive_info["", "files"]:[];
+	return contains(nopkgfiles, "/var/lib/rpm/packages.rpm");
     }
 
 }
