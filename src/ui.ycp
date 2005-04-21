@@ -352,7 +352,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 				    `HBox(
 					`HSpacing(2),
 					// text entry label
-					`TextEntry(`id(`nfsserver), _("I&P adress or name of NFS server:"), nfs_server),
+					`TextEntry(`id(`nfsserver), _("I&P address or name of NFS server:"), nfs_server),
 					`HSpacing(1),
 					// push button label
 					`Bottom(`PushButton(`id(`selecthost), _("Select &host...")))
@@ -1856,7 +1856,7 @@ define string StatusToString(boolean status) ``{
     if (status == true)
     {
 	// program return status - success
-	ret = _("Ok");
+	ret = _("OK");
     }
     else if (status == false)
     {
