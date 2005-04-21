@@ -281,7 +281,10 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 	    if (Mode::test () == false)
 	    {
 		path devpath = regexpmatch(scheme, "^cd[0-9]*") ? .probe.cdrom : .probe.floppy;
-		dev = lookup(select((list<map>) SCR::Read(devpath), tointeger(devindex), $[]), "dev_name", "");
+		list <map> devicemaps = (list<map>) SCR::Read(devpath);
+		map devicemap = devicemaps[tointeger(devindex)]:$[];
+		dev = (string) devicemap["dev_name"]:"";
+		// dev = lookup(select((list<map>) SCR::Read(devpath), tointeger(devindex), $[]), "dev_name", "");
 	    }
 
 	    cd_file = parsed_url["path"]:"";
@@ -977,7 +980,9 @@ define symbol SelectionInstallDialog() ``{
 	else if (ret == `pkg)
 	{
 	    integer current = (integer) UI::QueryWidget(`id(`pkg), `CurrentItem);
-	    string current_value = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(current)), 1, " ");
+	    term current_item = (term) UI::QueryWidget(`id(`pkg), `Item(current));
+	    string current_value = (string) current_item[1]:" ";
+	    // string current_value = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(current)), 1, " ");
 
 	    if (current_value == " ")
 	    {
@@ -1006,8 +1011,11 @@ define symbol SelectionInstallDialog() ``{
 
 	while (i < num)
 	{
-	    string s = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(i)), 1, " ");
-	    string p = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(i)), 2, " ");
+	    term current_item = (term) UI::QueryWidget(`id(`pkg), `Item(i));
+	    string s = (string) current_item[1]:" ";
+	    string p = (string) current_item[2]:" ";
+	    // string s = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(i)), 1, " ");
+	    // string p = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(i)), 2, " ");
 
 	    if (s == "X")
 	    {
@@ -1139,7 +1147,9 @@ define symbol SelectionUninstallDialog() ``{
 	else if (ret == `pkg)
 	{
 	    integer current = (integer) UI::QueryWidget(`id(`pkg), `CurrentItem);
-	    string current_value = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(current)), 1, " ");
+	    term current_item = (term) UI::QueryWidget(`id(`pkg), `Item(current));
+	    string current_value = (string) current_item[1]:" ";
+	    // string current_value = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(current)), 1, " ");
 
 	    if (current_value == " ")
 	    {
@@ -1161,15 +1171,18 @@ define symbol SelectionUninstallDialog() ``{
 
     if (ret != `abort)
     {
-	integer num = size(extrapackages);
-	integer i = 0;
+        integer num = size(extrapackages);
+        integer i = 0;
 
-	packagestouninstall = $[];
+        packagestouninstall = $[];
 
-	while (i < num)
-	{
-	    string s = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(i)), 1, " ");
-	    string p = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(i)), 2, " ");
+        while (i < num)
+        {
+            term current_item = (term) UI::QueryWidget(`id(`pkg), `Item(i));
+	    string s = (string) current_item[1]:" ";
+	    string p = (string) current_item[2]:" ";
+	    // string s = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(i)), 1, " ");
+	    // string p = (string) select((term) UI::QueryWidget(`id(`pkg), `Item(i)), 2, " ");
 
 	    if (s == "X")
 	    {
@@ -1335,9 +1348,10 @@ define symbol PackageSelectionRestoreDialog() ``{
     if (restorepackagename != nil)
     {
 	foreach(term t, tablecontents, ``{
-		if (restorepackagename == select(t, 3, ""))
+		// if (restorepackagename == select(t, 3, ""))
+		if (restorepackagename == t[3]:"")
 		{
-		    position = select(select(t, 0, `id(0)), 0, 0);
+		    position = t[0,0]:0;
 		}
 	    }
 	);
@@ -1423,9 +1437,13 @@ define symbol PackageSelectionRestoreDialog() ``{
 	if (size(tablecontents) > 0)
 	{
 	    current = (integer) UI::QueryWidget(`id(`pkgtable), `CurrentItem);
-	    current_value = (string) select((term) UI::QueryWidget(`id(`pkgtable), `Item(current)), 1, " ");
-	    current_pkgname = (string) select((term) UI::QueryWidget(`id(`pkgtable), `Item(current)), 3, "");
-	    current_version = (string) select((term) UI::QueryWidget(`id(`pkgtable), `Item(current)), 4, "");
+	    term current_item = (term) UI::QueryWidget(`id(`pkgtable), `Item(current));
+	    current_value   = (string) current_item[1]:" ";
+	    current_pkgname = (string) current_item[3]:"";
+	    current_version = (string) current_item[4]:"";
+	    // current_value   = (string) select((term) UI::QueryWidget(`id(`pkgtable), `Item(current)), 1, " ");
+	    // current_pkgname = (string) select((term) UI::QueryWidget(`id(`pkgtable), `Item(current)), 3, "");
+	    // current_version = (string) select((term) UI::QueryWidget(`id(`pkgtable), `Item(current)), 4, "");
 	}
 
 	restorepackagename = current_pkgname;
@@ -1621,7 +1639,9 @@ define symbol FileSelectionDialog(string packagename) ``{
 
     // create multiselection widget contents
 
-    map pkginfo = lookup(Restore::GetArchiveInfo(), packagename, $[]);
+    map restore_info = Restore::GetArchiveInfo();
+    map pkginfo = restore_info[packagename]:$[];
+    // map pkginfo = lookup(Restore::GetArchiveInfo(), packagename, $[]);
 
     string sel_type = pkginfo["sel_type"]:" ";
     list<string> files = pkginfo["files"]:[];

@@ -24,13 +24,24 @@
 
     textdomain "restore";
     import "Restore";
+    import "CommandLine";
 
     include "restore/ui.ycp";
+
+    map cmdline_description = $[
+	"id" : "restore",
+    ];
 
     /* The main () */
     y2milestone ("Restore client started");
     y2milestone ("----------------------------------------");
 
+    // Command Line Interface support
+    list args = WFM::Args();
+    if (size(args)>0) {
+	any ret = CommandLine::Run(cmdline_description);
+	return ret;
+    }
 
     /* main ui function */
     symbol ret = RestoreSequence();
