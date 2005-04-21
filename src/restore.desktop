@@ -16,7 +16,7 @@ X-SuSE-YaST-Geometry=
 X-SuSE-YaST-SortKey=
 X-SuSE-YaST-AutoInstResource=
 
-Icon=restore
+Icon=yast-restore
 Exec=/sbin/yast2 restore 
 
 Name=Restore system
