@@ -959,7 +959,7 @@ to temporary directory.
 	    y2error("Archive does not contain 'info/files' or 'info/packages_info' or 'info/installed_packages' file!");
 
 	    // error message
-	    Report::Error(_("Archive does not contain required files.
+	    Report::Error(_("The archive does not contain the required files.
 It was probably not created by the backup module.
 "));
 	    return false;
@@ -1309,7 +1309,7 @@ It was probably not created by the backup module.
 
 	if (size(targetdir) == 0 || substring(targetdir, 0, 1) != "/")
 	{
-	    // error message
+	    // error message, %1 is directory
 	    Report::Error(sformat(_("Invalid target directory (%1)."), targetdir));
 	    return $[ "aborted" : aborted, "restored" : restoredfiles, "failed" : failedfiles, "packages" : restoredpackages, "bootloader" : false ];
 	}
@@ -1593,9 +1593,9 @@ It was probably not created by the backup module.
 
                         // popup message text - ask to install 'star' package
 			// %1 is translated 'Continue' label
-                        boolean inst = Popup::ContinueCancel(sformat(_("Package 'star' is needed to extract
+                        boolean inst = Popup::ContinueCancel(sformat(_("Package star is needed to extract
 files from the archive.
-Press '%1' to install this package.
+Press %1 to install this package.
 "), cont));
 
                         if (inst == true)
@@ -1626,7 +1626,7 @@ Press '%1' to install this package.
                         if (inst == false)
                         {
 			    // error popup message
-			    Report::Error(_("Package 'star' is not installed.
+			    Report::Error(_("Package star is not installed.
 Press OK to exit.
 "));
                             y2error("star package wasn't installed - aborting");
@@ -1912,7 +1912,7 @@ Press OK to exit.
 	else
 	{
 	    // Summary text header
-	    string archives_info = "<P><B>" + _("Backup archive") + "<B></P>";
+	    string archives_info = "<P><B>" + _("Backup Archive") + "<B></P>";
 
 	    archives_info = archives_info + "<P>" + inputname;
 	    foreach(string vol, inputvolumes, ``{
@@ -1922,14 +1922,14 @@ Press OK to exit.
 	    archives_info = archives_info + "</P>";
 
 	    // Summary text header
-	    string options_info = "<P><B>" + _("Restore options") + "<B></P>";
+	    string options_info = "<P><B>" + _("Restore Options") + "<B></P>";
 
 	    options_info = options_info + "<P>" + RemoveShortCut(_("Activate &boot loader configuration after restoration")) + ":  " + yesno(runbootloader) + "<BR>"
 		+ RemoveShortCut(_("Run &SuSEconfig after restoration")) + ":  " + yesno(runSuSEconfig) + "<BR>"
 		+ RemoveShortCut(_("Restore RPM &database (if present in archive)")) + ":  " + yesno(restoreRPMdb) + "<BR></P>";
 
 	    // summary text heading
-	    string selection_info = "<P><B>" + _("Packages to restore") + "</B></P><P>";
+	    string selection_info = "<P><B>" + _("Packages to Restore") + "</B></P><P>";
 
 	    if (completerestoration)
 	    {
@@ -1941,7 +1941,7 @@ Press OK to exit.
 		foreach(string p, map info, archive_info, ``{
 			if (p == "")
 			{
-			    p = _("-- No package --");
+			    p = _("--No package--");
 			}
 
 			if (info["sel_type"]:" " != " ")

@@ -331,20 +331,20 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 
     term contents = `VBox(
 		// frame label
-		`Frame((multivolume == false ? _("Backup archive") : _("Multivolume archive")),
+		`Frame((multivolume == false ? _("Backup Archive") : _("Multivolume Archive")),
 			`HBox(
 			    `RadioButtonGroup(`id(`source), `opt(`notify),
 				`VBox(
 				    `VSpacing(0.5),
 				    // radio button label
-				    `Left(`RadioButton(`id(`file),  `opt(`notify), _("&Local file"), type == `file)),
+				    `Left(`RadioButton(`id(`file),  `opt(`notify), _("&Local File"), type == `file)),
 				    `HBox(
 					`HSpacing(2),
 					// text entry label
-					`TextEntry(`id(`filename), _("Archive file na&me:"), file_name),
+					`TextEntry(`id(`filename), _("Archive Filena&me"), file_name),
 					`HSpacing(1),
 					// push button label
-					`Bottom(`PushButton(`id(`selectfile), _("&Select file...")))
+					`Bottom(`PushButton(`id(`selectfile), _("&Select...")))
 				    ),
 				    `VSpacing(1),
 				    // radio button label
@@ -352,19 +352,19 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 				    `HBox(
 					`HSpacing(2),
 					// text entry label
-					`TextEntry(`id(`nfsserver), _("I&P address or name of NFS server:"), nfs_server),
+					`TextEntry(`id(`nfsserver), _("I&P Address or Name of NFS Server"), nfs_server),
 					`HSpacing(1),
 					// push button label
-					`Bottom(`PushButton(`id(`selecthost), _("Select &host...")))
+					`Bottom(`PushButton(`id(`selecthost), _("Select &Host...")))
 				    ),
 				    `HBox(
 					`HSpacing(2),
 					// text entry label
-					`TextEntry(`id(`nfsfilename), _("&Archive file name:"), nfs_file)
+					`TextEntry(`id(`nfsfilename), _("&Archive Filename"), nfs_file)
 				    ),
 				    `VSpacing(1),
 				    // radio button label
-				    `Left(`RadioButton(`id(`removable), `opt(`notify), _("Rem&ovable device"), type == `removable)),
+				    `Left(`RadioButton(`id(`removable), `opt(`notify), _("Rem&ovable Device"), type == `removable)),
 				    `HBox(
 					`HSpacing(2),
 					// combo box label
@@ -373,10 +373,10 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 				    `HBox(
 					`HSpacing(2),
 					// text entry label
-					`TextEntry(`id(`remfilename), _("Archi&ve file name:"), cd_file),
+					`TextEntry(`id(`remfilename), _("Archi&ve Filename"), cd_file),
 					`HSpacing(1),
 					// push button label
-					`Bottom(`PushButton(`id(`remfile), _("S&elect file...")))
+					`Bottom(`PushButton(`id(`remfile), _("S&elect...")))
 				    ),
 				    `VSpacing(1)
 				)
@@ -388,7 +388,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 	);
 
     // dialog header
-    string title = (multivolume == false) ? _("Archive selection") : _("Multivolume archive selection");
+    string title = (multivolume == false) ? _("Archive Selection") : _("Multivolume Archive Selection");
 
     Wizard::SetContents(title, contents, (multivolume == true ? ArchiveMultiSelectionHelp() : ArchiveSelectionHelp()), true, true);
 
@@ -475,7 +475,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 		if (fname == "")
 		{
 		    // error message - file name is missing
-		    Popup::Error(_("Enter a valid file name."));
+		    Popup::Error(_("Enter a valid filename."));
 		    input = "";
 		}
 		else
@@ -491,7 +491,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 		if (server == "" || file == "")
 		{
 		    // error message - file or server name is missing
-		    Popup::Error(_("Enter a valid server and file name."));
+		    Popup::Error(_("Enter a valid server and filename."));
 		    input = "";
 		}
 		else
@@ -510,7 +510,7 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 		if (device == "" || fname == "")
 		{
 		    // error message - file or device name is missing
-		    Popup::Error(_("Enter a valid device and file name."));
+		    Popup::Error(_("Enter a valid device and filename."));
 		    input = "";
 		}
 		else
@@ -576,7 +576,7 @@ Read the selected archive?
 		    if (readresult == false)
 		    {
 			// error message - %1 is archive file name
-			Popup::Error(sformat(_("Cannot read backup archive file '%1'."), input));
+			Popup::Error(sformat(_("Cannot read backup archive file %1."), input));
 			Restore::Umount();
 			ret = `dummy;
 		    }
@@ -690,32 +690,32 @@ define symbol ArchivePropertyDialog() ``{
 	    `VBox(
 		`VSpacing(1),
 		// label text
-		`Left(`HBox(`Label(`id(`flabel), _("Archive file name:")), `HSpacing(2), `Label(`id(`flabel2), archname))),
+		`Left(`HBox(`Label(`id(`flabel), _("Archive Filename:")), `HSpacing(2), `Label(`id(`flabel2), archname))),
 		`VSpacing(0.5),
 		// label text
-		`Left(`HBox(`Label(`id(`dlabel), _("Date of backup:")), `HSpacing(2), `Label(`id(`dlabel2), date))),
+		`Left(`HBox(`Label(`id(`dlabel), _("Date of Backup:")), `HSpacing(2), `Label(`id(`dlabel2), date))),
 		`VSpacing(0.5),
 		// label text
-		`Left(`HBox(`Label(`id(`hlabel), _("Backup host name:")), `HSpacing(2), `Label(`id(`hlabel2), hostname))),
+		`Left(`HBox(`Label(`id(`hlabel), _("Backup Hostname:")), `HSpacing(2), `Label(`id(`hlabel2), hostname))),
 		`VSpacing(0.5),
 		// label text
-		`Left(`HBox(`Label(`id(`mlabel), _("Multivolume archive:")), `HSpacing(2), `Label(`id(`mlabel2), multivolume))),
+		`Left(`HBox(`Label(`id(`mlabel), _("Multivolume Archive:")), `HSpacing(2), `Label(`id(`mlabel2), multivolume))),
 		`VSpacing(1.0),
 		// multi line widget label
-		`MultiLineEdit(`id(`description), `opt(`disabled), _("Archive &description:"), comment),
+		`MultiLineEdit(`id(`description), `opt(`disabled), _("Archive &Description:"), comment),
 		`VSpacing(1.0),
 		// push button label
-		`PushButton(`id(`details), `opt(`key_F2), _("&Archive content...")),
+		`PushButton(`id(`details), `opt(`key_F2), _("&Archive Content...")),
 		`VSpacing(1),
 		// push button label
-		`PushButton(`id(`options), `opt(`key_F7), _("E&xpert options...")),
+		`PushButton(`id(`options), `opt(`key_F7), _("E&xpert Options...")),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
 	);
 
     // dialog header
-    Wizard::SetContents(_("Archive properties"),
+    Wizard::SetContents(_("Archive Properties"),
 	contents, ArchivePropertyHelp(), true, true);
 
     any ret = nil;
@@ -762,7 +762,7 @@ define list<term> CreateArchiveContentTree(map<string, map<string, any> > packag
 		if (p == "")
 		{
 		    // package name for files not owned by any package
-		    p = _("-- No package --");
+		    p = _("--No package--");
 		}
 
 		ret = add(ret, `item(`id(num), p + "-" + version, itemfiles));
@@ -792,7 +792,7 @@ define symbol ArchiveContentsDialog() ``{
 	    `VBox(
 		`VSpacing(1),
 		// tree label
-		`Tree(`id(`tree), _("Archive &contents:"), CreateArchiveContentTree(Restore::GetArchiveInfo())),
+		`Tree(`id(`tree), _("Archive &Contents"), CreateArchiveContentTree(Restore::GetArchiveInfo())),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
@@ -801,7 +801,7 @@ define symbol ArchiveContentsDialog() ``{
     Wizard::SetNextButton(`next, Label::OKButton() );
 
     // dialog header
-    Wizard::SetContents(_("Archive contents"), contents, ArchiveContentHelp(), true, true);
+    Wizard::SetContents(_("Archive Contents"), contents, ArchiveContentHelp(), true, true);
 
     any ret = nil;
 
@@ -831,10 +831,10 @@ define symbol RestoreOptionsDialog() ``{
 	    `VBox(
 		`VSpacing(1),
 		// check box label - restore option
-		`Left(`CheckBox(`id(`lilo), _("Activate &boot loader configuration after restoration"), Restore::runbootloader)),
+		`Left(`CheckBox(`id(`lilo), _("Activate &Boot Loader Configuration after Restoration"), Restore::runbootloader)),
 		`VSpacing(0.2),
 		// check box label - restore option
-		`Left(`CheckBox(`id(`susecfg), _("Run &SuSEconfig after restoration"), Restore::runSuSEconfig)),
+		`Left(`CheckBox(`id(`susecfg), _("Run &SuSEconfig after Restoration"), Restore::runSuSEconfig)),
 		`VSpacing(1),
 		// check box label - restore option
 		`Left(`TextEntry(`id(`target), _("Target Directory"), Restore::targetDirectory)),
@@ -846,7 +846,7 @@ define symbol RestoreOptionsDialog() ``{
     Wizard::SetNextButton(`next, Label::OKButton() );
 
     // dialog header
-    Wizard::SetContents(_("Restore options"), contents, RestoreOptionsHelp(), true, true);
+    Wizard::SetContents(_("Restore Options"), contents, RestoreOptionsHelp(), true, true);
 
     any ret = nil;
     string target_dir = "/";
@@ -941,7 +941,7 @@ define symbol SelectionInstallDialog() ``{
 
     list missing = CreateTableContentsWithMismatched(missingpackages, packagestoinstall, true);
     // table header
-    term header = `header(" ", _("Package"), _("Version"), _("Installed version"), _("Description"));
+    term header = `header(" ", _("Package"), _("Version"), _("Installed Version"), _("Description"));
 
     term contents = `HBox(
 	    `HSpacing(2),
@@ -951,9 +951,9 @@ define symbol SelectionInstallDialog() ``{
 		`VSpacing(1),
 		`HBox(
 		    // push button label
-		    `PushButton(`id(`all), _("&Select all")),
+		    `PushButton(`id(`all), _("&Select All")),
 		    // push button label
-		    `PushButton(`id(`none), _("&Deselect all"))
+		    `PushButton(`id(`none), _("&Deselect All"))
 		),
 		`VSpacing(1.5)
 	    ),
@@ -961,7 +961,7 @@ define symbol SelectionInstallDialog() ``{
 	);
 
     // dialog header
-    Wizard::SetContents(_("Package restoration -- installation"), contents, InstallPackageHelp(), true, true);
+    Wizard::SetContents(_("Package Restoration: Installation"), contents, InstallPackageHelp(), true, true);
 
     any ret = nil;
 
@@ -1118,9 +1118,9 @@ define symbol SelectionUninstallDialog() ``{
 		`VSpacing(1),
 		`HBox(
 		    // push button label
-		    `PushButton(`id(`all), _("&Select all")),
+		    `PushButton(`id(`all), _("&Select All")),
 		    // push button label
-		    `PushButton(`id(`none), _("&Deselect all"))
+		    `PushButton(`id(`none), _("&Deselect All"))
 		),
 		`VSpacing(1.5)
 	    ),
@@ -1128,7 +1128,7 @@ define symbol SelectionUninstallDialog() ``{
 	);
 
     // dialog header
-    Wizard::SetContents(_("Package restoration -- uninstallation"), contents, UninstallPackageHelp(), true, true);
+    Wizard::SetContents(_("Package Restoration: Uninstallation"), contents, UninstallPackageHelp(), true, true);
 
     any ret = nil;
 
@@ -1265,7 +1265,7 @@ define list<term> CreateTableContentsRestoreSelection(map<string, map<string, an
 		if (seltype == "X")
 		{
 		    // all files selected for restoration
-		    numfiles = _("all");
+		    numfiles = _("All");
 		}
 		else if (seltype == " ")
 		{
@@ -1287,7 +1287,7 @@ define list<term> CreateTableContentsRestoreSelection(map<string, map<string, an
 		if (p == "")
 		{
 		    // name for "no package" - files not owned by any package
-		    p = _("-- No package --");
+		    p = _("--No package--");
 		}
 
 		ret = add(ret, `item(`id(num), seltype, numfiles, p, ver, descr));
@@ -1319,7 +1319,7 @@ define boolean InstallQuestion(string package, string version) ``{
     if (package != "" && !haskey(Restore::GetActualInstalledPackages(), package) && !haskey(packagestoinstall, package))
     {
 	// popup question - %1 is package name
-	ret = Popup::AnyQuestion("", sformat(_("Package '%1' is not installed in your system.
+	ret = Popup::AnyQuestion("", sformat(_("Package %1 is not installed in your system.
 Install it?
 "), package + "-" + version), Label::YesButton(), Label::NoButton(), `focus_yes);
 
@@ -1339,7 +1339,7 @@ Install it?
  */
 define symbol PackageSelectionRestoreDialog() ``{
 
-    term button = `PushButton(`id(`files), `opt(`key_F7), _("S&elect files"));
+    term button = `PushButton(`id(`files), `opt(`key_F7), _("S&elect Files"));
 
     list<term> tablecontents = CreateTableContentsRestoreSelection(Restore::GetArchiveInfo());
     integer position = 0;
@@ -1379,23 +1379,23 @@ define symbol PackageSelectionRestoreDialog() ``{
 		`Table(`id(`pkgtable),`opt(`notify), `header(" ", _("Files"), _("Package"), _("Version"), _("Description")), tablecontents),
 		`VSpacing(0.2),
 		// push button label
-		`HBox(`PushButton(`id(`select), _("&Select all")), `PushButton(`id(`deselect), _("&Deselect all")), button),
+		`HBox(`PushButton(`id(`select), _("&Select All")), `PushButton(`id(`deselect), _("&Deselect All")), button),
 		`VSpacing(1.0),
 		// check box label - restore option
-		`CheckBox(`id(`rpmdb), `opt(`notify), _("Restore RPM &database (if present in archive)"), RPMoption),
+		`CheckBox(`id(`rpmdb), `opt(`notify), _("Restore RPM &Database (if present in archive)"), RPMoption),
 		`VSpacing(1.5)
 	    ),
 	    `HSpacing(2)
 	);
 
     // description of symbols in the table 1/2
-    string helptext = _("X = Restore all files from backup, P = Partial restore of manually selected files");
+    string helptext = _("X: Restore all files from backup, P: Partial restore of manually selected files");
 
     // description of symbols in the table 2/2
-    helptext = helptext + _("<P><BR>To select files to restore from the archive, press <B>Select files</B>.</P>");
+    helptext = helptext + _("<P><BR>To select files to restore from the archive, press <B>Select Files</B>.</P>");
 
     // dialog header
-    Wizard::SetContents(_("Packages to restore"), contents, RestoreSelectionHelp(false), true, true);
+    Wizard::SetContents(_("Packages to Restore"), contents, RestoreSelectionHelp(false), true, true);
 
     if (Mode::config () == true)
     {
@@ -1449,7 +1449,7 @@ define symbol PackageSelectionRestoreDialog() ``{
 	restorepackagename = current_pkgname;
 
 	// package name "none" - files not owned by any package
-	if (current_pkgname == _("-- No package --"))
+	if (current_pkgname == _("--No package--"))
 	{
 	    current_pkgname = "";
 	}
@@ -1476,7 +1476,7 @@ define symbol PackageSelectionRestoreDialog() ``{
 	    }
 
 	    // files are selected to restore - all
-	    string selectionstring = (current_value == "X") ? _("all") : "";
+	    string selectionstring = (current_value == "X") ? _("All") : "";
 
 	    UI::ChangeWidget(`id(`pkgtable), `Item(current, 0), current_value);
 	    UI::ChangeWidget(`id(`pkgtable), `Item(current, 1), selectionstring);
@@ -1583,11 +1583,11 @@ Select them for restoration?
 
 		if (RPMoption == true)
 		{
-		    Popup::Warning(_("It is recommended to restore the RPM database."));
+		    Popup::Warning(_("Restoring the RPM database is recommended."));
 		}
 		else if (RPMoption == false)
 		{
-		    Popup::Warning(_("It is recommended NOT to restore the RPM database."));
+		    Popup::Warning(_("Not restoring the RPM database is recommended."));
 		}
 		else
 		{
@@ -1674,7 +1674,7 @@ define symbol FileSelectionDialog(string packagename) ``{
     );
 
     // multi selection box label
-    string mlabel = _("&Files to restore");
+    string mlabel = _("&Files to Restore");
 
     term contents = `HBox(
 	    `HSpacing(2),
@@ -1684,9 +1684,9 @@ define symbol FileSelectionDialog(string packagename) ``{
 		`VSpacing(1),
 		`HBox(
 		    // push button label
-		    `PushButton(`id(`all), _("&Select all")),
+		    `PushButton(`id(`all), _("&Select All")),
 		    // push button label
-		    `PushButton(`id(`none), _("&Deselect all"))
+		    `PushButton(`id(`none), _("&Deselect All"))
 		),
 		`VSpacing(1.5)
 	    ),
@@ -1696,7 +1696,7 @@ define symbol FileSelectionDialog(string packagename) ``{
     Wizard::SetNextButton(`next, Label::OKButton() );
 
     // dialog header - %1 is name of package (e.g. "aaa_base")
-    Wizard::SetContents(sformat(_("File selection -- package %1"), packagename), contents, FileSelectionHelp(), true, true);
+    Wizard::SetContents(sformat(_("File Selection: Package %1"), packagename), contents, FileSelectionHelp(), true, true);
 
     any ret = nil;
 
@@ -1782,14 +1782,14 @@ define symbol RestoreProgressDialog() ``{
 	if (ret == `abort || ret == `cancel)
 	{
 	    // abort popup question
-	    abort = Popup::AnyQuestion(_("Abort confirmation"), _("Really abort restore?"), Label::YesButton(), Label::NoButton(), `focus_no);
+	    abort = Popup::AnyQuestion(_("Abort Confirmation"), _("Really abort restore?"), Label::YesButton(), Label::NoButton(), `focus_no);
 	}
 
 	return abort;
     };
 
     // dialog header
-    Wizard::SetContents(_("Restoring files"), contents, RestoreProgressHelp(), false, false);
+    Wizard::SetContents(_("Restoring Files"), contents, RestoreProgressHelp(), false, false);
 
     // start restoration
     map result = Restore::Write(callback, progressbar, Restore::targetDirectory);
@@ -1875,13 +1875,13 @@ define string StatusToString(boolean status) ``{
 define symbol SummaryDialog() ``{
 
     // summary information texts
-    string basicinfo = "<P>" + _("Number of installed packages: ") + size(packagestoinstall) + "<BR>" + _("Number of uninstalled packages: ") + size(packagestouninstall) + "</P><P>" + _("Total restored packages: ") + restoredpackages + "<BR>" + _("Total restored files: ") + ((restoredfiles != nil) ? size(restoredfiles) : 0) + "</P>";
+    string basicinfo = "<P>" + _("Number of Installed Packages: ") + size(packagestoinstall) + "<BR>" + _("Number of Uninstalled Packages: ") + size(packagestouninstall) + "</P><P>" + _("Total Restored Packages: ") + restoredpackages + "<BR>" + _("Total Restored Files: ") + ((restoredfiles != nil) ? size(restoredfiles) : 0) + "</P>";
 
     // display failed files if any
     if (size(failedfiles) > 0)
     {
 	// summary information text - header
-	 basicinfo = basicinfo + "<P><B>" + _("Failed files") + "</B><BR>" + mergestring(failedfiles, "<BR>") + "</P>";
+	 basicinfo = basicinfo + "<P><B>" + _("Failed Files") + "</B><BR>" + mergestring(failedfiles, "<BR>") + "</P>";
     }
 
     // set lilo result string
@@ -1905,10 +1905,10 @@ define symbol SummaryDialog() ``{
     }
 
     // summary information texts - details
-    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Boot Loader Configuration: ") + lilostr + "<BR>" + _("SuSEconfig status: ") + SuSEinfo + " </P><P><B>" + _("Restored files:") + "</B><BR>" + filelist + "</P>";
+    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Boot Loader Configuration: ") + lilostr + "<BR>" + _("SuSEconfig Status: ") + SuSEinfo + " </P><P><B>" + _("Restored Files:") + "</B><BR>" + filelist + "</P>";
 
     // dialog header
-    return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, SummaryHelp(), _("Summary of restoration"), `finish);
+    return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, SummaryHelp(), _("Summary of Restoration"), `finish);
 }
 
 /**

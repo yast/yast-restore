@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Jul 12 12:09:10 CEST 2005 - locilka@suse.cz
+
+- Changed texts and helps to be YaST Style Guide compatible
+- 2.12.1
+
+-------------------------------------------------------------------
 Thu Apr 21 12:23:46 CEST 2005 - locilka@suse.cz
 
 - Added Command Line Interface support (actually only information

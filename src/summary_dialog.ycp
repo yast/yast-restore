@@ -77,9 +77,9 @@ define symbol DisplaySummaryDialog(string text, string detail_text, string helpt
 	    `RichText(`id(`rt), text),
 	    `VSpacing(0.5),
 	    // push button label
-	    `HBox(`CheckBox(`id(`details), `opt(`notify, `key_F2), _("&Show details"), false), `HSpacing(3),
+	    `HBox(`CheckBox(`id(`details), `opt(`notify, `key_F2), _("&Show Details"), false), `HSpacing(3),
 		// push button label
-		`PushButton(`id(`save), _("Sa&ve to file..."))),
+		`PushButton(`id(`save), _("Sa&ve to File..."))),
 	    `VSpacing(1.0)
 	);
 

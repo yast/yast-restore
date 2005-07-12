@@ -19,8 +19,8 @@ X-SuSE-YaST-AutoInstResource=
 Icon=yast-restore
 Exec=/sbin/yast2 restore 
 
-Name=Restore system
-GenericName=Restore files from backup archive
+Name=System Restoration
+GenericName=Restore files from a backup archive
 Name[cs]=Obnova systému
 GenericName[cs]=Obnovit soubory ze záložního archívu
 Name[de]=System wiederherstellen
