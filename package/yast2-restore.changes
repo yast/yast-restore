@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed Jul 20 12:26:19 CEST 2005 - jsrain@suse.cz
+
+- fixed neededforbuld (added limal stuff for bootloader)
+
+-------------------------------------------------------------------
 Wed Jul 20 11:44:58 CEST 2005 - arvin@suse.de
 
 - added yast2-storage-lib to neededforbuild
