@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed Jul 20 11:44:58 CEST 2005 - arvin@suse.de
+
+- added yast2-storage-lib to neededforbuild
+
+-------------------------------------------------------------------
 Tue Jul 12 12:09:10 CEST 2005 - locilka@suse.cz
 
 - Changed texts and helps to be YaST Style Guide compatible
@@ -107,7 +112,7 @@ Tue Feb 10 08:43:27 CET 2004 - lslezak@suse.cz
 -------------------------------------------------------------------
 Fri Jan 30 10:30:11 CET 2004 - lslezak@suse.cz
 
-- fixes for new interpreter (removed globals, nil checking) 
+- fixes for new interpreter (removed globals, nil checking)
 - mount also floppies and CDs read-only
 - use URL:: module for parsing
 - build fix (ycp hook)
