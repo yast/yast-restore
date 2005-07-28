@@ -35,10 +35,10 @@ _("<P><B><BIG>Restore Module</BIG></B><BR>The restore module can restore your sy
 _("<P>Archive can be read from:</P>") +
 
 	    // For translators: archive selection dialog help, (part 3)
-_("<P><B>Local File</B><BR>The archive is already available in the system. It is on a mounted file system.</P>") +
+_("<P><B>Local File</B>: The archive is already available in the system. It is on a mounted file system.</P>") +
 
 	    // For translators: archive selection dialog help, (part 4)
-_("<P><B>Network</B><BR>The backup archive can be read from network using NFS.</P>") +
+_("<P><B>Network</B>: The backup archive can be read from network using NFS.</P>") +
 
 	    // For translators: archive selection dialog help, (part 5)
 _("<P><B>Removable Device</B><BR>The archive is on a removable device or
