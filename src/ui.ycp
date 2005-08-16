@@ -1392,7 +1392,7 @@ define symbol PackageSelectionRestoreDialog() ``{
     string helptext = _("X: Restore all files from backup, P: Partial restore of manually selected files");
 
     // description of symbols in the table 2/2
-    helptext = helptext + _("<P><BR>To select files to restore from the archive, press <B>Select Files</B>.</P>");
+    helptext = helptext + _("<P>To select files to restore from the archive, press <B>Select Files</B>.</P>");
 
     // dialog header
     Wizard::SetContents(_("Packages to Restore"), contents, RestoreSelectionHelp(false), true, true);

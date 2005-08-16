@@ -41,7 +41,7 @@ _("<P><B>Local File</B>: The archive is already available in the system. It is o
 _("<P><B>Network</B>: The backup archive can be read from network using NFS.</P>") +
 
 	    // For translators: archive selection dialog help, (part 5)
-_("<P><B>Removable Device</B><BR>The archive is on a removable device or
+_("<P><B>Removable Device</B>: The archive is on a removable device or
 on an unmounted file system. The device can be selected from a list or you can enter the device filename
 (for example, /dev/hdc) if not listed.</P>
 ") +
@@ -122,7 +122,7 @@ expert users. The default values are usually appropriate.</P>
 _("<P>Select <B>Activate Boot Loader Configuration</B> to reinstall the boot loader.
 Some boot loaders, such as LILO, must be reinstalled if configuration files or files needed at system boot are changed.
 <p>With <B>Run SuSEconfig</B> have SuSEconfig activate changes in configuration files.</p>
-<BR>If you deleted the RPM database by mistake or if it is badly
+<p>If you deleted the RPM database by mistake or if it is badly
 corrupted, select <B>Restore RPM Database</B>.
 The database is then restored if it is available in the backup archive.
 In other cases, leave this option unchecked.</P>
