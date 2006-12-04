@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Mon Dec  4 14:20:22 CET 2006 - locilka@suse.cz
+
+- Fixed restoration of archives containing files with quotes,
+  spaces, backslashes or other special characters (#220172).
+- 2.13.2
+
+-------------------------------------------------------------------
 Mon Mar  6 19:04:34 CET 2006 - locilka@suse.cz
 
 - Adjusting BuildRequires for package

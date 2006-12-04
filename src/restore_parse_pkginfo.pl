@@ -11,10 +11,23 @@ my $first = 1;
 
 print "\$[\n";
 
+# quoting all >"< and >\< characters
+# bugzilla #220172
+sub Quote ($) {
+    my $string = shift;
+    
+    # backslashes are already escaped in the packages_info file
+    # $string =~ s/\\/\\\\/g;
+    $string =~ s/\"/\\\"/g;
+
+    return $string;
+}
+
 while (my $line = <>)
 {
     chomp($line);
 
+    # nopackage
     if (substr($line, 0, length($packagestring)) eq $packagestring || $line eq $nopackagestring)
     {
 	if ($line ne $nopackagestring)
@@ -37,6 +50,7 @@ while (my $line = <>)
 
 	$prefix = "";
     }
+    # package
     elsif (substr($line, 0, length($prefixstring)) eq $prefixstring)
     {
 	$prefix = substr($line, length($prefixstring));
@@ -53,12 +67,17 @@ while (my $line = <>)
 
 	$first = 0;
 
-	print "\"$actualpkg\" : \$[ \"vers\" : \"$actualversion\", \"prefix\" : \"$prefix\", \"sel_type\" : \" \", \"files\" : [\n";
+	print "\"". Quote($actualpkg) ."\" : \$[ ".
+		"\"vers\" : \"". Quote($actualversion) ."\", ".
+		"\"prefix\" : \"". Quote($prefix) ."\", ".
+		"\"sel_type\" : \" \", ".
+		"\"files\" : [\n";
 	
     }
+    # file in a package
     elsif (substr($line, 0, 1) eq "/")
     {
-	print "\"$line\",\n";
+	print "\"". Quote($line). "\",\n";
     }
 }
 
