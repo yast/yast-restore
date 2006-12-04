@@ -33,6 +33,7 @@
     import "Popup";
     import "URL";
     import "Message";
+    import "String";
 
     textdomain "restore";
 
@@ -1562,14 +1563,20 @@ It was probably not created by the backup module.
 		    if (sel_type == "P")
 		    {
 			// strip leading '/'
-			foreach(string f, info["sel_file"]:[], ``{
-				if (size(f) > 1 && substring(f, 0, 1) == "/")
-				{
-				    unpackfiles = unpackfiles + " " + substring(f, 1);
+			foreach (string f, info["sel_file"]:[], ``{
+				if (size(f) > 1) {
+				    // remove a leading slash
+				    if (substring (f, 0, 1) == "/") f = substring (f, 1);
+				    // every single entry must be quoted
+				    unpackfiles = unpackfiles + " '" + String::Quote (f) + "'";
 				}
 			    }
 			);
 		    }
+		    
+		    // FIXME: use list of files
+		    // for star: list=filename
+		    // for tar:  --files-from=filename
 
 		    // create (s)tar command
 		    string tarcommand = (star == false) ? ("export LC_ALL=C; /bin/tar -C " + targetdir + " "
