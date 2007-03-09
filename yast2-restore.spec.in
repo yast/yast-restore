@@ -3,7 +3,14 @@
 
 @HEADER@
 BuildRequires:	yast2-bootloader perl-XML-Writer update-desktop-files yast2 yast2-devtools yast2-testsuite
-Requires:	yast2 yast2-core bzip2 gzip tar yast2-installation yast2-bootloader aaa_base
+
+Requires:	aaa_base
+Requires:	bzip2
+Requires:	gzip
+Requires:	tar
+Requires:	yast2
+Requires:	yast2-bootloader
+
 BuildArchitectures:	noarch
 
 Summary:	YaST2 Restore module
