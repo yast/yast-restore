@@ -1371,6 +1371,11 @@ define symbol PackageSelectionRestoreDialog() ``{
 
     y2warning("RPMoption: %1", RPMoption);
 
+    if (RPMoption == nil)
+    {
+	RPMoption = false;
+    }
+
     term contents = `HBox(
 	    `HSpacing(2),
 	    `VBox(

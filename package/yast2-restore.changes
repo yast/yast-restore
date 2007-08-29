@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Aug 29 17:29:38 CEST 2007 - locilka@suse.cz
+
+- Fixed evaluation of 'nil' value that prevented the restore from
+  displaying the final dialog before restoration started (#301031).
+- 2.15.4
+
+-------------------------------------------------------------------
 Tue Aug 28 16:07:23 CEST 2007 - locilka@suse.cz
 
 - Fixed restoration in autoyast (#199657).
