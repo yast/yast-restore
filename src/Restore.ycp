@@ -26,7 +26,6 @@
     import "Report";
     import "Mode";
     import "Summary";
-    import "Bootloader";
     import "Service";
     import "Package";
     import "Label";
@@ -1257,24 +1256,9 @@ It was probably not created by the backup module.
 	{
 	    y2milestone("activating boot loader configuration");
 
-	    // read actual boot loader configuration
-	    ret = Bootloader::Read();
-
-	    if (ret == false)
-	    {
-		y2error("Boot loader read failed");
-	    }
-	    else
-	    {
-		// write configuration - force re-installation of boot loader
-		Bootloader::SetWriteMode( $["save_all" : true] );
-		ret = Bootloader::Write();
-
-		if (ret == false)
-		{
-		    y2error("Boot loader write failed");
-		}
-	    }
+	    // Bootloader function calls were moved to a client
+	    // to break the build-dependency on yast2-bootloader
+	    ret = (boolean) WFM::call ("restore_bootloader");
 
 	    if (ret == false)
 	    {

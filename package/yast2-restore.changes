@@ -1,4 +1,12 @@
 -------------------------------------------------------------------
+Thu Nov  1 11:03:06 CET 2007 - locilka@suse.cz
+
+- All Bootloader function calls were moved to a separate YCP client
+  restore_bootloader to break the build-dependency on
+  yast2-bootloader.
+- 2.16.0
+
+-------------------------------------------------------------------
 Wed Aug 29 17:29:38 CEST 2007 - locilka@suse.cz
 
 - Fixed evaluation of 'nil' value that prevented the restore from

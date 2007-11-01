@@ -1,0 +1,33 @@
+/**
+ * File:       clients/restore_bootloader.ycp
+ * Package:    Restore module
+ * Summary:    Special client for restoring bootloader settings
+ * Authors:    Ladislav Slezak <lslezak@suse.cz>
+ *             Lukas Ocilka <locilka@suse.cz>
+ *
+ * $Id:$
+ *
+ * All bootloader calls were moved here to break building dependency
+ * on yast2-bootloader
+ */
+
+
+{
+    boolean ret = nil;
+
+    ret = Bootloader::Read();
+
+    if (ret == false) {
+	y2error("Boot loader read failed");
+    } else {
+	// write configuration - force re-installation of boot loader
+	Bootloader::SetWriteMode( $["save_all" : true] );
+	ret = Bootloader::Write();
+
+	if (ret == false) {
+	    y2error("Boot loader write failed");
+	}
+    }
+
+    return ret;
+}
