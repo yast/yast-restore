@@ -13,6 +13,8 @@
 
 
 {
+    import "Bootloader";
+
     boolean ret = nil;
 
     ret = Bootloader::Read();
