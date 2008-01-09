@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed Jan  9 13:35:49 CET 2008 - locilka@suse.cz
+
+- Help moved to a proper place (#351035).
+
+-------------------------------------------------------------------
 Thu Nov  1 11:03:06 CET 2007 - locilka@suse.cz
 
 - All Bootloader function calls were moved to a separate YCP client

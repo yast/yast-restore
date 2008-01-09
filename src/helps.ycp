@@ -119,13 +119,9 @@ expert users. The default values are usually appropriate.</P>
 ") +
 
 	    // For translators: option dialog help (part 2)
-_("<P>Select <B>Activate Boot Loader Configuration</B> to reinstall the boot loader.
-Some boot loaders, such as LILO, must be reinstalled if configuration files or files needed at system boot are changed.
+_("<p>Select <B>Activate Boot Loader Configuration</B> to reinstall the boot loader.
+Some boot loaders, such as LILO, must be reinstalled if configuration files or files needed at system boot are changed.</p>
 <p>With <B>Run SuSEconfig</B> have SuSEconfig activate changes in configuration files.</p>
-<p>If you deleted the RPM database by mistake or if it is badly
-corrupted, select <B>Restore RPM Database</B>.
-The database is then restored if it is available in the backup archive.
-In other cases, leave this option unchecked.</P>
 ");
     }
 
@@ -185,19 +181,25 @@ uninstalled. To leave a package installed, deselect it.</P>");
 
     define string RestoreSelectionHelp(boolean personal) ``{
 	return
-	    // For translators: restore selection help 1/4
+	    // For translators: restore selection help 1/5
 _("<P><B><BIG>Selection</BIG></B><BR>
 Select which packages to restore from the backup archive.</P>
 ") +
 
-	    // For translators: restore selection help 2/4
+	    // For translators: restore selection help 2/5
 _("<P>The first column displays the restoration status of the package. It can be <b>X</b> (package will be restored) or empty (package will not be restored).</P>") +
 
-	    // For translators: restore selection help 3/4
+	    // For translators: restore selection help 3/5
 ((personal == false) ? _("<P><b>P</b> means that a package will be restored only partially. Press <B>Select Files</B> to restore a package partially.</P>") : "" ) +
 
-	    // For translators: restore selection help 4/4
-_("<P>The number of selected files to restore from the archive is in the second column.</P>");
+	    // For translators: restore selection help 4/5
+_("<P>The number of selected files to restore from the archive is in the second column.</P>") +
+
+	    // For translators: restore selection help 5/5
+_("<p>If you deleted the RPM database by mistake or if it is badly
+corrupted, select <b>Restore RPM Database</b>.
+The database is then restored if it is available in the backup archive.
+In other cases, leave this option unchecked.</p>");
     }
 
 
