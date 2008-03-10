@@ -19,6 +19,9 @@ textdomain "restore";
 import "Popup";
 import "Restore";
 import "Wizard";
+import "Directory";
+import "FileUtils";
+
 include "restore/ui.ycp";
 
 /* The main () */
@@ -29,6 +32,7 @@ any ret = nil;
 string func = "";
 map param = $[];
 
+string filename = sformat ("%1/restore_archives_tmpfile.ycp", Directory::tmpdir);
 
 /* Check arguments */
 if (size(WFM::Args()) > 0 && is(WFM::Args(0), string))
@@ -48,6 +52,13 @@ y2milestone("param=%1", param);
 if (func == "Import")
 {
     ret = Restore::Import(param);
+    
+    if (FileUtils::Exists (filename)) {
+	SCR::Execute (.target.remove, filename);
+    }
+
+    // bugzilla #199657
+    SCR::Write (.target.ycp, filename, param["archives"]:[]);
 }
 /* create a summary */
 else if (func == "Summary")
@@ -77,7 +88,18 @@ else if (func == "Write")
     import "Progress";
 
     // Read archive file
-    list<string> volumes = param["archives"]:[];
+    list <string> volumes = [];
+    
+    // bugzilla #199657
+    if (param["archives"]:[] != []) {
+	y2milestone ("Some volumes set");
+	volumes = param["archives"]:[];
+    } else if (FileUtils::Exists (filename)) {
+	y2milestone ("Reading volumes from tmpfile");
+	volumes = (list <string>) SCR::Read (.target.ycp, filename);
+    }
+
+    y2milestone ("Volumes: %1", volumes);
 
     if (size(volumes) == 0)
     {
@@ -91,6 +113,8 @@ else if (func == "Write")
     integer index = 0;
 
     foreach(string volume, volumes, ``{
+	y2milestone ("Scanning volume %1", volume);
+
 	if (ui == `abort)
 	{
 	    ret = false;
@@ -106,6 +130,7 @@ else if (func == "Write")
 	    map read_result = Restore::ReadNextVolume(volume);
 	    read = (boolean)(read_result["success"]:false);
 	}
+	y2milestone ("Reading volume %1 returned %2", volume, read);
 
 	if (read == false)
 	{
