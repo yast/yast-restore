@@ -22,3 +22,4 @@ Exec=/sbin/yast2 restore
 Name=System Restoration
 GenericName=Restore files from a backup archive
 X-KDE-SubstituteUID=true
+StartupNotify=true

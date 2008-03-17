@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Mon Mar 17 12:43:32 CET 2008 - jsrain@suse.cz
+
+- added 'StartupNotify=true' to the desktop file (bnc #304964)
+
+-------------------------------------------------------------------
 Wed Jan  9 13:35:49 CET 2008 - locilka@suse.cz
 
 - Help moved to a proper place (#351035).
