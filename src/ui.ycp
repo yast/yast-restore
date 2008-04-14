@@ -1408,7 +1408,7 @@ define symbol PackageSelectionRestoreDialog() ``{
     }
     else
     {
-	Wizard::SetNextButton(`next, Label::AcceptButton() );
+	Wizard::SetNextButton(`next, Label::OKButton() );
     }
 
     if (Restore::RPMrestorable() == false)
