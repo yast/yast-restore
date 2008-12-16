@@ -338,25 +338,25 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 				    `VSpacing(0.5),
 				    // radio button label
 				    `Left(`RadioButton(`id(`file),  `opt(`notify), _("&Local File"), type == `file)),
-				    `HBox(
+				    `VSquash(`HBox(
 					`HSpacing(2),
 					// text entry label
-					`TextEntry(`id(`filename), _("Archive Filena&me"), file_name),
+					`Bottom(`TextEntry(`id(`filename), _("Archive Filena&me"), file_name)),
 					`HSpacing(1),
 					// push button label
 					`Bottom(`PushButton(`id(`selectfile), _("&Select...")))
-				    ),
+				    )),
 				    `VSpacing(1),
 				    // radio button label
 				    `Left(`RadioButton(`id(`nfs), `opt(`notify), _("Network (N&FS)"), type == `nfs)),
-				    `HBox(
+				    `VSquash(`HBox(
 					`HSpacing(2),
 					// text entry label
-					`TextEntry(`id(`nfsserver), _("I&P Address or Name of NFS Server"), nfs_server),
+					`Bottom(`TextEntry(`id(`nfsserver), _("I&P Address or Name of NFS Server"), nfs_server)),
 					`HSpacing(1),
 					// push button label
 					`Bottom(`PushButton(`id(`selecthost), _("Select &Host...")))
-				    ),
+				    )),
 				    `HBox(
 					`HSpacing(2),
 					// text entry label
@@ -370,14 +370,14 @@ define symbol ArchiveSelectionDialog(boolean multivolume, boolean askformore, st
 					// combo box label
 					`Left(`ComboBox(`id(`device), `opt(`editable), _("&Device"), CreateDeviceList(removabledevices, dev)))
 				    ),
-				    `HBox(
+				    `VSquash(`HBox(
 					`HSpacing(2),
 					// text entry label
-					`TextEntry(`id(`remfilename), _("Archi&ve Filename"), cd_file),
+					`Bottom(`TextEntry(`id(`remfilename), _("Archi&ve Filename"), cd_file)),
 					`HSpacing(1),
 					// push button label
 					`Bottom(`PushButton(`id(`remfile), _("S&elect...")))
-				    ),
+				    )),
 				    `VSpacing(1)
 				)
 			    ),
