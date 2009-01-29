@@ -972,7 +972,7 @@ It was probably not created by the backup module.
 	infofiles = infofiles + (compressed_packages_info ? "info/packages_info.gz" : "info/packages_info");
 
 	// unpack info files
-	result = (map) SCR::Execute(.target.bash_output, "/bin/tar -C " + tempdir + " -x -f " + filename + " " + infofiles + " 2> /dev/null");
+	result = (map) SCR::Execute(.target.bash_output, "/bin/tar -C '" + String::Quote (tempdir) + "' -x -f " + filename + " " + infofiles + " 2> /dev/null");
 
 	date = (string) SCR::Read(.target.string, tempdir + "/info/date");
 	comment = (string) SCR::Read(.target.string, tempdir + "/info/comment");
@@ -1460,6 +1460,10 @@ It was probably not created by the backup module.
 		    }
 		);
 
+		// BNC #460674, Do not change the system locale
+		// It can change I18N characters in output
+		string locale_modifications = "export LANG=C; ";
+
 		if (fileinarchive == "")
 		{
 		    y2error("Can't find subarchive for package %1", package);
@@ -1478,14 +1482,14 @@ It was probably not created by the backup module.
 			    }
 			);
 
-			string command = "export LC_ALL=C; echo q | /bin/tar -C " + tempdir + " -x -M " + param + fileinarchive + " 2> /dev/null";
+			string command = locale_modifications + "echo q | /bin/tar -C " + tempdir + " -x -M " + param + fileinarchive + " 2> /dev/null";
 			y2debug("Running command: %1", command);
 
 			started = (boolean) SCR::Execute(.background.run, command);
 		    }
 		    else
 		    {
-			started  = (boolean) SCR::Execute(.background.run, "export LC_ALL=C; /bin/tar -C " + tempdir + " -x -f " + filename + " " + fileinarchive);
+			started  = (boolean) SCR::Execute(.background.run, locale_modifications + "/bin/tar -C " + tempdir + " -x -f " + filename + " " + fileinarchive);
 		    }
 
 		    // abort test cycle
@@ -1563,11 +1567,11 @@ It was probably not created by the backup module.
 		    // for tar:  --files-from=filename
 
 		    // create (s)tar command
-		    string tarcommand = (star == false) ? ("export LC_ALL=C; /bin/tar -C " + targetdir + " "
+		    string tarcommand = (star == false) ? (locale_modifications + "/bin/tar -C " + targetdir + " "
 			    + compress + " -x -v -f " + tempdir + "/" + fileinarchive + " " + RPMdb
 			    + " " + unpackfiles + " 2> " + tempdir + "/tar.stderr > " + tempdir
 			    + "/tar.stdout")
-			: ("export LC_ALL=C; /usr/bin/star -C " + targetdir + " "
+			: (locale_modifications + "/usr/bin/star -C " + targetdir + " "
 			    + compress + " -x -v -U -f " + tempdir + "/" + fileinarchive + " " + RPMdb
 			    + " " + unpackfiles + " 2> " + tempdir + "/tar.stderr > " + tempdir
 			    + "/tar.stdout");

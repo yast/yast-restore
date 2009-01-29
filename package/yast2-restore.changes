@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Thu Jan 29 19:21:35 CET 2009 - locilka@suse.cz
+
+- Fixed displaying i18n characters in summary (bnc #460674).
+- Save summary to file - huge speedup (bnc #460674).
+- 2.17.1
+
+-------------------------------------------------------------------
 Tue Dec 16 15:42:40 CET 2008 - locilka@suse.cz
 
 - Fixed alignment of buttons (bnc #447102).
