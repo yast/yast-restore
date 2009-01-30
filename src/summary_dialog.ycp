@@ -142,8 +142,8 @@ define symbol DisplaySummaryDialog(string text, string detail_text, string helpt
 		if (SCR::Write (.target.string, tmpfile, detail_text)) {
 		    if ((integer) SCR::Execute (
 			.target.bash,
-			sformat ("perl -pi -e \"s/<BR>/\\n\/g;\" '%1'", String::Quote (tmpfile)) == 0
-		    ) {
+			sformat ("perl -pi -e \"s/<BR>/\\n\/g;\" '%1'", String::Quote (tmpfile))
+		    ) == 0) {
 			detail_text = (string) SCR::Read (.target.string, tmpfile);
 		    }
 		}
