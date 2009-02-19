@@ -1462,7 +1462,7 @@ It was probably not created by the backup module.
 
 		// BNC #460674, Do not change the system locale
 		// It can change I18N characters in output
-		string locale_modifications = "export LANG=C; ";
+		string locale_modifications = "";
 
 		if (fileinarchive == "")
 		{
@@ -1483,13 +1483,16 @@ It was probably not created by the backup module.
 			);
 
 			string command = locale_modifications + "echo q | /bin/tar -C " + tempdir + " -x -M " + param + fileinarchive + " 2> /dev/null";
-			y2debug("Running command: %1", command);
+			y2milestone ("Running command: %1", command);
 
 			started = (boolean) SCR::Execute(.background.run, command);
 		    }
 		    else
 		    {
-			started  = (boolean) SCR::Execute(.background.run, locale_modifications + "/bin/tar -C " + tempdir + " -x -f " + filename + " " + fileinarchive);
+			string command = locale_modifications + "/bin/tar -C " + tempdir + " -x -f " + filename + " " + fileinarchive;
+			y2milestone ("Running command: %1", command);
+
+			started  = (boolean) SCR::Execute(.background.run, command);
 		    }
 
 		    // abort test cycle
