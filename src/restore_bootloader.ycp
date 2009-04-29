@@ -5,7 +5,7 @@
  * Authors:    Ladislav Slezak <lslezak@suse.cz>
  *             Lukas Ocilka <locilka@suse.cz>
  *
- * $Id:$
+ * $Id$
  *
  * All bootloader calls were moved here to break building dependency
  * on yast2-bootloader
