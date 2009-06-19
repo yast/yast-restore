@@ -1,14 +1,3 @@
-#
-# Makefile.am for y2c_restore/doc/autodocs
-#
-# $Id$
-#
+# Makefile.am for YCP module .../doc/autodocs
 
-htmldir = $(docdir)/autodocs
-
-index.html: $(srcdir)/../../src/*.ycp
-	@ybindir@/ycpdoc -d. $(srcdir)/../../src/*.ycp
-
-html_DATA = index.html $(wildcard *.html)
-
-CLEANFILES = $(html_DATA)
+include $(top_srcdir)/autodocs-ycp.ami
