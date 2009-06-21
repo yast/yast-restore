@@ -13,7 +13,7 @@ Requires:	yast2-bootloader
 
 BuildArchitectures:	noarch
 
-Summary:	YaST2 Restore module
+Summary:	YaST2 - System Restore
 
 %description
 This package is a part of YaST2. This module can restore system from backup
