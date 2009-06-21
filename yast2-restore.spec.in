@@ -16,8 +16,8 @@ BuildArchitectures:	noarch
 Summary:	YaST2 - System Restore
 
 %description
-This package is a part of YaST2. This module can restore system from backup
-archive created by Backup module.
+This YaST2 module can restore a system from an archive created by the
+Backup module.
 
 @PREP@
 
