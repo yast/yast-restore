@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed Jun 24 15:49:19 CEST 2009 - locilka@suse.cz
+
+- Fixed 'Archive Properties' scrolling (bnc #459657).
+
+-------------------------------------------------------------------
 Fri Jun 19 12:42:26 CEST 2009 - mvidner@suse.cz
 
 - Using autodocs-ycp.ami, which contains a fix for automake 1.11.

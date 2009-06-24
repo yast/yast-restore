@@ -702,7 +702,8 @@ define symbol ArchivePropertyDialog() ``{
 		`Left(`HBox(`Label(`id(`mlabel), _("Multivolume Archive:")), `HSpacing(2), `Label(`id(`mlabel2), multivolume))),
 		`VSpacing(1.0),
 		// multi line widget label
-		`MultiLineEdit(`id(`description), `opt(`disabled), _("Archive &Description:"), comment),
+		`Left(`Label(_("Archive &Description:"))),
+		`RichText(`id(`description), `opt(`plainMode), comment),
 		`VSpacing(1.0),
 		// push button label
 		`PushButton(`id(`details), `opt(`key_F2), _("&Archive Content...")),
