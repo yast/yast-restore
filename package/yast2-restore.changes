@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Mon Dec 14 11:12:13 CET 2009 - locilka@suse.cz
+
+- Fixed restoration of unavailable packages (bnc #553400).
+- Fixed dialog for selecting packages to restore (bnc #553400).
+
+-------------------------------------------------------------------
 Thu Feb 19 18:32:06 CET 2009 - locilka@suse.cz
 
 - A correct patch for i18n characters in summary (bnc #460674).

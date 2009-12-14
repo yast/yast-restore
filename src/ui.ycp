@@ -29,8 +29,10 @@ import "Mode";
 import "URL";
 
 import "Popup";
+import "Report";
 import "Label";
 import "Package";
+import "PackageSystem";
 import "Sequencer";
 
 include "restore/helps.ycp";
@@ -1231,9 +1233,53 @@ define symbol SWsingleDialog() ``{
     y2milestone("install: %1", install);
     y2milestone("uninstall: %1", uninstall);
 
+    list <string> unavailable_packages = [];
+
+    // Initialize the package manager (the same way it is used later)
+    // before checking for packages availability
+    PackageSystem::EnsureSourceInit();
+
+    // BNC #553400: Checking for all packages to install whether they are available
+    foreach (string one_package, install, {
+	// Package is not available - cannot be installed
+	if (Pkg::IsAvailable (one_package) != true) {
+	    if (Popup::AnyQuestion (
+		// Headline
+		_("Error"),
+		// Error message
+		sformat(_("Package %1 is not available on any of the subscribed repositories.
+Would you like to got back and unselect the package or skip it?"), one_package),
+		_("Yes, Go &Back"),
+		_("&Skip"),
+		`focus_yes
+	    )) {
+		y2milestone ("User has decided to go back an unselect the package (%1)", one_package);
+		lastret = `back;
+		break;
+	    } else {
+		unavailable_packages = add (unavailable_packages, one_package);
+		y2warning ("User decided to skip missing package (%1)", one_package);
+	    }
+	}
+    });
+
+    // Remove all unavailable packages from list of packages to install
+    foreach (string do_not_install_package, unavailable_packages, {
+	install = filter (string one_package, install, {
+	    return (one_package != do_not_install_package);
+	});
+    });
+
+    if (lastret == `back)
+    {
+	return `back;
+    }
+
     if (size(install) > 0 || size(uninstall) > 0)
     {
-	Package::DoInstallAndRemove(install, uninstall);
+	if (Package::DoInstallAndRemove(install, uninstall) != true) {
+	    Report::Error (_("Installation or removal of some packages has failed."));
+	}
 
 	Restore::ReadActualInstalledPackages();
     }
@@ -1366,7 +1412,11 @@ define symbol PackageSelectionRestoreDialog() ``{
 
     if (RPMoption == nil)
     {
-	RPMoption = (boolean) (proposedRPMrestoration["proposed"]:false);
+	// BNC #553400, Comment #19: Use the proposed 'Restore RPM DB' only if proposal is valid
+	if (haskey(proposedRPMrestoration, "proposed") && proposedRPMrestoration["proposed"]:false != nil)
+	    RPMoption = (boolean) (proposedRPMrestoration["proposed"]:false);
+	else
+	    RPMoption = false;
     }
 
     y2warning("RPMoption: %1", RPMoption);
