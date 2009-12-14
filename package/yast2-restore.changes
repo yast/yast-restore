@@ -3,6 +3,7 @@ Mon Dec 14 11:12:13 CET 2009 - locilka@suse.cz
 
 - Fixed restoration of unavailable packages (bnc #553400).
 - Fixed dialog for selecting packages to restore (bnc #553400).
+- 2.19.0
 
 -------------------------------------------------------------------
 Wed Jun 24 15:49:19 CEST 2009 - locilka@suse.cz
