@@ -17,9 +17,8 @@ X-SuSE-YaST-SortKey=
 X-SuSE-YaST-AutoInstResource=
 
 Icon=yast-restore
-Exec=/sbin/yast2 restore 
+Exec=xdg-su -c "/sbin/yast2 restore"
 
 Name=System Restoration
 GenericName=Restore files from a backup archive
-X-KDE-SubstituteUID=true
 StartupNotify=true
