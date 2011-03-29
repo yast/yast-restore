@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Tue Mar 29 09:28:49 CEST 2011 - locilka@suse.cz
+
+- Mounting NFS shares with 'nolock' (bnc #682064)
+
+-------------------------------------------------------------------
 Mon Dec 14 11:12:13 CET 2009 - locilka@suse.cz
 
 - Fixed restoration of unavailable packages (bnc #553400).

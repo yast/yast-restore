@@ -410,7 +410,8 @@
 	    y2milestone("file: %1", f);
 	    y2milestone("mpoint: %1", mpoint);
 
-	    boolean result = (boolean) SCR::Execute(.target.mount, [server + ":" + dir, mpoint], "-t nfs -o ro");
+	    // BNC #682064: also 'nolock' is required
+	    boolean result = (boolean) SCR::Execute(.target.mount, [server + ":" + dir, mpoint], "-t nfs -o ro,nolock");
 
 	    return $[ "mounted" : result, "mountpoint" : mpoint , "file" : f, "server_dir" : dir ];
 	}
