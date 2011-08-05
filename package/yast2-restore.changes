@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Fri Aug  5 12:34:47 CEST 2011 - tgoettlicher@suse.de
+
+- fixed .desktop file (bnc #681249)
+
+-------------------------------------------------------------------
 Tue Mar 29 09:28:49 CEST 2011 - locilka@suse.cz
 
 - Mounting NFS shares with 'nolock' (bnc #682064)
