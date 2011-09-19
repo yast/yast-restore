@@ -22,7 +22,6 @@
 textdomain "restore";
 
 import "Wizard";
-import "Wizard_hw";
 import "Progress";
 import "Restore";
 import "Mode";
