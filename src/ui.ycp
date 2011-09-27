@@ -2069,7 +2069,7 @@ define symbol RestoreSequence () ``{
 
 
     Wizard::CreateDialog ();
-    Wizard::SetDesktopIcon("restore");
+    Wizard::SetDesktopTitleAndIcon("restore");
 
     symbol ret = Sequencer::Run(aliases, sequence);
 
@@ -2147,7 +2147,7 @@ define any RestoreAutoSequence() ``{
     ];
 
     Wizard::CreateDialog ();
-    Wizard::SetDesktopIcon("restore");
+    Wizard::SetDesktopTitleAndIcon("restore");
 
     any ret = Sequencer::Run(aliases, sequence);
 

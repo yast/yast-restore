@@ -10,7 +10,8 @@ Requires:	aaa_base
 Requires:	bzip2
 Requires:	gzip
 Requires:	tar
-Requires:	yast2
+# Wizard::SetDesktopTitleAndIcon
+Requires:	yast2 >= 2.21.22
 Requires:	yast2-bootloader
 
 BuildArchitectures:	noarch
