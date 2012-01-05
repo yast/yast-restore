@@ -499,6 +499,50 @@
     }
 
     /**
+     * Checks whether the portmapper service is installed and started.
+     * Installs and/or starts the service otherwise.
+     */
+
+    boolean CheckAndPrepareNFS (map parsed_url) {
+	boolean ret = false;
+
+	// both new and old services are supported (portmap got replaced by rpcbind)
+	// names of packages and service names match
+	foreach (string portmapper, ["rpcbind", "portmap"], {
+	    // checking if rpcbind is installed
+	    integer package_installed = (integer) SCR::Execute (.target.bash, sformat("/bin/rpm -q %1", portmapper));
+	    y2milestone("%1 is instaled: %2", portmapper, package_installed);
+
+	    if (package_installed != 0) {
+		y2milestone ("%1 package is not installed", portmapper);
+		boolean installed = Package::DoInstall ([portmapper]);
+		y2milestone ("Package %1 installed: %2", portmapper, installed);
+
+		// try next service
+		if (installed != true) return;
+	    }
+
+	    // checking if portmapper is running
+	    integer portmapper_status = Service::Status (portmapper);
+	    y2milestone ("portmap status: %1", portmapper_status);
+
+	    // portmapper is running
+	    if (portmapper_status == 0) {
+		ret = true;
+	    } else {
+		// start portmapper
+		boolean started = Service::Start (portmapper);
+		y2milestone ("%1 start result: %2", portmapper, started);
+		ret = started;
+	    }
+
+	    if (ret == true) break;
+	});
+
+	return ret;
+    }
+
+    /**
      * Mount input source
      * @param input File in URl-like syntax
      * @return map Map $[ "success" : boolean (true on success), "mpoint" : string (mount point), "file" : string (file name on the local system) ];
@@ -522,44 +566,19 @@
 	map parsed_url = URL::Parse(input);
 	string scheme = parsed_url["scheme"]:"file";
 
-	if (scheme == "nfs")
-	{
-	    string nfs_server = parsed_url["host"]:"";
-	    //substring(tail, 0, pos);
-	    string nfs_file = parsed_url["path"]:"";
-	    //substring(tail, pos + delimiter_correction);
-
-	    // check if portmapper is installed
-	    integer result = (integer) SCR::Execute(.target.bash, "/bin/rpm -q portmap");
-	    y2milestone("check result: rpm: %1", result);
-
-	    if (result != 0)
-	    {
-		y2milestone("portmapper package is not installed");
-		Package::DoInstall(["portmap"]);
+	if (scheme == "nfs") {
+	    if (CheckAndPrepareNFS (parsed_url)) {
+		y2milestone ("NFS-related services adjusted");
+	    } else {
+		y2error ("Cannot adjust NFS-related services");
 	    }
 
-	    // check if portmapper is running
-	    integer portmapper_status = Service::Status("portmap");
-	    y2milestone("portmap status: %1", portmapper_status);
+	    y2milestone("NFS source - server: %1  file: %2", parsed_url["host"]:"", parsed_url["path"]:"");
+	    map mountresult = mountNFS(parsed_url["host"]:"", parsed_url["path"]:"");
 
-	    if (portmapper_status != 0)
-	    {
-		// start portmapper
-		boolean started = Service::Start("portmap");
-		y2milestone("portmap start result: %1", started);
-	    }
-
-	    y2milestone("NFS source - server: %1  file: %2", nfs_server, nfs_file);
-
-	    map mountresult = mountNFS(nfs_server, nfs_file);
-
-	    if (mountresult["mounted"]:false == false)
-	    {
+	    if (mountresult["mounted"]:false == false) {
 		y2error("Cannot read source '%1' - NFS mount failed", input);
-	    }
-	    else
-	    {
+	    } else {
 		mpoint = mountresult["mountpoint"]:"";
 		file = mpoint + "/" + mountresult["file"]:"";
 		success = true;
