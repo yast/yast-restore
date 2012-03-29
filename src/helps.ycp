@@ -121,7 +121,7 @@ expert users. The default values are usually appropriate.</P>
 	    // For translators: option dialog help (part 2)
 _("<p>Select <B>Activate Boot Loader Configuration</B> to reinstall the boot loader.
 Some boot loaders, such as LILO, must be reinstalled if configuration files or files needed at system boot are changed.</p>
-<p>With <B>Run SuSEconfig</B> have SuSEconfig activate changes in configuration files.</p>
+<p>With <B>Run SuSEconfig</B>, SuSEconfig will activate changes in configuration files.</p>
 ");
     }
 

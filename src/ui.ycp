@@ -1248,7 +1248,8 @@ define symbol SWsingleDialog() ``{
 		_("Error"),
 		// Error message
 		sformat(_("Package %1 is not available on any of the subscribed repositories.
-Would you like to got back and unselect the package or skip it?"), one_package),
+Would you like to got back and deselect the package or skip it?
+"), one_package),
 		_("Yes, Go &Back"),
 		_("&Skip"),
 		`focus_yes
