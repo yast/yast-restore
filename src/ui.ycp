@@ -1875,8 +1875,6 @@ define symbol SuSEconfigDialog() ``{
 
     if (Restore::runSuSEconfig == true && Mode::test () == false)
     {
-	WFM::CallFunction("inst_suseconfig", []);
-
 	// SuSE config was started
 	susestatus = true;
     }
