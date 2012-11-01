@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Nov  1 12:30:36 UTC 2012 - locilka@suse.com
+
+- Removed all references to SUSEConfig (BNC #786689)
+- 2.22.1
+
+-------------------------------------------------------------------
 Mon Oct 29 15:02:01 CET 2012 - jsuchome@suse.cz
 
 - removed inst_suseconfig call
