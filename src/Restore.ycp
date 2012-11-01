@@ -91,11 +91,6 @@
     global boolean runbootloader = true;
 
     /**
-     * Run SuSEconfig after files are restored
-     */
-    global boolean runSuSEconfig = true;
-
-    /**
      * Rewrite RPM db - unapack /var/lib/rpm/* files from backup if present
      */
     global boolean restoreRPMdb = nil;
@@ -1120,13 +1115,12 @@ It was probably not created by the backup module.
 
     /**
      * Set settings
-     * @param settings Map with settings: start lilo, run SuSEconfig, restore RPM db
+     * @param settings Map with settings: start lilo, restore RPM db
      */
 
     global define void Set(map settings) ``{
 	y2milestone("Using settings: %1", settings);
 	runbootloader = settings["runbootloader"]:true;
-	runSuSEconfig = settings["runSuSEconfig"]:true;
 	restoreRPMdb = settings["restoreRPMdb"]:false;
 	completerestoration = settings["completerestoration"]:true;
 
@@ -1199,7 +1193,6 @@ It was probably not created by the backup module.
 	return $[
 	    "archives"		: prepend(inputvolumes, inputname),
 	    "runbootloader"	: runbootloader,
-	    "runSuSEconfig"	: runSuSEconfig,
 	    "restoreRPMdb"	: restoreRPMdb,
 	    "completerestoration" : completerestoration,
 	    "selection"		: selection
@@ -1943,7 +1936,6 @@ Press OK to exit.
 	    string options_info = "<P><B>" + _("Restore Options") + "<B></P>";
 
 	    options_info = options_info + "<P>" + RemoveShortCut(_("Activate &boot loader configuration after restoration")) + ":  " + yesno(runbootloader) + "<BR>"
-		+ RemoveShortCut(_("Run &SuSEconfig after restoration")) + ":  " + yesno(runSuSEconfig) + "<BR>"
 		+ RemoveShortCut(_("Restore RPM &database (if present in archive)")) + ":  " + yesno(restoreRPMdb) + "<BR></P>";
 
 	    // summary text heading

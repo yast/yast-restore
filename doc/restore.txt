@@ -18,8 +18,6 @@ Features, workflow overview:
 	- Run lilo (default yes - required if lilo.conf or kernel was changed,
 	  in other cases it should not harm)
 			
-	- Run SuSEconfig (default yes - for system consistency)
-			
 	- Update RPM DB (default no - whether /var/lib/rpm/* files
 	  can be restored from backup)
 
@@ -63,7 +61,7 @@ Features, workflow overview:
 
     * Unpack files from the archive
 
-    * Start required actions (lilo, SuSEconfig)
+    * Start required actions (lilo)
 
     * Display summary of restoration process and recommend system reboot (to
       activate changes)
