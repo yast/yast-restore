@@ -544,7 +544,6 @@ Read the selected archive?
 		    if (!configure)
 		    {
 			Restore::runbootloader = true;
-			Restore::runSuSEconfig = true;
 			Restore::restoreRPMdb = true;
 			Restore::inputname = input;
 		    }
@@ -834,9 +833,6 @@ define symbol RestoreOptionsDialog() ``{
 		`VSpacing(1),
 		// check box label - restore option
 		`Left(`CheckBox(`id(`lilo), _("Activate &Boot Loader Configuration after Restoration"), Restore::runbootloader)),
-		`VSpacing(0.2),
-		// check box label - restore option
-		`Left(`CheckBox(`id(`susecfg), _("Run &SuSEconfig after Restoration"), Restore::runSuSEconfig)),
 		`VSpacing(1),
 		// check box label - restore option
 		`Left(`TextEntry(`id(`target), _("Target Directory"), Restore::targetDirectory)),
@@ -876,7 +872,6 @@ define symbol RestoreOptionsDialog() ``{
     else
     {
 	Restore::runbootloader = (boolean) UI::QueryWidget(`id(`lilo), `Value);
-	Restore::runSuSEconfig = (boolean) UI::QueryWidget(`id(`susecfg), `Value);
 	Restore::targetDirectory = (string)UI::QueryWidget(`id(`target), `Value);
     }
 
@@ -1868,22 +1863,6 @@ define symbol RestoreProgressDialog() ``{
 }
 
 /**
- * Start SuSEconfig
- * @return symbol UI::UserInput() result
- */
-define symbol SuSEconfigDialog() ``{
-
-    if (Restore::runSuSEconfig == true && Mode::test () == false)
-    {
-	// SuSE config was started
-	susestatus = true;
-    }
-
-    return `next;
-}
-
-
-/**
  * This function should be called only once before end of client. This function
  * cleans up the system - unmounts mounted files systems.
  * @return symbol Returns symbol `next for wizard sequencer
@@ -1941,9 +1920,6 @@ define symbol SummaryDialog() ``{
     // set lilo result string
     string lilostr = StatusToString(bloaderstatus);
 
-    // set SuSEconfig result string
-    string SuSEinfo = StatusToString(susestatus);
-
     string filelist = "";
 
     if (restoredfiles != nil && size(restoredfiles) > 0)
@@ -1959,7 +1935,7 @@ define symbol SummaryDialog() ``{
     }
 
     // summary information texts - details
-    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Boot Loader Configuration: ") + lilostr + "<BR>" + _("SuSEconfig Status: ") + SuSEinfo + " </P><P><B>" + _("Restored Files:") + "</B><BR>" + filelist + "</P>";
+    string extendedinfo = "<P><BR><B>" + _("Details:") + "</B></P><P>" + _("Boot Loader Configuration: ") + lilostr + " </P><P><B>" + _("Restored Files:") + "</B><BR>" + filelist + "</P>";
 
     // dialog header
     return DisplaySummaryDialog(basicinfo, basicinfo + extendedinfo, SummaryHelp(), _("Summary of Restoration"), `finish);
@@ -1983,7 +1959,6 @@ define symbol RestoreSequence () ``{
 	    "select"	:   ``( PackageSelectionRestoreDialog() ),
 	    "selectfile": [ ``( FileSelectionDialog(restorepackagename) ), true ],
 	    "restore"	: [ ``( RestoreProgressDialog() ), true ],
-	    "SuSEconfig": [ ``( SuSEconfigDialog() ), true ],
 	    "atexit"	:   ``( AtExit() ),
 	    "summary"	:   ``( SummaryDialog() ),
 	];
@@ -2041,11 +2016,6 @@ define symbol RestoreSequence () ``{
 	    `next	: "restore"
 	],
 	"restore" :
-	$[
-	    `next	: "SuSEconfig",
-	    `abort	: "atexit"
-	],
-	"SuSEconfig" :
 	$[
 	    `next	: "summary",
 	    `abort	: "atexit"
