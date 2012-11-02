@@ -3,6 +3,7 @@ Fri Nov  2 11:27:29 UTC 2012 - locilka@suse.com
 
 - Escaping shell paths that might contain spaces or special
   characters (BNC #776078)
+- 2.23.1
 
 -------------------------------------------------------------------
 Thu Nov  1 12:30:36 UTC 2012 - locilka@suse.com
