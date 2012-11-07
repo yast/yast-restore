@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Fri Nov  2 11:27:29 UTC 2012 - locilka@suse.com
+
+- Escaping shell paths that might contain spaces or special
+  characters (BNC #776078)
+- 2.17.6.1
+
+-------------------------------------------------------------------
 Thu Jan  5 15:10:33 CET 2012 - locilka@suse.cz
 
 - Checking, installing and/or adjusting rpcbind or portmap (as
