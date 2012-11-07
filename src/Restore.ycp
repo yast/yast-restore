@@ -699,7 +699,7 @@
 	boolean lastvolume = true;
 
 	// test if archive is multi volume - use -v parameter to get file descriptions
-	map detailresult = (map) SCR::Execute(.target.bash_output, "/bin/tar -v -t -f " + filename);
+	map detailresult = (map) SCR::Execute(.target.bash_output, "/bin/tar -v -t -f '" + String::Quote(filename) + "'");
 
 	list<string> stdout = splitstring(detailresult["stdout"]:"", "\n");
 	string firstline = stdout[0]:"";
@@ -728,7 +728,7 @@
 	string tmpfile = tempdir + "/" + sformat("%1", num) + ".tar";
 
 	// copy multi volume part to temp directory
-	integer exit = (integer) SCR::Execute(.target.bash, "/bin/cp " + filename + " " + tmpfile);
+	integer exit = (integer) SCR::Execute(.target.bash, "/bin/cp '" + String::Quote(filename) + "' '" + String::Quote(tmpfile) + "'");
 
 	if (exit == 0)
 	{
@@ -914,7 +914,7 @@
 	y2milestone("mountpoint: %1", mountpoint);
 
 	// get archive contents
-	map result = (map) SCR::Execute(.target.bash_output, "/bin/tar -t -f " + filename);
+	map result = (map) SCR::Execute(.target.bash_output, "/bin/tar -t -f '" + String::Quote(filename) + "'");
 
 	// check tar exit value
 	if (result["exit"]:-1 != 0)
@@ -992,7 +992,7 @@ It was probably not created by the backup module.
 	infofiles = infofiles + (compressed_packages_info ? "info/packages_info.gz" : "info/packages_info");
 
 	// unpack info files
-	result = (map) SCR::Execute(.target.bash_output, "/bin/tar -C '" + String::Quote (tempdir) + "' -x -f " + filename + " " + infofiles + " 2> /dev/null");
+	result = (map) SCR::Execute(.target.bash_output, "/bin/tar -C '" + String::Quote (tempdir) + "' -x -f '" + String::Quote(filename) + "' " + infofiles + " 2> /dev/null");
 
 	date = (string) SCR::Read(.target.string, tempdir + "/info/date");
 	comment = (string) SCR::Read(.target.string, tempdir + "/info/comment");
@@ -1498,18 +1498,18 @@ It was probably not created by the backup module.
 			string param = " ";
 
 			foreach(string f, volumeparts, ``{
-				param = param + "-f " + f + " ";
+				param = param + "-f '" + String::Quote(f) + "' ";
 			    }
 			);
 
-			string command = locale_modifications + "echo q | /bin/tar -C " + tempdir + " -x -M " + param + fileinarchive + " 2> /dev/null";
+			string command = locale_modifications + "echo q | /bin/tar -C " + tempdir + " -x -M " + param + "'" + String::Quote(fileinarchive) + "' 2> /dev/null";
 			y2milestone ("Running command: %1", command);
 
 			started = (boolean) SCR::Execute(.background.run, command);
 		    }
 		    else
 		    {
-			string command = locale_modifications + "/bin/tar -C " + tempdir + " -x -f " + filename + " " + fileinarchive;
+			string command = locale_modifications + "/bin/tar -C " + tempdir + " -x -f '" + String::Quote(filename) + "' '" + String::Quote(fileinarchive) + "'";
 			y2milestone ("Running command: %1", command);
 
 			started  = (boolean) SCR::Execute(.background.run, command);
