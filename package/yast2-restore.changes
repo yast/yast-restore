@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Nov 13 17:15:21 CET 2012 - tgoettlicher@suse.de
+
+- confirmed license gpl v2
+- 2.23.2
+
+-------------------------------------------------------------------
 Fri Nov  2 11:27:29 UTC 2012 - locilka@suse.com
 
 - Escaping shell paths that might contain spaces or special
