@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Tue Jan  8 16:04:09 UTC 2013 - locilka@suse.com
+
+- Used standard ButtonBox widget for pup-up dialogs (bnc#701268)
+- 2.23.3
+
+-------------------------------------------------------------------
 Tue Nov 13 17:15:21 CET 2012 - tgoettlicher@suse.de
 
 - confirmed license gpl v2
