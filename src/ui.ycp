@@ -2190,8 +2190,8 @@ define string SelectFromList(string label, list inputlist, string selected) ``{
 		`HSpacing(40),
 		`SelectionBox(`id(`selbox), label, inputlist),
 		`ButtonBox(
-		    `PushButton(`id(`ok),     `opt(`okButton, `default, `key_F10), Label::OKButton()),
-		    `PushButton(`id(`cancel), `opt(`cancelButton, `key_F9),        Label::CancelButton())
+		    `PushButton(`id(`ok), `opt(`default), Label::OKButton()),
+		    `PushButton(`id(`cancel), Label::CancelButton())
 		)
 	    )
 	)
