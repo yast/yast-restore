@@ -16,6 +16,8 @@ Requires:	yast2-bootloader
 
 BuildArchitectures:	noarch
 
+Requires:       yast2-ruby-bindings >= 1.0.0
+
 Summary:	YaST2 - System Restore
 
 %description
@@ -35,10 +37,9 @@ Backup module.
 
 %dir @yncludedir@/restore
 @yncludedir@/restore/*
-@clientdir@/restore.ycp
-@clientdir@/restore_*.ycp
-@moduledir@/Restore.ycp
-@moduledir@/Restore.ybc
+@clientdir@/restore.rb
+@clientdir@/restore_*.rb
+@moduledir@/Restore.rb
 @desktopdir@/restore.desktop
 @ybindir@/restore_parse_pkginfo.pl
 %doc @docdir@
