@@ -1,4 +1,11 @@
 -------------------------------------------------------------------
+Wed Jul 31 08:38:38 UTC 2013 - yast-devel@opensuse.org
+
+- converted from YCP to Ruby by YCP Killer
+  (https://github.com/yast/ycp-killer)
+- version 3.0.0
+
+-------------------------------------------------------------------
 Tue Jan  8 16:04:09 UTC 2013 - locilka@suse.com
 
 - Used standard ButtonBox widget for pup-up dialogs (bnc#701268)
