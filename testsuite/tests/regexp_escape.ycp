@@ -1,0 +1,19 @@
+{
+  include "testsuite.ycp";
+  import "Assert";
+
+  import "Restore";
+
+  DUMP("regexp_escape");
+
+  Assert::Equal("",
+                Restore::regexp_escape(""));
+  Assert::Equal("nothing 2 escape HERE!",
+                Restore::regexp_escape("nothing 2 escape HERE!"));
+  Assert::Equal("\\\\",
+                Restore::regexp_escape("\\"));
+  Assert::Equal("\\$foo\\+\\+-3\\.14",
+                Restore::regexp_escape("$foo++-3.14"));
+  Assert::Equal("\\.\\^\\$\\*\\+\\?\\(\\)\\[\\]\\{\\}\\|\\\\",
+                Restore::regexp_escape(".^$*+?()[]{}|\\"));
+}
