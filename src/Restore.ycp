@@ -1295,6 +1295,32 @@ It was probably not created by the backup module.
 	return ret;
     }
 
+    list<string> chars_to_escape = [".", "^", "$", "*", "+", "?", "(", ")", "[", "]", "{", "}", "|", "\\"];
+    string chars_to_escape_s = mergestring(chars_to_escape, "");
+    map<string, string> chars_escaped = listmap(string c, chars_to_escape, {
+        return $[c: "\\" + c];
+    });
+
+    /**
+     * Escape a literal string for use in a POSIX Extended Regular Expression
+     */
+    global string regexp_escape(string name) {
+      if (filterchars(name, chars_to_escape_s) == "") {
+        return name; // nothing to escape, a frequent case
+      }
+
+      string result = "";
+      integer i = 0;
+      integer sz = size(name);
+      while (i < sz) {
+        string c = substring(name, i, 1);
+        result = result + chars_escaped[c]:c;
+        i = i + 1;
+      }
+
+      return result;
+    }
+
     /**
      * Restore files from archive
      * @param abort This block is periodically evaluated, if it evaluates to true restoration will be aborted. It should be something like ``{return UI::PollInput () == `abort;} if UI exists or ``{ return false; } if there is no UI (abort will not be possible).
@@ -1469,10 +1495,11 @@ It was probably not created by the backup module.
 
 		// get subarchive name
 		string name = (package == "") ? "NOPACKAGE" : (package + "-" + info["vers"]:"");
+                string escaped_name = regexp_escape(name);
 		string fileinarchive = "";
 
 		foreach(string f, archivefiles, ``{
-			if (regexpmatch(f, "^" + name + "-........-.\\.s{0,1}tar.*") == true)
+			if (regexpmatch(f, "^" + escaped_name + "-........-.\\.s{0,1}tar.*") == true)
 			{
 			    y2debug("package %1 is in archive file %2", package, f);
 			    fileinarchive = f;

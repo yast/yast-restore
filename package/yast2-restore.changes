@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu Mar 29 09:10:18 UTC 2018 - mvidner@suse.com
+
+- Fix restoring files with "+" in the name or version (bsc#1085446)
+- 2.17.8
+
+-------------------------------------------------------------------
 Fri Nov  2 11:27:29 UTC 2012 - locilka@suse.com
 
 - Escaping shell paths that might contain spaces or special
